@@ -1,0 +1,13 @@
+/**
+ * Electronics — CSS custom property overrides.
+ * Consumed by shared/components and features/storefront/components, which
+ * must theme themselves only via these variables — never via tenant checks
+ * in component code.
+ * Palette: electric blue on cool white — dark, tech-forward look.
+ */
+:root[data-tenant="electronics"] {
+  --brand-primary: #2563eb;
+  --brand-secondary: #f8fafc;
+  --font-heading: sans-serif;
+  --font-body: sans-serif;
+}

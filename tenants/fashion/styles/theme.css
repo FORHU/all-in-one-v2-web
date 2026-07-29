@@ -1,0 +1,13 @@
+/**
+ * Fashion — CSS custom property overrides.
+ * Consumed by shared/components and features/storefront/components, which
+ * must theme themselves only via these variables — never via tenant checks
+ * in component code.
+ * Palette: ink black on warm ivory — minimalist editorial boutique look.
+ */
+:root[data-tenant="fashion"] {
+  --brand-primary: #111111;
+  --brand-secondary: #f5f1ea;
+  --font-heading: sans-serif;
+  --font-body: sans-serif;
+}

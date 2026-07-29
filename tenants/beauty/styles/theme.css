@@ -1,0 +1,13 @@
+/**
+ * Beauty — CSS custom property overrides.
+ * Consumed by shared/components and features/storefront/components, which
+ * must theme themselves only via these variables — never via tenant checks
+ * in component code.
+ * Palette: deep rose on soft blush — warm, soft cosmetics look.
+ */
+:root[data-tenant="beauty"] {
+  --brand-primary: #c2185b;
+  --brand-secondary: #fff5f7;
+  --font-heading: sans-serif;
+  --font-body: sans-serif;
+}
