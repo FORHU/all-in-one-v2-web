@@ -1,5 +1,35 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
+import { Search, Heart, ShoppingBag, User, Menu, X } from "lucide-react";
+import { useCart } from "@/features/storefront/hooks/useCart";
 import { fashionConfig } from "../tenant.config";
+
+const FOOTER_LINKS = {
+  Company: [
+    { label: "About", href: "#" },
+    { label: "Careers", href: "#" },
+    { label: "Sustainability", href: "#" },
+  ],
+  Support: [
+    { label: "Contact", href: "#" },
+    { label: "Shipping", href: "#" },
+    { label: "Returns", href: "#" },
+    { label: "FAQ", href: "#" },
+  ],
+  Legal: [
+    { label: "Privacy", href: "#" },
+    { label: "Terms", href: "#" },
+  ],
+  Social: [
+    { label: "Facebook", href: "#" },
+    { label: "Instagram", href: "#" },
+    { label: "TikTok", href: "#" },
+  ],
+};
+
+const PAYMENT_METHODS = ["Visa", "Mastercard", "Amex", "PayPal", "Apple Pay"];
 
 /**
  * Fashion — storefront layout (header/footer/nav shell).
@@ -7,28 +37,38 @@ import { fashionConfig } from "../tenant.config";
  * no business logic lives here, only presentation. Themes itself via the
  * --brand-primary/--brand-secondary/--font-* CSS variables set by
  * tenants/fashion/styles/theme.css, never via tenant checks in code.
+ *
+ * Search is UI-only for now — no product-search wiring yet.
+ * Mega-menus (Women/Men submenus in the design reference) are deferred; nav
+ * renders as flat links until that interaction is scoped.
  */
 export function FashionStorefrontLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const { data: cart } = useCart();
+  const cartCount = cart?.items.length ?? 0;
+
   return (
     <div
       className="flex min-h-screen flex-col"
       style={{ fontFamily: "var(--font-body)" }}
     >
       <header
-        className="border-b"
+        className="sticky top-0 z-40 border-b backdrop-blur"
         style={{
           borderColor:
             "color-mix(in srgb, var(--brand-primary) 12%, transparent)",
+          backgroundColor:
+            "color-mix(in srgb, var(--brand-secondary) 92%, transparent)",
         }}
       >
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
+        <div className="mx-auto flex max-w-7xl items-center gap-6 px-6 py-5">
           <Link
             href="/"
-            className="text-xl font-bold tracking-tight"
+            className="flex-none text-xl font-bold tracking-tight"
             style={{
               color: "var(--brand-primary)",
               fontFamily: "var(--font-heading)",
@@ -36,13 +76,14 @@ export function FashionStorefrontLayout({
           >
             {fashionConfig.name}
           </Link>
+
           {fashionConfig.nav.length > 0 && (
-            <nav className="hidden items-center gap-8 md:flex">
+            <nav className="hidden flex-none items-center gap-6 md:flex">
               {fashionConfig.nav.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="text-sm font-medium opacity-70 transition-opacity hover:opacity-100"
+                  className="text-sm font-semibold opacity-70 transition-opacity hover:opacity-100"
                   style={{ color: "var(--brand-primary)" }}
                 >
                   {item.label}
@@ -50,24 +91,153 @@ export function FashionStorefrontLayout({
               ))}
             </nav>
           )}
+
+          <div className="relative ml-2 hidden max-w-sm flex-1 md:block">
+            <Search
+              className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 opacity-50"
+              style={{ color: "var(--brand-primary)" }}
+            />
+            {/* TODO: wire to features/storefront product-search once available */}
+            <input
+              type="search"
+              placeholder="Search products, brands..."
+              className="h-10 w-full rounded-full border-none pl-10 pr-4 text-[13px] outline-none"
+              style={{
+                backgroundColor:
+                  "color-mix(in srgb, var(--brand-primary) 6%, white)",
+                color: "var(--brand-primary)",
+              }}
+            />
+          </div>
+
+          <div className="ml-auto flex flex-none items-center gap-4">
+            <Link
+              href="/account/wishlist"
+              aria-label="Wishlist"
+              className="hidden sm:block"
+              style={{ color: "var(--brand-primary)" }}
+            >
+              <Heart className="h-[19px] w-[19px]" strokeWidth={2} />
+            </Link>
+            <Link
+              href="/cart"
+              aria-label="Cart"
+              className="relative"
+              style={{ color: "var(--brand-primary)" }}
+            >
+              <ShoppingBag className="h-[19px] w-[19px]" strokeWidth={2} />
+              {cartCount > 0 && (
+                <span
+                  className="absolute -right-2.5 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
+                  style={{ backgroundColor: "var(--brand-primary)" }}
+                >
+                  {cartCount}
+                </span>
+              )}
+            </Link>
+            <Link
+              href="/account"
+              aria-label="Account"
+              className="hidden sm:block"
+              style={{ color: "var(--brand-primary)" }}
+            >
+              <User className="h-[19px] w-[19px]" strokeWidth={2} />
+            </Link>
+            <button
+              type="button"
+              onClick={() => setIsMobileNavOpen((prev) => !prev)}
+              aria-label={isMobileNavOpen ? "Close menu" : "Open menu"}
+              aria-expanded={isMobileNavOpen}
+              className="md:hidden"
+              style={{ color: "var(--brand-primary)" }}
+            >
+              {isMobileNavOpen ? (
+                <X className="h-5 w-5" />
+              ) : (
+                <Menu className="h-5 w-5" />
+              )}
+            </button>
+          </div>
         </div>
+
+        {isMobileNavOpen && (
+          <nav
+            className="flex flex-col gap-1 border-t px-6 py-4 md:hidden"
+            style={{
+              borderColor:
+                "color-mix(in srgb, var(--brand-primary) 12%, transparent)",
+            }}
+          >
+            {fashionConfig.nav.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setIsMobileNavOpen(false)}
+                className="py-2 text-sm font-semibold"
+                style={{ color: "var(--brand-primary)" }}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+        )}
       </header>
 
       <main className="flex-1">{children}</main>
 
       <footer
-        className="border-t py-8"
+        className="py-16"
         style={{
-          borderColor:
-            "color-mix(in srgb, var(--brand-primary) 12%, transparent)",
+          backgroundColor: "var(--brand-primary)",
+          color: "var(--brand-secondary)",
         }}
       >
-        <div
-          className="mx-auto max-w-7xl px-6 text-sm opacity-60"
-          style={{ color: "var(--brand-primary)" }}
-        >
-          © {new Date().getFullYear()} {fashionConfig.name}. All rights
-          reserved.
+        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-10 border-b border-white/15 px-6 pb-12 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="col-span-2 flex flex-col gap-3 sm:col-span-1">
+            <div
+              className="text-xl font-bold"
+              style={{ fontFamily: "var(--font-heading)" }}
+            >
+              {fashionConfig.name}
+            </div>
+            <p className="max-w-[260px] text-[13px] leading-relaxed opacity-60">
+              {fashionConfig.seo.description}
+            </p>
+          </div>
+
+          {Object.entries(FOOTER_LINKS).map(([heading, links]) => (
+            <div key={heading} className="flex flex-col gap-2.5">
+              <div className="text-[12px] font-bold uppercase tracking-wide opacity-50">
+                {heading}
+              </div>
+              {links.map((link) => (
+                <Link
+                  key={link.label}
+                  href={link.href}
+                  className="text-[13px] opacity-80 transition-opacity hover:opacity-100"
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+          ))}
+        </div>
+
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 pt-8">
+          <div className="text-xs opacity-50">
+            © {new Date().getFullYear()} {fashionConfig.name}. All rights
+            reserved.
+          </div>
+          <div className="flex flex-wrap gap-2.5">
+            {PAYMENT_METHODS.map((method) => (
+              <div
+                key={method}
+                className="rounded-md border border-white/25 px-2.5 py-1 text-[11px] font-semibold opacity-75"
+              >
+                {method}
+              </div>
+            ))}
+          </div>
         </div>
       </footer>
     </div>

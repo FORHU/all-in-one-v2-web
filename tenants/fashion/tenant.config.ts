@@ -6,7 +6,7 @@ import type { TenantConfig } from "../types";
  */
 export const fashionConfig: TenantConfig = {
   slug: "fashion",
-  name: "Fashion",
+  name: "addictstyle",
   domain: "addictstyle.com",
   theme: {
     colorPrimary: "#111111",
@@ -19,10 +19,12 @@ export const fashionConfig: TenantConfig = {
     { label: "Women", href: "/categories/women" },
     { label: "Men", href: "/categories/men" },
     { label: "Kids", href: "/categories/kids" },
+    { label: "Accessories", href: "/categories/accessories" },
+    { label: "Shoes", href: "/categories/shoes" },
     { label: "Sale", href: "/categories/sale" },
   ],
   seo: {
-    title: "Fashion",
+    title: "addictstyle",
     description:
       "Curated fashion for every era — new arrivals, timeless staples, and pieces that actually last.",
   },

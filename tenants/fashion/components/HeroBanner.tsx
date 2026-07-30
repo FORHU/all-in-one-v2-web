@@ -1,56 +1,55 @@
 import Link from "next/link";
+import Image from "next/image";
 import { fashionConfig } from "../tenant.config";
+import heroImage from "../assets/homepage-image.jpg";
 
 /**
  * Fashion — homepage hero banner.
- * Editorial/minimal treatment: centered, eyebrow label, high-contrast ink
- * CTA. Example of a Tier 3 tenant-specific override component (see
- * shared/tenant/resolveTenantComponent.ts) — its layout genuinely diverges
- * from the other tenants' heroes, not just its theme colors.
+ * Full-bleed editorial photo treatment (see design reference at
+ * tenants/fashion/Homepage.dc.html).
+ * Sized to fill the viewport below the sticky header (~80px) so hero +
+ * header together occupy exactly one screen on load.
  */
 export function HeroBanner() {
   return (
-    <section
-      className="flex flex-col items-center justify-center gap-6 px-6 py-28 text-center sm:py-36"
-      style={{ backgroundColor: "var(--brand-secondary)" }}
-    >
-      <span
-        className="rounded-full border px-4 py-1 text-xs font-semibold uppercase tracking-[0.2em]"
+    <section className="relative h-[calc(100vh-80px)] min-h-[480px] w-full overflow-hidden">
+      <Image
+        src={heroImage}
+        alt="Autumn campaign — new season arrivals"
+        fill
+        priority
+        className="object-cover"
+        sizes="100vw"
+      />
+      <div
+        className="absolute inset-0"
         style={{
-          borderColor: "var(--brand-primary)",
-          color: "var(--brand-primary)",
+          background:
+            "linear-gradient(90deg, rgba(0,0,0,.4) 0%, rgba(0,0,0,.1) 45%, transparent 70%)",
         }}
-      >
-        New Season
-      </span>
-      <h1
-        className="max-w-2xl text-5xl font-bold tracking-tight sm:text-7xl"
-        style={{
-          color: "var(--brand-primary)",
-          fontFamily: "var(--font-heading)",
-        }}
-      >
-        {fashionConfig.name}
-      </h1>
-      <p
-        className="max-w-xl text-base opacity-70 sm:text-lg"
-        style={{
-          color: "var(--brand-primary)",
-          fontFamily: "var(--font-body)",
-        }}
-      >
-        {fashionConfig.seo.description}
-      </p>
-      <Link
-        href="/products"
-        className="mt-2 rounded-full px-10 py-3.5 text-sm font-semibold uppercase tracking-wide transition-opacity hover:opacity-90"
-        style={{
-          backgroundColor: "var(--brand-primary)",
-          color: "var(--brand-secondary)",
-        }}
-      >
-        Shop Now
-      </Link>
+      />
+      <div className="absolute bottom-16 left-8 flex max-w-lg flex-col gap-5 sm:left-16">
+        <h1 className="text-4xl font-bold leading-[1.05] tracking-tight text-white sm:text-6xl">
+          The Autumn Edit is Here
+        </h1>
+        <p className="max-w-md text-base leading-relaxed text-white/85">
+          {fashionConfig.seo.description}
+        </p>
+        <div className="flex flex-wrap gap-3.5">
+          <Link
+            href="/products"
+            className="rounded-2xl bg-white px-7 py-4 text-sm font-semibold text-black transition-opacity hover:opacity-90"
+          >
+            Shop Collection
+          </Link>
+          <Link
+            href="/categories"
+            className="rounded-2xl border border-white/60 bg-white/15 px-7 py-4 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25"
+          >
+            Explore New Arrivals
+          </Link>
+        </div>
+      </div>
     </section>
   );
 }
