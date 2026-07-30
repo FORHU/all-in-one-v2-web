@@ -13,11 +13,15 @@ export const SHIPPING_METHODS = {
     label: "Standard Shipping",
     price: 12,
     eta: "5-7 business days",
+    minDays: 5,
+    maxDays: 7,
   },
   express: {
     label: "Express Shipping",
     price: 28,
     eta: "1-2 business days",
+    minDays: 1,
+    maxDays: 2,
   },
 } as const;
 

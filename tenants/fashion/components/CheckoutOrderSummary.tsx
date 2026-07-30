@@ -1,44 +1,42 @@
 "use client";
 
-import { useState } from "react";
 import { ImagePlaceholder } from "@/shared/components/ImagePlaceholder";
 import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
-import { TAX_RATE, PROMO_CODES } from "../data/checkoutRules";
+import { PROMO_CODES } from "../data/checkoutRules";
 
 /**
  * Fashion — checkout right column: item thumbnails, discount code input,
- * and the subtotal/discount/shipping/tax/total breakdown. `shippingPrice`
- * is passed in from the selected shipping method (step 3 of
- * pages/CheckoutPage.tsx) since tax is computed on top of it.
+ * and the subtotal/discount/shipping/tax/total breakdown.
+ *
+ * Discount state is controlled by the parent (pages/CheckoutPage.tsx)
+ * rather than owned here, because CheckoutPage needs the applied discount
+ * amount to build the order snapshot handed off to OrderSuccessPage on
+ * "Place Order" — this component would otherwise be the only place that
+ * knew about it.
  */
 export function CheckoutOrderSummary({
   shippingPrice,
+  tax,
+  total,
+  discountInput,
+  onDiscountInputChange,
+  appliedDiscount,
+  discount,
+  discountError,
+  onApplyDiscount,
 }: {
   shippingPrice: number;
+  tax: number;
+  total: number;
+  discountInput: string;
+  onDiscountInputChange: (value: string) => void;
+  appliedDiscount: string | null;
+  discount: number;
+  discountError: string | null;
+  onApplyDiscount: () => void;
 }) {
   const items = useLocalCartStore((s) => s.items);
-  const [discountInput, setDiscountInput] = useState("");
-  const [appliedDiscount, setAppliedDiscount] = useState<string | null>(null);
-  const [discountError, setDiscountError] = useState<string | null>(null);
-
   const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
-  const discount = appliedDiscount
-    ? (subtotal * PROMO_CODES[appliedDiscount].discountPercent) / 100
-    : 0;
-  const tax = (subtotal - discount + shippingPrice) * TAX_RATE;
-  const total = subtotal - discount + shippingPrice + tax;
-
-  const applyDiscount = () => {
-    const code = discountInput.trim().toUpperCase();
-    if (!code) return;
-    if (PROMO_CODES[code]) {
-      setAppliedDiscount(code);
-      setDiscountError(null);
-    } else {
-      setAppliedDiscount(null);
-      setDiscountError("Invalid discount code");
-    }
-  };
 
   return (
     <div
@@ -82,13 +80,13 @@ export function CheckoutOrderSummary({
         <div className="flex gap-2">
           <input
             value={discountInput}
-            onChange={(event) => setDiscountInput(event.target.value)}
+            onChange={(event) => onDiscountInputChange(event.target.value)}
             placeholder="Discount code"
             className="h-10 flex-1 rounded-lg border border-current/15 px-3 text-sm outline-none"
           />
           <button
             type="button"
-            onClick={applyDiscount}
+            onClick={onApplyDiscount}
             className="rounded-lg px-4 text-sm font-semibold text-white"
             style={{ backgroundColor: "var(--brand-primary)" }}
           >

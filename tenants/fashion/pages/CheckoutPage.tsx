@@ -1,14 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { CreditCard, CheckCircle2 } from "lucide-react";
+import { CreditCard } from "lucide-react";
 import { FashionStorefrontLayout } from "../layouts/StorefrontLayout";
 import { CheckoutStep } from "../components/CheckoutStep";
 import { CheckoutOrderSummary } from "../components/CheckoutOrderSummary";
 import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
+import { useLastOrderStore } from "@/features/storefront/stores/lastOrder.store";
 import {
   SHIPPING_METHODS,
+  TAX_RATE,
+  PROMO_CODES,
   type ShippingMethodKey,
 } from "../data/checkoutRules";
 
@@ -35,16 +39,18 @@ const initialCard = { number: "", expiry: "", cvc: "", name: "" };
  * There is no real payment/order backend yet — /v2/orders and /v2/payments
  * are both unimplemented (features/storefront/api/checkout.client.ts always
  * throws), and no Stripe/PayPal/Apple Pay SDK is installed. "Place Order"
- * is therefore a UI-only demo: it validates the form, clears the local
- * cart (useLocalCartStore), and shows a confirmation panel that says so
- * explicitly rather than pretending a real transaction happened.
+ * is therefore a UI-only demo: it validates the form, snapshots the order
+ * into useLastOrderStore, clears the local cart, and navigates to
+ * /order-success — which says explicitly that this is a demo rather than
+ * pretending a real transaction happened.
  */
 export function FashionCheckoutPage() {
+  const router = useRouter();
   const items = useLocalCartStore((s) => s.items);
   const clearCart = useLocalCartStore((s) => s.clear);
+  const setLastOrder = useLastOrderStore((s) => s.setOrder);
 
   const [step, setStep] = useState(1);
-  const [orderPlaced, setOrderPlaced] = useState(false);
 
   const [email, setEmail] = useState("");
   const [address, setAddress] = useState(initialAddress);
@@ -52,6 +58,10 @@ export function FashionCheckoutPage() {
     useState<ShippingMethodKey>("standard");
   const [paymentTab, setPaymentTab] = useState<PaymentTab>("card");
   const [card, setCard] = useState(initialCard);
+
+  const [discountInput, setDiscountInput] = useState("");
+  const [appliedDiscount, setAppliedDiscount] = useState<string | null>(null);
+  const [discountError, setDiscountError] = useState<string | null>(null);
 
   const isEmailValid = EMAIL_PATTERN.test(email);
   const isAddressValid =
@@ -71,12 +81,62 @@ export function FashionCheckoutPage() {
 
   const shippingPrice = SHIPPING_METHODS[shippingMethod].price;
 
-  const placeOrder = () => {
-    clearCart();
-    setOrderPlaced(true);
+  const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  const discount = appliedDiscount
+    ? (subtotal * PROMO_CODES[appliedDiscount].discountPercent) / 100
+    : 0;
+  const tax = (subtotal - discount + shippingPrice) * TAX_RATE;
+  const total = subtotal - discount + shippingPrice + tax;
+
+  const applyDiscount = () => {
+    const code = discountInput.trim().toUpperCase();
+    if (!code) return;
+    if (PROMO_CODES[code]) {
+      setAppliedDiscount(code);
+      setDiscountError(null);
+    } else {
+      setAppliedDiscount(null);
+      setDiscountError("Invalid discount code");
+    }
   };
 
-  if (items.length === 0 && !orderPlaced) {
+  const placeOrder = () => {
+    const orderNumber = `ADD-${Math.floor(10000 + Math.random() * 90000)}`;
+    setLastOrder({
+      orderNumber,
+      placedAt: new Date().toISOString(),
+      items: items.map((item) => ({
+        id: item.id,
+        name: item.name,
+        brand: item.brand,
+        price: item.price,
+        imageLabel: item.imageLabel,
+        size: item.size,
+        color: item.color,
+        quantity: item.quantity,
+      })),
+      shippingAddress: {
+        firstName: address.firstName,
+        lastName: address.lastName,
+        address1: address.address1,
+        address2: address.address2 || undefined,
+        city: address.city,
+        state: address.state,
+        zip: address.zip,
+        country: address.country,
+      },
+      shippingMethodKey: shippingMethod,
+      subtotal,
+      discount,
+      shipping: shippingPrice,
+      tax,
+      total,
+    });
+    clearCart();
+    router.push("/order-success");
+  };
+
+  if (items.length === 0) {
     return (
       <FashionStorefrontLayout>
         <div
@@ -95,36 +155,6 @@ export function FashionCheckoutPage() {
           <Link
             href="/products"
             className="rounded-2xl px-6 py-3 text-sm font-semibold text-white"
-            style={{ backgroundColor: "var(--brand-primary)" }}
-          >
-            Continue Shopping
-          </Link>
-        </div>
-      </FashionStorefrontLayout>
-    );
-  }
-
-  if (orderPlaced) {
-    return (
-      <FashionStorefrontLayout>
-        <div
-          className="mx-auto flex max-w-md flex-col items-center gap-4 px-6 py-24 text-center"
-          style={{ color: "var(--brand-primary)" }}
-        >
-          <CheckCircle2 className="h-12 w-12" />
-          <h1
-            className="text-2xl font-bold tracking-tight"
-            style={{ fontFamily: "var(--font-heading)" }}
-          >
-            Order placed!
-          </h1>
-          <p className="text-sm opacity-60">
-            This is a UI-only demo — no payment was processed and no real order
-            was created (there&rsquo;s no payment/orders backend wired up yet).
-          </p>
-          <Link
-            href="/products"
-            className="mt-2 rounded-2xl px-6 py-3 text-sm font-semibold text-white"
             style={{ backgroundColor: "var(--brand-primary)" }}
           >
             Continue Shopping
@@ -500,7 +530,17 @@ export function FashionCheckoutPage() {
         </div>
 
         <div className="lg:sticky lg:top-24 lg:self-start">
-          <CheckoutOrderSummary shippingPrice={shippingPrice} />
+          <CheckoutOrderSummary
+            shippingPrice={shippingPrice}
+            tax={tax}
+            total={total}
+            discountInput={discountInput}
+            onDiscountInputChange={setDiscountInput}
+            appliedDiscount={appliedDiscount}
+            discount={discount}
+            discountError={discountError}
+            onApplyDiscount={applyDiscount}
+          />
         </div>
       </div>
     </FashionStorefrontLayout>
