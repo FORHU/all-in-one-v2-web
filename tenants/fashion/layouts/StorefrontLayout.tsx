@@ -1,10 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Search, Heart, ShoppingBag, User, Menu, X } from "lucide-react";
-import { useCart } from "@/features/storefront/hooks/useCart";
+import { useCartUIStore } from "@/features/storefront/stores/cart.store";
+import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
 import { fashionConfig } from "../tenant.config";
+import logo from "../assets/addictstyle-logo.png";
+import { CartDrawer } from "../components/CartDrawer";
 
 const FOOTER_LINKS = {
   Company: [
@@ -48,8 +52,17 @@ export function FashionStorefrontLayout({
   children: React.ReactNode;
 }) {
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
-  const { data: cart } = useCart();
-  const cartCount = cart?.items.length ?? 0;
+  const toggleDrawer = useCartUIStore((s) => s.toggleDrawer);
+  const cartCount = useLocalCartStore((s) =>
+    s.items.reduce((n, i) => n + i.quantity, 0),
+  );
+
+  // useLocalCartStore persists to localStorage, which isn't available
+  // during SSR — gating the badge behind a mount flag avoids a hydration
+  // mismatch between the server's empty render and the client's rehydrated
+  // cart count.
+  const [hasMounted, setHasMounted] = useState(false);
+  useEffect(() => setHasMounted(true), []);
 
   return (
     <div
@@ -65,20 +78,18 @@ export function FashionStorefrontLayout({
             "color-mix(in srgb, var(--brand-secondary) 92%, transparent)",
         }}
       >
-        <div className="mx-auto flex max-w-7xl items-center gap-6 px-6 py-5">
-          <Link
-            href="/"
-            className="flex-none text-xl font-bold tracking-tight"
-            style={{
-              color: "var(--brand-primary)",
-              fontFamily: "var(--font-heading)",
-            }}
-          >
-            {fashionConfig.name}
+        <div className="flex items-center gap-8 px-6 py-5">
+          <Link href="/" className="flex-none">
+            <Image
+              src={logo}
+              alt={fashionConfig.name}
+              className="h-12 w-auto sm:h-14"
+              priority
+            />
           </Link>
 
           {fashionConfig.nav.length > 0 && (
-            <nav className="hidden flex-none items-center gap-6 md:flex">
+            <nav className="hidden flex-none items-center gap-7 md:flex">
               {fashionConfig.nav.map((item) => (
                 <Link
                   key={item.href}
@@ -92,53 +103,56 @@ export function FashionStorefrontLayout({
             </nav>
           )}
 
-          <div className="relative ml-2 hidden max-w-sm flex-1 md:block">
-            <Search
-              className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 opacity-50"
-              style={{ color: "var(--brand-primary)" }}
-            />
-            {/* TODO: wire to features/storefront product-search once available */}
-            <input
-              type="search"
-              placeholder="Search products, brands..."
-              className="h-10 w-full rounded-full border-none pl-10 pr-4 text-[13px] outline-none"
-              style={{
-                backgroundColor:
-                  "color-mix(in srgb, var(--brand-primary) 6%, white)",
-                color: "var(--brand-primary)",
-              }}
-            />
+          <div className="hidden flex-1 justify-center md:flex">
+            <div className="relative w-full max-w-2xl">
+              <Search
+                className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 opacity-50"
+                style={{ color: "var(--brand-primary)" }}
+              />
+              {/* TODO: wire to features/storefront product-search once available */}
+              <input
+                type="search"
+                placeholder="Search products, brands..."
+                className="h-11 w-full rounded-full border-none pl-11 pr-4 text-sm outline-none"
+                style={{
+                  backgroundColor:
+                    "color-mix(in srgb, var(--brand-primary) 6%, white)",
+                  color: "var(--brand-primary)",
+                }}
+              />
+            </div>
           </div>
 
-          <div className="ml-auto flex flex-none items-center gap-4">
+          <div className="flex flex-none items-center gap-1">
             <Link
               href="/account/wishlist"
               aria-label="Wishlist"
-              className="hidden sm:block"
+              className="hidden h-10 w-10 items-center justify-center rounded-full outline-none transition-colors hover:bg-current/[0.06] focus-visible:ring-2 focus-visible:ring-current/30 sm:flex"
               style={{ color: "var(--brand-primary)" }}
             >
               <Heart className="h-[19px] w-[19px]" strokeWidth={2} />
             </Link>
-            <Link
-              href="/cart"
-              aria-label="Cart"
-              className="relative"
+            <button
+              type="button"
+              onClick={toggleDrawer}
+              aria-label="Open cart"
+              className="relative flex h-10 w-10 items-center justify-center rounded-full outline-none transition-colors hover:bg-current/[0.06] focus-visible:ring-2 focus-visible:ring-current/30"
               style={{ color: "var(--brand-primary)" }}
             >
               <ShoppingBag className="h-[19px] w-[19px]" strokeWidth={2} />
-              {cartCount > 0 && (
+              {hasMounted && cartCount > 0 && (
                 <span
-                  className="absolute -right-2.5 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
+                  className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
                   style={{ backgroundColor: "var(--brand-primary)" }}
                 >
                   {cartCount}
                 </span>
               )}
-            </Link>
+            </button>
             <Link
               href="/account"
               aria-label="Account"
-              className="hidden sm:block"
+              className="hidden h-10 w-10 items-center justify-center rounded-full outline-none transition-colors hover:bg-current/[0.06] focus-visible:ring-2 focus-visible:ring-current/30 sm:flex"
               style={{ color: "var(--brand-primary)" }}
             >
               <User className="h-[19px] w-[19px]" strokeWidth={2} />
@@ -148,7 +162,7 @@ export function FashionStorefrontLayout({
               onClick={() => setIsMobileNavOpen((prev) => !prev)}
               aria-label={isMobileNavOpen ? "Close menu" : "Open menu"}
               aria-expanded={isMobileNavOpen}
-              className="md:hidden"
+              className="flex h-10 w-10 items-center justify-center rounded-full outline-none transition-colors hover:bg-current/[0.06] focus-visible:ring-2 focus-visible:ring-current/30 md:hidden"
               style={{ color: "var(--brand-primary)" }}
             >
               {isMobileNavOpen ? (
@@ -240,6 +254,8 @@ export function FashionStorefrontLayout({
           </div>
         </div>
       </footer>
+
+      <CartDrawer />
     </div>
   );
 }

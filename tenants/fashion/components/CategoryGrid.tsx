@@ -1,20 +1,12 @@
 import Link from "next/link";
 import { ImagePlaceholder } from "@/shared/components/ImagePlaceholder";
+import { fashionCategories } from "../data/categories";
 
 /**
  * Fashion — homepage featured-category grid.
  * Static placeholder categories until features/storefront's useCategories()
  * is backed by a real API — see categories.client.ts.
  */
-const categories = [
-  { label: "Dresses", href: "/categories/dresses", count: 128 },
-  { label: "Shirts", href: "/categories/shirts", count: 84 },
-  { label: "Jackets", href: "/categories/jackets", count: 46 },
-  { label: "Pants", href: "/categories/pants", count: 92 },
-  { label: "Shoes", href: "/categories/shoes", count: 61 },
-  { label: "Accessories", href: "/categories/accessories", count: 73 },
-];
-
 export function CategoryGrid() {
   return (
     <section className="mx-auto max-w-7xl px-6 py-16">
@@ -37,10 +29,10 @@ export function CategoryGrid() {
         </Link>
       </div>
       <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-6">
-        {categories.map(({ label, href, count }) => (
+        {fashionCategories.map(({ slug, label, count }) => (
           <Link
-            key={href}
-            href={href}
+            key={slug}
+            href={`/categories/${slug}`}
             className="group flex flex-col gap-3.5"
             style={{ color: "var(--brand-primary)" }}
           >

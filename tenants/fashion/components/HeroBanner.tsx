@@ -1,34 +1,37 @@
 import Link from "next/link";
-import Image from "next/image";
+import { ImageCarousel } from "@/shared/components/ImageCarousel";
 import { fashionConfig } from "../tenant.config";
-import heroImage from "../assets/homepage-image.jpg";
+import heroImage1 from "../assets/homepage-image.jpg";
+import heroImage3 from "../assets/homepage-image3.jpg";
+import heroImage4 from "../assets/homepage-image4.jpg";
+
+const heroImages = [
+  { src: heroImage1, alt: "Autumn campaign — new season arrivals" },
+  { src: heroImage3, alt: "Autumn campaign — new season arrivals" },
+  { src: heroImage4, alt: "Autumn campaign — new season arrivals" },
+];
 
 /**
  * Fashion — homepage hero banner.
- * Full-bleed editorial photo treatment (see design reference at
- * tenants/fashion/Homepage.dc.html).
- * Sized to fill the viewport below the sticky header (~80px) so hero +
- * header together occupy exactly one screen on load.
+ * Full-bleed editorial photo carousel (see design reference at
+ * tenants/fashion/Homepage.dc.html) — auto-advances through
+ * data/heroImages every 6s, with arrow + dot controls (ImageCarousel).
+ * Sized to fill the viewport below the sticky header (~96px, driven by the
+ * logo image's height) so hero + header together occupy exactly one screen
+ * on load.
  */
 export function HeroBanner() {
   return (
-    <section className="relative h-[calc(100vh-80px)] min-h-[480px] w-full overflow-hidden">
-      <Image
-        src={heroImage}
-        alt="Autumn campaign — new season arrivals"
-        fill
-        priority
-        className="object-cover"
-        sizes="100vw"
-      />
+    <section className="relative h-[calc(100vh-96px)] min-h-[480px] w-full overflow-hidden">
+      <ImageCarousel images={heroImages} className="absolute inset-0" />
       <div
-        className="absolute inset-0"
+        className="pointer-events-none absolute inset-0 z-10"
         style={{
           background:
             "linear-gradient(90deg, rgba(0,0,0,.4) 0%, rgba(0,0,0,.1) 45%, transparent 70%)",
         }}
       />
-      <div className="absolute bottom-16 left-8 flex max-w-lg flex-col gap-5 sm:left-16">
+      <div className="absolute bottom-16 left-8 z-20 flex max-w-lg flex-col gap-5 sm:left-16">
         <h1 className="text-4xl font-bold leading-[1.05] tracking-tight text-white sm:text-6xl">
           The Autumn Edit is Here
         </h1>

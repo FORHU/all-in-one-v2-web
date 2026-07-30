@@ -8,8 +8,8 @@ export function useAuth() {
 
   const loginMutation = useMutation({
     mutationFn: login,
-    onSuccess: (data) => {
-      setToken(data.token);
+    onSuccess: (response) => {
+      setToken(response.data.accessToken);
       // Invalidate queries that depend on auth
       queryClient.invalidateQueries();
     },
@@ -25,7 +25,7 @@ export function useAuth() {
     onError: () => {
       setToken(null);
       queryClient.clear();
-    }
+    },
   });
 
   return {
