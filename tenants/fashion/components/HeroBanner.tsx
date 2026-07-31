@@ -60,10 +60,10 @@ export function HeroBanner() {
       style={{
         minHeight: "calc(100vh - 150px)",
         background:
-          "radial-gradient(ellipse 70% 60% at 28% 45%, color-mix(in srgb, var(--brand-secondary) 12%, transparent), transparent 70%), " +
-          "radial-gradient(ellipse 50% 45% at 85% 15%, color-mix(in srgb, var(--brand-secondary) 6%, transparent), transparent 70%), " +
-          "var(--brand-primary)",
-        color: "var(--brand-secondary)",
+          "radial-gradient(ellipse 70% 60% at 28% 45%, color-mix(in srgb, var(--brand-primary) 12%, transparent), transparent 70%), " +
+          "radial-gradient(ellipse 50% 45% at 85% 15%, color-mix(in srgb, var(--brand-primary) 6%, transparent), transparent 70%), " +
+          "var(--brand-secondary)",
+        color: "var(--brand-primary)",
       }}
     >
       <div className="grid w-full grid-cols-1 gap-14 px-8 py-16 sm:px-14 md:py-20 lg:grid-cols-2 lg:gap-20 lg:px-20 xl:px-28">
@@ -88,11 +88,11 @@ export function HeroBanner() {
                     className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-2xl border transition-shadow duration-500"
                     style={{
                       backgroundColor: isActive
-                        ? "color-mix(in srgb, var(--brand-secondary) 10%, transparent)"
-                        : "color-mix(in srgb, var(--brand-secondary) 5%, transparent)",
-                      borderColor: `color-mix(in srgb, var(--brand-secondary) ${isActive ? 25 : 12}%, transparent)`,
+                        ? "color-mix(in srgb, var(--brand-primary) 10%, transparent)"
+                        : "color-mix(in srgb, var(--brand-primary) 5%, transparent)",
+                      borderColor: `color-mix(in srgb, var(--brand-primary) ${isActive ? 25 : 12}%, transparent)`,
                       boxShadow: isActive
-                        ? "0 0 100px color-mix(in srgb, var(--brand-secondary) 20%, transparent)"
+                        ? "0 0 100px color-mix(in srgb, var(--brand-primary) 20%, transparent)"
                         : "none",
                     }}
                   >
@@ -115,7 +115,7 @@ export function HeroBanner() {
               className="flex h-11 w-11 items-center justify-center rounded-full border"
               style={{
                 borderColor:
-                  "color-mix(in srgb, var(--brand-secondary) 25%, transparent)",
+                  "color-mix(in srgb, var(--brand-primary) 25%, transparent)",
               }}
             >
               <ChevronLeft className="h-5 w-5" />
@@ -134,8 +134,8 @@ export function HeroBanner() {
                     width: i === activeIndex ? "24px" : "6px",
                     backgroundColor:
                       i === activeIndex
-                        ? "var(--brand-secondary)"
-                        : "color-mix(in srgb, var(--brand-secondary) 30%, transparent)",
+                        ? "var(--brand-primary)"
+                        : "color-mix(in srgb, var(--brand-primary) 30%, transparent)",
                   }}
                 />
               ))}
@@ -148,7 +148,7 @@ export function HeroBanner() {
               className="flex h-11 w-11 items-center justify-center rounded-full border"
               style={{
                 borderColor:
-                  "color-mix(in srgb, var(--brand-secondary) 25%, transparent)",
+                  "color-mix(in srgb, var(--brand-primary) 25%, transparent)",
               }}
             >
               <ChevronRight className="h-5 w-5" />
@@ -173,7 +173,7 @@ export function HeroBanner() {
             </h2>
             <div
               className="mt-4 h-0.5 w-14"
-              style={{ backgroundColor: "var(--brand-secondary)" }}
+              style={{ backgroundColor: "var(--brand-primary)" }}
             />
           </div>
 
@@ -184,7 +184,7 @@ export function HeroBanner() {
                 className="flex items-center gap-5 rounded-2xl border p-5"
                 style={{
                   borderColor:
-                    "color-mix(in srgb, var(--brand-secondary) 15%, transparent)",
+                    "color-mix(in srgb, var(--brand-primary) 15%, transparent)",
                 }}
               >
                 <span className="text-sm font-semibold opacity-50">
@@ -196,9 +196,9 @@ export function HeroBanner() {
                   className="h-16 w-16 flex-none rounded-lg border sm:h-20 sm:w-20"
                   style={{
                     backgroundColor:
-                      "color-mix(in srgb, var(--brand-secondary) 8%, transparent)",
+                      "color-mix(in srgb, var(--brand-primary) 8%, transparent)",
                     borderColor:
-                      "color-mix(in srgb, var(--brand-secondary) 15%, transparent)",
+                      "color-mix(in srgb, var(--brand-primary) 15%, transparent)",
                   }}
                 />
                 <div className="min-w-0 flex-1">
@@ -206,7 +206,7 @@ export function HeroBanner() {
                     className="inline-block rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide"
                     style={{
                       backgroundColor:
-                        "color-mix(in srgb, var(--brand-secondary) 12%, transparent)",
+                        "color-mix(in srgb, var(--brand-primary) 12%, transparent)",
                     }}
                   >
                     {item.tag}
@@ -224,7 +224,7 @@ export function HeroBanner() {
                   className="flex-none rounded-lg border px-5 py-2.5 text-sm font-semibold"
                   style={{
                     borderColor:
-                      "color-mix(in srgb, var(--brand-secondary) 25%, transparent)",
+                      "color-mix(in srgb, var(--brand-primary) 25%, transparent)",
                   }}
                 >
                   Add to Bag
@@ -237,7 +237,7 @@ export function HeroBanner() {
             className="flex items-center justify-between border-t pt-6"
             style={{
               borderColor:
-                "color-mix(in srgb, var(--brand-secondary) 15%, transparent)",
+                "color-mix(in srgb, var(--brand-primary) 15%, transparent)",
             }}
           >
             <div>
@@ -249,8 +249,8 @@ export function HeroBanner() {
               onClick={addAllToBag}
               className="rounded-xl px-8 py-3.5 text-base font-bold"
               style={{
-                backgroundColor: "var(--brand-secondary)",
-                color: "var(--brand-primary)",
+                backgroundColor: "var(--brand-primary)",
+                color: "var(--brand-secondary)",
               }}
             >
               Add All to Bag

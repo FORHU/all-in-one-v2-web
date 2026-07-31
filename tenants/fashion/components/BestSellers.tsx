@@ -8,9 +8,6 @@ import { HorizontalScroller } from "@/shared/components/HorizontalScroller";
  * Fashion — homepage best-sellers rail.
  * Static placeholder products until features/storefront's useProducts()
  * supports a "best selling" sort/filter param backed by a real API.
- * Full black section (not just black accents) — it's the last real content
- * block before the footer, so this + the hero bookend the page in black
- * instead of leaving everything in between plain white.
  */
 const bestSellers: ProductCardProduct[] = [
   {
@@ -65,25 +62,17 @@ const bestSellers: ProductCardProduct[] = [
 
 export function BestSellers() {
   return (
-    <section
-      style={{
-        backgroundColor: "var(--brand-primary)",
-        color: "var(--brand-secondary)",
-      }}
-    >
-      <div className="mx-auto max-w-7xl px-6 py-16">
-        <div className="mb-8">
-          <h2
-            className="text-2xl font-bold tracking-tight sm:text-3xl"
-            style={{ fontFamily: "var(--font-heading)" }}
-          >
-            Best Sellers
-          </h2>
-          <div
-            className="mt-3 h-0.5 w-10"
-            style={{ backgroundColor: "var(--brand-secondary)" }}
-          />
-        </div>
+    <section className="mx-auto max-w-7xl px-6 py-16">
+      <h2
+        className="mb-8 text-2xl font-bold tracking-tight sm:text-3xl"
+        style={{
+          color: "var(--brand-primary)",
+          fontFamily: "var(--font-heading)",
+        }}
+      >
+        Best Sellers
+      </h2>
+      <div style={{ color: "var(--brand-primary)" }}>
         <HorizontalScroller>
           {bestSellers.map((product) => (
             <ProductCard

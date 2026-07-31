@@ -107,10 +107,12 @@ export function FashionStorefrontLayout({
         }}
       >
         <div
-          className="overflow-hidden py-2"
+          className="overflow-hidden border-b py-2"
           style={{
-            backgroundColor: "var(--brand-primary)",
-            color: "var(--brand-secondary)",
+            backgroundColor: "var(--brand-secondary)",
+            color: "var(--brand-primary)",
+            borderColor:
+              "color-mix(in srgb, var(--brand-primary) 10%, transparent)",
           }}
         >
           {/* animate-marquee's default 22s (see globals.css) is tuned for
