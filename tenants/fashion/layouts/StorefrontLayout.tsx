@@ -19,7 +19,7 @@ const FOOTER_LINKS = {
   Support: [
     { label: "Contact", href: "#" },
     { label: "Shipping", href: "#" },
-    { label: "Returns", href: "#" },
+    { label: "Returns", href: "/returns" },
     { label: "FAQ", href: "#" },
   ],
   Legal: [
