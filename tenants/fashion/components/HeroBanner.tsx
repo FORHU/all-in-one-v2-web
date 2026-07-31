@@ -1,18 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { Maximize2 } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
 import { fashionLooks, type LookItem } from "../data/looks";
 
 /**
  * Fashion — homepage hero: "Get the Look" curated outfit carousel.
- * Replaces the earlier full-bleed photo hero. Left: a fanned card stack of
- * data/looks.ts's outfit photos — click a back card (or its expand button)
- * to bring it forward. Right: that look's shoppable items, individually
- * addable or all at once, both wired to the real useLocalCartStore (see
- * that store's doc comment — client-only stand-in for /v2/cart).
+ * Left: a fanned card stack of data/looks.ts's outfit photos, navigated by
+ * explicit prev/next arrows + dot indicators (not by clicking the stack
+ * itself — that was ambiguous, easy to miss). Right: that look's shoppable
+ * items, individually addable or all at once, both wired to the real
+ * useLocalCartStore (see that store's doc comment — client-only stand-in
+ * for /v2/cart).
  */
 export function HeroBanner() {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -20,6 +21,10 @@ export function HeroBanner() {
 
   const activeLook = fashionLooks[activeIndex];
   const total = activeLook.items.reduce((sum, item) => sum + item.price, 0);
+
+  const goPrev = () =>
+    setActiveIndex((i) => (i - 1 + fashionLooks.length) % fashionLooks.length);
+  const goNext = () => setActiveIndex((i) => (i + 1) % fashionLooks.length);
 
   const addToBag = (item: LookItem) => {
     addCartItem({
@@ -53,59 +58,106 @@ export function HeroBanner() {
     <section
       className="flex w-full items-center overflow-hidden"
       style={{
-        minHeight: "calc(100vh - 96px)",
-        backgroundColor: "var(--brand-primary)",
+        minHeight: "calc(100vh - 150px)",
+        background:
+          "radial-gradient(ellipse 70% 60% at 28% 45%, color-mix(in srgb, var(--brand-secondary) 12%, transparent), transparent 70%), " +
+          "radial-gradient(ellipse 50% 45% at 85% 15%, color-mix(in srgb, var(--brand-secondary) 6%, transparent), transparent 70%), " +
+          "var(--brand-primary)",
         color: "var(--brand-secondary)",
       }}
     >
       <div className="grid w-full grid-cols-1 gap-14 px-8 py-16 sm:px-14 md:py-20 lg:grid-cols-2 lg:gap-20 lg:px-20 xl:px-28">
-        <div className="relative flex min-h-[480px] items-center justify-center sm:min-h-[560px] lg:min-h-[640px]">
-          {fashionLooks.map((look, i) => {
-            const rel =
-              (i - activeIndex + fashionLooks.length) % fashionLooks.length;
-            const pos = rel === 0 ? 0 : rel === 1 ? 1 : -1;
-            const isActive = pos === 0;
-            return (
-              <div
-                key={look.id}
-                className="absolute h-[420px] w-[300px] transition-all duration-500 ease-out sm:h-[500px] sm:w-[360px] lg:h-[580px] lg:w-[420px]"
-                style={{
-                  transform: `translateX(${pos * 90}px) rotate(${pos * 8}deg) scale(${isActive ? 1 : 0.9})`,
-                  zIndex: isActive ? 30 : 10,
-                }}
-              >
+        <div className="flex flex-col items-center gap-7">
+          <div className="relative flex min-h-[420px] w-full items-center justify-center sm:min-h-[500px] lg:min-h-[560px]">
+            {fashionLooks.map((look, i) => {
+              const rel =
+                (i - activeIndex + fashionLooks.length) % fashionLooks.length;
+              const pos = rel === 0 ? 0 : rel === 1 ? 1 : -1;
+              const isActive = pos === 0;
+              return (
                 <div
-                  className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-2xl border"
+                  key={look.id}
+                  className="absolute h-[380px] w-[270px] transition-all duration-500 ease-out sm:h-[440px] sm:w-[320px] lg:h-[500px] lg:w-[370px]"
                   style={{
-                    backgroundColor: isActive
-                      ? "color-mix(in srgb, var(--brand-secondary) 10%, transparent)"
-                      : "color-mix(in srgb, var(--brand-secondary) 5%, transparent)",
-                    borderColor: `color-mix(in srgb, var(--brand-secondary) ${isActive ? 25 : 12}%, transparent)`,
+                    transform: `translateX(${pos * 84}px) rotate(${pos * 6}deg) scale(${isActive ? 1 : 0.88})`,
+                    zIndex: isActive ? 30 : 10,
+                    opacity: isActive ? 1 : 0.5,
                   }}
                 >
-                  {isActive && (
-                    <span className="px-6 text-center text-xs font-medium opacity-50">
-                      {look.imageLabel}
-                    </span>
-                  )}
-                  {!isActive && (
-                    <button
-                      type="button"
-                      onClick={() => setActiveIndex(i)}
-                      aria-label={`View ${look.name}`}
-                      className="absolute bottom-3 left-3 flex h-9 w-9 items-center justify-center rounded-full"
-                      style={{
-                        backgroundColor:
-                          "color-mix(in srgb, var(--brand-secondary) 15%, transparent)",
-                      }}
-                    >
-                      <Maximize2 className="h-4 w-4" />
-                    </button>
-                  )}
+                  <div
+                    className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-2xl border transition-shadow duration-500"
+                    style={{
+                      backgroundColor: isActive
+                        ? "color-mix(in srgb, var(--brand-secondary) 10%, transparent)"
+                        : "color-mix(in srgb, var(--brand-secondary) 5%, transparent)",
+                      borderColor: `color-mix(in srgb, var(--brand-secondary) ${isActive ? 25 : 12}%, transparent)`,
+                      boxShadow: isActive
+                        ? "0 0 100px color-mix(in srgb, var(--brand-secondary) 20%, transparent)"
+                        : "none",
+                    }}
+                  >
+                    {isActive && (
+                      <span className="px-6 text-center text-xs font-medium opacity-50">
+                        {look.imageLabel}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+
+          <div className="flex items-center gap-5">
+            <button
+              type="button"
+              onClick={goPrev}
+              aria-label="Previous look"
+              className="flex h-11 w-11 items-center justify-center rounded-full border"
+              style={{
+                borderColor:
+                  "color-mix(in srgb, var(--brand-secondary) 25%, transparent)",
+              }}
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+
+            <div className="flex items-center gap-2">
+              {fashionLooks.map((look, i) => (
+                <button
+                  key={look.id}
+                  type="button"
+                  onClick={() => setActiveIndex(i)}
+                  aria-label={`Go to ${look.name}`}
+                  aria-current={i === activeIndex}
+                  className="h-1.5 rounded-full transition-all"
+                  style={{
+                    width: i === activeIndex ? "24px" : "6px",
+                    backgroundColor:
+                      i === activeIndex
+                        ? "var(--brand-secondary)"
+                        : "color-mix(in srgb, var(--brand-secondary) 30%, transparent)",
+                  }}
+                />
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={goNext}
+              aria-label="Next look"
+              className="flex h-11 w-11 items-center justify-center rounded-full border"
+              style={{
+                borderColor:
+                  "color-mix(in srgb, var(--brand-secondary) 25%, transparent)",
+              }}
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="text-sm font-semibold opacity-70">
+            {activeLook.name}
+          </div>
         </div>
 
         <div className="flex flex-col justify-center gap-8 lg:gap-10">

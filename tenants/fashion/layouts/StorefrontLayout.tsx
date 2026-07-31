@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Search, Heart, ShoppingBag, User, Menu, X } from "lucide-react";
+import { Search, ShoppingBag, User, Menu, X } from "lucide-react";
 import { useCartUIStore } from "@/features/storefront/stores/cart.store";
 import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
 import { fashionConfig } from "../tenant.config";
@@ -35,6 +35,23 @@ const FOOTER_LINKS = {
 
 const PAYMENT_METHODS = ["Visa", "Mastercard", "Amex", "PayPal", "Apple Pay"];
 
+const ANNOUNCEMENT_MESSAGES = [
+  "Free Shipping Over $75",
+  "New Arrivals Weekly",
+  "Easy 30-Day Returns",
+];
+// The CSS marquee loop (translateX(-50%), see globals.css) shifts by half
+// of the rendered content's width, so one "lap" of ANNOUNCEMENT_MESSAGES
+// needs to be wider than any realistic viewport, or the reset point shows
+// a gap of bare background before it repeats. Repeating the short 3-item
+// set 8x (then doubling that for the seamless loop) keeps a lap comfortably
+// wider than even ultra-wide screens.
+const ANNOUNCEMENT_SET: string[] = Array.from(
+  { length: 8 },
+  () => ANNOUNCEMENT_MESSAGES,
+).flat();
+const ANNOUNCEMENT_LOOP = [...ANNOUNCEMENT_SET, ...ANNOUNCEMENT_SET];
+
 /**
  * Fashion — storefront layout (header/footer/nav shell).
  * Consumes shared hooks/data only (e.g. features/storefront, features/cms) —
@@ -42,14 +59,26 @@ const PAYMENT_METHODS = ["Visa", "Mastercard", "Amex", "PayPal", "Apple Pay"];
  * --brand-primary/--brand-secondary/--font-* CSS variables set by
  * tenants/fashion/styles/theme.css, never via tenant checks in code.
  *
- * Search is UI-only for now — no product-search wiring yet.
- * Mega-menus (Women/Men submenus in the design reference) are deferred; nav
- * renders as flat links until that interaction is scoped.
+ * Centered logo with nav-left / icons-right zones and a dark announcement
+ * bar above the header. Search is a compact inline input (subtle, expands
+ * on focus) rather than a full-width bar — still UI-only, no
+ * product-search wiring yet. Mega-menus (Women/Men submenus in the design
+ * reference) are deferred; nav renders as flat links until that
+ * interaction is scoped.
+ *
+ * hideSearch/hideFooter: used by pages/AccountPage.tsx, which wants the
+ * same header (nav, icons, cart) but not the search input or the
+ * marketing footer — rather than duplicate the header/nav/cart-drawer
+ * wiring in a second layout component.
  */
 export function FashionStorefrontLayout({
   children,
+  hideSearch = false,
+  hideFooter = false,
 }: {
   children: React.ReactNode;
+  hideSearch?: boolean;
+  hideFooter?: boolean;
 }) {
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const toggleDrawer = useCartUIStore((s) => s.toggleDrawer);
@@ -70,67 +99,108 @@ export function FashionStorefrontLayout({
       style={{ fontFamily: "var(--font-body)" }}
     >
       <header
-        className="sticky top-0 z-40 border-b backdrop-blur"
+        className="sticky top-0 z-40"
         style={{
-          borderColor:
-            "color-mix(in srgb, var(--brand-primary) 12%, transparent)",
-          backgroundColor:
-            "color-mix(in srgb, var(--brand-secondary) 92%, transparent)",
+          backgroundColor: "var(--brand-secondary)",
+          boxShadow:
+            "0 1px 24px color-mix(in srgb, var(--brand-primary) 7%, transparent)",
         }}
       >
-        <div className="flex items-center gap-8 px-6 py-5">
-          <Link href="/" className="flex-none">
+        <div
+          className="overflow-hidden py-2"
+          style={{
+            backgroundColor: "var(--brand-primary)",
+            color: "var(--brand-secondary)",
+          }}
+        >
+          {/* animate-marquee's default 22s (see globals.css) is tuned for
+              BrandMarquee's shorter content — this strip is 8x longer
+              (see ANNOUNCEMENT_SET), so it needs a slower duration to keep
+              the same visual pace rather than covering more ground in the
+              same time. */}
+          <div
+            className="animate-marquee flex w-max gap-16"
+            style={{ animationDuration: "70s" }}
+          >
+            {ANNOUNCEMENT_LOOP.map((message, i) => (
+              <span
+                key={`${message}-${i}`}
+                className="flex-none text-[11px] font-semibold uppercase tracking-wider sm:text-xs"
+              >
+                {message}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-6 px-6 py-6 sm:px-10">
+          <div className="flex items-center">
+            {fashionConfig.nav.length > 0 && (
+              <nav className="hidden items-center gap-7 md:flex">
+                {fashionConfig.nav.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="text-sm font-semibold opacity-70 transition-opacity hover:opacity-100"
+                    style={{ color: "var(--brand-primary)" }}
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+              </nav>
+            )}
+            <button
+              type="button"
+              onClick={() => setIsMobileNavOpen((prev) => !prev)}
+              aria-label={isMobileNavOpen ? "Close menu" : "Open menu"}
+              aria-expanded={isMobileNavOpen}
+              className="flex h-10 w-10 items-center justify-center rounded-full outline-none transition-colors hover:bg-current/[0.06] focus-visible:ring-2 focus-visible:ring-current/30 md:hidden"
+              style={{ color: "var(--brand-primary)" }}
+            >
+              {isMobileNavOpen ? (
+                <X className="h-5 w-5" />
+              ) : (
+                <Menu className="h-5 w-5" />
+              )}
+            </button>
+          </div>
+
+          <Link href="/" className="justify-self-center">
             <Image
               src={logo}
               alt={fashionConfig.name}
-              className="h-12 w-auto sm:h-14"
+              className="h-14 w-auto sm:h-16"
               priority
             />
           </Link>
 
-          {fashionConfig.nav.length > 0 && (
-            <nav className="hidden flex-none items-center gap-7 md:flex">
-              {fashionConfig.nav.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="text-sm font-semibold opacity-70 transition-opacity hover:opacity-100"
+          <div className="flex items-center justify-end gap-2">
+            {!hideSearch && (
+              <div className="relative hidden lg:block">
+                <Search
+                  className="pointer-events-none absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 opacity-50"
                   style={{ color: "var(--brand-primary)" }}
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
-          )}
-
-          <div className="hidden flex-1 justify-center md:flex">
-            <div className="relative w-full max-w-2xl">
-              <Search
-                className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 opacity-50"
-                style={{ color: "var(--brand-primary)" }}
-              />
-              {/* TODO: wire to features/storefront product-search once available */}
-              <input
-                type="search"
-                placeholder="Search products, brands..."
-                className="h-11 w-full rounded-full border-none pl-11 pr-4 text-sm outline-none"
-                style={{
-                  backgroundColor:
-                    "color-mix(in srgb, var(--brand-primary) 6%, white)",
-                  color: "var(--brand-primary)",
-                }}
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-none items-center gap-1">
+                />
+                {/* TODO: wire to features/storefront product-search once available */}
+                <input
+                  type="search"
+                  placeholder="Search..."
+                  className="h-10 w-36 rounded-full border-none pl-9 pr-3 text-xs outline-none transition-all duration-200 focus:w-52"
+                  style={{
+                    backgroundColor:
+                      "color-mix(in srgb, var(--brand-primary) 5%, white)",
+                    color: "var(--brand-primary)",
+                  }}
+                />
+              </div>
+            )}
             <Link
-              href="/account/wishlist"
-              aria-label="Wishlist"
+              href="/account"
+              aria-label="Account"
               className="hidden h-10 w-10 items-center justify-center rounded-full outline-none transition-colors hover:bg-current/[0.06] focus-visible:ring-2 focus-visible:ring-current/30 sm:flex"
               style={{ color: "var(--brand-primary)" }}
             >
-              <Heart className="h-[19px] w-[19px]" strokeWidth={2} />
+              <User className="h-[19px] w-[19px]" strokeWidth={2} />
             </Link>
             <button
               type="button"
@@ -147,28 +217,6 @@ export function FashionStorefrontLayout({
                 >
                   {cartCount}
                 </span>
-              )}
-            </button>
-            <Link
-              href="/account"
-              aria-label="Account"
-              className="hidden h-10 w-10 items-center justify-center rounded-full outline-none transition-colors hover:bg-current/[0.06] focus-visible:ring-2 focus-visible:ring-current/30 sm:flex"
-              style={{ color: "var(--brand-primary)" }}
-            >
-              <User className="h-[19px] w-[19px]" strokeWidth={2} />
-            </Link>
-            <button
-              type="button"
-              onClick={() => setIsMobileNavOpen((prev) => !prev)}
-              aria-label={isMobileNavOpen ? "Close menu" : "Open menu"}
-              aria-expanded={isMobileNavOpen}
-              className="flex h-10 w-10 items-center justify-center rounded-full outline-none transition-colors hover:bg-current/[0.06] focus-visible:ring-2 focus-visible:ring-current/30 md:hidden"
-              style={{ color: "var(--brand-primary)" }}
-            >
-              {isMobileNavOpen ? (
-                <X className="h-5 w-5" />
-              ) : (
-                <Menu className="h-5 w-5" />
               )}
             </button>
           </div>
@@ -199,61 +247,63 @@ export function FashionStorefrontLayout({
 
       <main className="flex-1">{children}</main>
 
-      <footer
-        className="py-16"
-        style={{
-          backgroundColor: "var(--brand-primary)",
-          color: "var(--brand-secondary)",
-        }}
-      >
-        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-10 border-b border-white/15 px-6 pb-12 sm:grid-cols-3 lg:grid-cols-5">
-          <div className="col-span-2 flex flex-col gap-3 sm:col-span-1">
-            <div
-              className="text-xl font-bold"
-              style={{ fontFamily: "var(--font-heading)" }}
-            >
-              {fashionConfig.name}
-            </div>
-            <p className="max-w-[260px] text-[13px] leading-relaxed opacity-60">
-              {fashionConfig.seo.description}
-            </p>
-          </div>
-
-          {Object.entries(FOOTER_LINKS).map(([heading, links]) => (
-            <div key={heading} className="flex flex-col gap-2.5">
-              <div className="text-[12px] font-bold uppercase tracking-wide opacity-50">
-                {heading}
-              </div>
-              {links.map((link) => (
-                <Link
-                  key={link.label}
-                  href={link.href}
-                  className="text-[13px] opacity-80 transition-opacity hover:opacity-100"
-                >
-                  {link.label}
-                </Link>
-              ))}
-            </div>
-          ))}
-        </div>
-
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 pt-8">
-          <div className="text-xs opacity-50">
-            © {new Date().getFullYear()} {fashionConfig.name}. All rights
-            reserved.
-          </div>
-          <div className="flex flex-wrap gap-2.5">
-            {PAYMENT_METHODS.map((method) => (
+      {!hideFooter && (
+        <footer
+          className="py-16"
+          style={{
+            backgroundColor: "var(--brand-primary)",
+            color: "var(--brand-secondary)",
+          }}
+        >
+          <div className="mx-auto grid max-w-7xl grid-cols-2 gap-10 border-b border-white/15 px-6 pb-12 sm:grid-cols-3 lg:grid-cols-5">
+            <div className="col-span-2 flex flex-col gap-3 sm:col-span-1">
               <div
-                key={method}
-                className="rounded-md border border-white/25 px-2.5 py-1 text-[11px] font-semibold opacity-75"
+                className="text-xl font-bold"
+                style={{ fontFamily: "var(--font-heading)" }}
               >
-                {method}
+                {fashionConfig.name}
+              </div>
+              <p className="max-w-[260px] text-[13px] leading-relaxed opacity-60">
+                {fashionConfig.seo.description}
+              </p>
+            </div>
+
+            {Object.entries(FOOTER_LINKS).map(([heading, links]) => (
+              <div key={heading} className="flex flex-col gap-2.5">
+                <div className="text-[12px] font-bold uppercase tracking-wide opacity-50">
+                  {heading}
+                </div>
+                {links.map((link) => (
+                  <Link
+                    key={link.label}
+                    href={link.href}
+                    className="text-[13px] opacity-80 transition-opacity hover:opacity-100"
+                  >
+                    {link.label}
+                  </Link>
+                ))}
               </div>
             ))}
           </div>
-        </div>
-      </footer>
+
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 pt-8">
+            <div className="text-xs opacity-50">
+              © {new Date().getFullYear()} {fashionConfig.name}. All rights
+              reserved.
+            </div>
+            <div className="flex flex-wrap gap-2.5">
+              {PAYMENT_METHODS.map((method) => (
+                <div
+                  key={method}
+                  className="rounded-md border border-white/25 px-2.5 py-1 text-[11px] font-semibold opacity-75"
+                >
+                  {method}
+                </div>
+              ))}
+            </div>
+          </div>
+        </footer>
+      )}
 
       <CartDrawer />
     </div>

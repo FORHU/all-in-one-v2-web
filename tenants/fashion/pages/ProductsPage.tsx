@@ -4,7 +4,6 @@ import { FashionStorefrontLayout } from "../layouts/StorefrontLayout";
 import { ProductCard } from "@/shared/components/ProductCard";
 import { fashionProducts } from "../data/products";
 import { quickAddToCart } from "../utils/quickAddToCart";
-import { useWishlistToggle } from "../utils/useWishlistToggle";
 
 /**
  * Fashion — full product listing page.
@@ -13,8 +12,6 @@ import { useWishlistToggle } from "../utils/useWishlistToggle";
  * filtering/sorting yet — that needs product-search wired up.
  */
 export function FashionProductsPage() {
-  const { isFavorite, toggleFavorite } = useWishlistToggle();
-
   return (
     <FashionStorefrontLayout>
       <section
@@ -33,8 +30,6 @@ export function FashionProductsPage() {
               key={product.id}
               product={product}
               onQuickAdd={quickAddToCart}
-              isFavorite={isFavorite(product.id)}
-              onToggleFavorite={toggleFavorite}
             />
           ))}
         </div>

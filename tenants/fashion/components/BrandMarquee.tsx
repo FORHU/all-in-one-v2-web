@@ -3,7 +3,20 @@
  * Static content, no backend model needed. Duplicated once so the CSS
  * marquee loop (translateX(-50%), see globals.css) reads as seamless.
  */
-const brands = ["VOGUE", "ELLE", "GQ", "HARPER’S", "WWD", "DAZED"];
+const brands = [
+  "VOGUE",
+  "ELLE",
+  "GQ",
+  "HARPER’S",
+  "WWD",
+  "DAZED",
+  "MARIE CLAIRE",
+  "ESQUIRE",
+  "COSMOPOLITAN",
+  "NYLON",
+  "PAPER",
+  "i-D",
+];
 const brandLoop = [...brands, ...brands];
 
 export function BrandMarquee() {
