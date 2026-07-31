@@ -6,6 +6,9 @@ import { getToken, setToken, clearToken } from "@/shared/lib/token";
 export type UserIdentity = {
   id: string;
   tenantId?: string;
+  email?: string;
+  username?: string;
+  name?: string | null;
 };
 
 type AuthState = {

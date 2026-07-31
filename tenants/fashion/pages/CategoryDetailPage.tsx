@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { fashionCategories } from "../data/categories";
 import { fashionProducts } from "../data/products";
 import { quickAddToCart } from "../utils/quickAddToCart";
+import { useWishlistToggle } from "../utils/useWishlistToggle";
 
 function humanize(slug: string) {
   return slug
@@ -84,6 +85,7 @@ export function FashionCategoryDetailPage({ slug }: { slug: string }) {
     useState<ProductCardProduct | null>(null);
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
   const addItem = useLocalCartStore((s) => s.addItem);
+  const { isFavorite, toggleFavorite } = useWishlistToggle();
 
   const handleAddToCart = (
     product: ProductCardProduct,
@@ -324,6 +326,8 @@ export function FashionCategoryDetailPage({ slug }: { slug: string }) {
                     product={product}
                     onQuickView={setQuickViewProduct}
                     onQuickAdd={quickAddToCart}
+                    isFavorite={isFavorite(product.id)}
+                    onToggleFavorite={toggleFavorite}
                   />
                 ))}
               </div>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ProductCard } from "@/shared/components/ProductCard";
 import { fashionProducts } from "../data/products";
 import { quickAddToCart } from "../utils/quickAddToCart";
+import { useWishlistToggle } from "../utils/useWishlistToggle";
 
 /**
  * Fashion — homepage featured-products section.
@@ -11,6 +12,8 @@ import { quickAddToCart } from "../utils/quickAddToCart";
  * features/storefront's useProducts() is backed by a real API.
  */
 export function FeaturedProducts() {
+  const { isFavorite, toggleFavorite } = useWishlistToggle();
+
   return (
     <section className="mx-auto max-w-7xl px-6 py-16">
       <div className="mb-8 flex items-baseline justify-between">
@@ -40,6 +43,8 @@ export function FeaturedProducts() {
             key={product.id}
             product={product}
             onQuickAdd={quickAddToCart}
+            isFavorite={isFavorite(product.id)}
+            onToggleFavorite={toggleFavorite}
           />
         ))}
       </div>

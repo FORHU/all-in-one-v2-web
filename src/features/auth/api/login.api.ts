@@ -24,10 +24,26 @@ export interface LoginResponse {
   };
 }
 
+export interface RegisterCredentials {
+  email: string;
+  password: string;
+  username: string;
+  name?: string;
+}
+
 export const login = async (
   credentials: LoginCredentials,
 ): Promise<LoginResponse> => {
   return fetcher<LoginResponse>("/api/v2/auth/login", {
+    method: "POST",
+    body: JSON.stringify(credentials),
+  });
+};
+
+export const register = async (
+  credentials: RegisterCredentials,
+): Promise<LoginResponse> => {
+  return fetcher<LoginResponse>("/api/v2/auth/register", {
     method: "POST",
     body: JSON.stringify(credentials),
   });

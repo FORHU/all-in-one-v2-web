@@ -20,11 +20,12 @@ export interface ProductCardProduct {
 }
 
 /**
- * Favorite state is local-only for now — there is no wishlist store/endpoint
- * yet (see features/storefront). Quick-add/quick-view are callback props
- * rather than direct store calls — shared/ components can't import
- * features/ (see tools/validate-architecture.mjs) — the tenant page wires
- * the actual cart logic.
+ * Favorite/quick-add/quick-view are callback props rather than direct
+ * store calls — shared/ components can't import features/ (see
+ * tools/validate-architecture.mjs) — the tenant page wires the actual
+ * cart/wishlist logic. `isFavorite`/`onToggleFavorite` make the heart
+ * controlled when a real wishlist store is wired up; if omitted, it falls
+ * back to local-only state (uncontrolled) so existing callers don't break.
  */
 export function ProductCard({
   product,
@@ -32,14 +33,24 @@ export function ProductCard({
   className = "",
   onQuickView,
   onQuickAdd,
+  isFavorite: isFavoriteProp,
+  onToggleFavorite,
 }: {
   product: ProductCardProduct;
   compact?: boolean;
   className?: string;
   onQuickView?: (product: ProductCardProduct) => void;
   onQuickAdd?: (product: ProductCardProduct) => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: (product: ProductCardProduct) => void;
 }) {
-  const [isFavorite, setIsFavorite] = useState(false);
+  const [localFavorite, setLocalFavorite] = useState(false);
+  const isFavorite = onToggleFavorite
+    ? (isFavoriteProp ?? false)
+    : localFavorite;
+  const toggleFavorite = onToggleFavorite
+    ? () => onToggleFavorite(product)
+    : () => setLocalFavorite((prev) => !prev);
 
   return (
     <div className={`flex flex-col gap-3 ${className}`}>
@@ -77,7 +88,7 @@ export function ProductCard({
         {!compact && (
           <button
             type="button"
-            onClick={() => setIsFavorite((prev) => !prev)}
+            onClick={toggleFavorite}
             aria-label={isFavorite ? "Remove from wishlist" : "Add to wishlist"}
             aria-pressed={isFavorite}
             className="absolute right-2.5 top-2.5 flex h-8 w-8 items-center justify-center rounded-full bg-white/90"
