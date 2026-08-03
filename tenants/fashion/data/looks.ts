@@ -8,9 +8,25 @@ export interface LookItem {
   imageLabel: string;
 }
 
+export type LookCategory =
+  | "Casual"
+  | "Formal"
+  | "Athleisure"
+  | "Streetwear"
+  | "Evening";
+
+export const LOOK_CATEGORIES: LookCategory[] = [
+  "Casual",
+  "Formal",
+  "Athleisure",
+  "Streetwear",
+  "Evening",
+];
+
 export interface Look {
   id: string;
   name: string;
+  category: LookCategory;
   imageLabel: string;
   items: LookItem[];
 }
@@ -26,6 +42,7 @@ export const fashionLooks: Look[] = [
   {
     id: "off-duty-set",
     name: "The Off-Duty Set",
+    category: "Casual",
     imageLabel: "Look: The Off-Duty Set",
     items: [
       {
@@ -60,6 +77,7 @@ export const fashionLooks: Look[] = [
   {
     id: "tailored-edit",
     name: "The Tailored Edit",
+    category: "Formal",
     imageLabel: "Look: The Tailored Edit",
     items: [
       {
@@ -94,6 +112,7 @@ export const fashionLooks: Look[] = [
   {
     id: "weekend-layers",
     name: "Weekend Layers",
+    category: "Casual",
     imageLabel: "Look: Weekend Layers",
     items: [
       {
@@ -128,6 +147,7 @@ export const fashionLooks: Look[] = [
   {
     id: "monochrome-layers",
     name: "Monochrome Layers",
+    category: "Formal",
     imageLabel: "Look: Monochrome Layers",
     items: [
       {
@@ -162,6 +182,7 @@ export const fashionLooks: Look[] = [
   {
     id: "coastal-linen",
     name: "Coastal Linen",
+    category: "Casual",
     imageLabel: "Look: Coastal Linen",
     items: [
       {
@@ -196,6 +217,7 @@ export const fashionLooks: Look[] = [
   {
     id: "city-denim",
     name: "City Denim",
+    category: "Streetwear",
     imageLabel: "Look: City Denim",
     items: [
       {
@@ -224,6 +246,426 @@ export const fashionLooks: Look[] = [
         size: "9",
         price: 245,
         imageLabel: "Item: Leather Boot",
+      },
+    ],
+  },
+  {
+    id: "evening-silk",
+    name: "Evening Silk",
+    category: "Evening",
+    imageLabel: "Look: Evening Silk",
+    items: [
+      {
+        id: "silk-cami-top",
+        tag: "BASE",
+        name: "Silk Cami Top",
+        brand: "STUDIO NUE",
+        size: "S",
+        price: 98,
+        imageLabel: "Item: Silk Cami Top",
+      },
+      {
+        id: "tailored-midi-skirt",
+        tag: "BASE",
+        name: "Tailored Midi Skirt",
+        brand: "ADDICTSTYLE",
+        size: "28",
+        price: 140,
+        imageLabel: "Item: Tailored Midi Skirt",
+      },
+      {
+        id: "strappy-heel",
+        tag: "OVER",
+        name: "Strappy Heel",
+        brand: "STUDIO NUE",
+        size: "8",
+        price: 185,
+        imageLabel: "Item: Strappy Heel",
+      },
+    ],
+  },
+  {
+    id: "athleisure-edit",
+    name: "Athleisure Edit",
+    category: "Athleisure",
+    imageLabel: "Look: Athleisure Edit",
+    items: [
+      {
+        id: "performance-hoodie",
+        tag: "OVER",
+        name: "Performance Hoodie",
+        brand: "ADDICTSTYLE",
+        size: "M",
+        price: 118,
+        imageLabel: "Item: Performance Hoodie",
+      },
+      {
+        id: "tapered-jogger",
+        tag: "BASE",
+        name: "Tapered Jogger",
+        brand: "ADDICTSTYLE",
+        size: "32",
+        price: 92,
+        imageLabel: "Item: Tapered Jogger",
+      },
+      {
+        id: "chunky-trainer",
+        tag: "OVER",
+        name: "Chunky Trainer",
+        brand: "STUDIO NUE",
+        size: "9",
+        price: 175,
+        imageLabel: "Item: Chunky Trainer",
+      },
+    ],
+  },
+  {
+    id: "boho-print",
+    name: "Boho Print",
+    category: "Casual",
+    imageLabel: "Look: Boho Print",
+    items: [
+      {
+        id: "printed-maxi-dress",
+        tag: "BASE",
+        name: "Printed Maxi Dress",
+        brand: "STUDIO NUE",
+        size: "M",
+        price: 165,
+        imageLabel: "Item: Printed Maxi Dress",
+      },
+      {
+        id: "cropped-kimono",
+        tag: "OVER",
+        name: "Cropped Kimono",
+        brand: "ADDICTSTYLE",
+        size: "S",
+        price: 128,
+        imageLabel: "Item: Cropped Kimono",
+      },
+      {
+        id: "suede-ankle-boot",
+        tag: "OVER",
+        name: "Suede Ankle Boot",
+        brand: "STUDIO NUE",
+        size: "8",
+        price: 210,
+        imageLabel: "Item: Suede Ankle Boot",
+      },
+    ],
+  },
+  {
+    id: "winter-wool",
+    name: "Winter Wool",
+    category: "Formal",
+    imageLabel: "Look: Winter Wool",
+    items: [
+      {
+        id: "chunky-wool-sweater",
+        tag: "BASE",
+        name: "Chunky Wool Sweater",
+        brand: "ADDICTSTYLE",
+        size: "M",
+        price: 135,
+        imageLabel: "Item: Chunky Wool Sweater",
+      },
+      {
+        id: "tailored-wool-trouser",
+        tag: "BASE",
+        name: "Tailored Wool Trouser",
+        brand: "STUDIO NUE",
+        size: "32",
+        price: 158,
+        imageLabel: "Item: Tailored Wool Trouser",
+      },
+      {
+        id: "leather-chelsea-boot",
+        tag: "OVER",
+        name: "Leather Chelsea Boot",
+        brand: "STUDIO NUE",
+        size: "9",
+        price: 230,
+        imageLabel: "Item: Leather Chelsea Boot",
+      },
+    ],
+  },
+  {
+    id: "summer-pastel",
+    name: "Summer Pastel",
+    category: "Casual",
+    imageLabel: "Look: Summer Pastel",
+    items: [
+      {
+        id: "pastel-linen-shirt",
+        tag: "BASE",
+        name: "Pastel Linen Shirt",
+        brand: "ADDICTSTYLE",
+        size: "M",
+        price: 88,
+        imageLabel: "Item: Pastel Linen Shirt",
+      },
+      {
+        id: "pleated-shorts",
+        tag: "BASE",
+        name: "Pleated Shorts",
+        brand: "ADDICTSTYLE",
+        size: "28",
+        price: 72,
+        imageLabel: "Item: Pleated Shorts",
+      },
+      {
+        id: "espadrille",
+        tag: "OVER",
+        name: "Espadrille",
+        brand: "STUDIO NUE",
+        size: "8",
+        price: 85,
+        imageLabel: "Item: Espadrille",
+      },
+    ],
+  },
+  {
+    id: "street-utility",
+    name: "Street Utility",
+    category: "Streetwear",
+    imageLabel: "Look: Street Utility",
+    items: [
+      {
+        id: "utility-vest",
+        tag: "OVER",
+        name: "Utility Vest",
+        brand: "STUDIO NUE",
+        size: "M",
+        price: 110,
+        imageLabel: "Item: Utility Vest",
+      },
+      {
+        id: "cargo-pant",
+        tag: "BASE",
+        name: "Cargo Pant",
+        brand: "ADDICTSTYLE",
+        size: "32",
+        price: 125,
+        imageLabel: "Item: Cargo Pant",
+      },
+      {
+        id: "high-top-sneaker",
+        tag: "OVER",
+        name: "High-Top Sneaker",
+        brand: "STUDIO NUE",
+        size: "9",
+        price: 155,
+        imageLabel: "Item: High-Top Sneaker",
+      },
+    ],
+  },
+  {
+    id: "power-suit",
+    name: "Power Suit",
+    category: "Formal",
+    imageLabel: "Look: Power Suit",
+    items: [
+      {
+        id: "structured-blazer",
+        tag: "OVER",
+        name: "Structured Blazer",
+        brand: "ADDICTSTYLE",
+        size: "M",
+        price: 260,
+        imageLabel: "Item: Structured Blazer",
+      },
+      {
+        id: "tapered-suit-trouser",
+        tag: "BASE",
+        name: "Tapered Suit Trouser",
+        brand: "ADDICTSTYLE",
+        size: "32",
+        price: 175,
+        imageLabel: "Item: Tapered Suit Trouser",
+      },
+      {
+        id: "pointed-leather-pump",
+        tag: "OVER",
+        name: "Pointed Leather Pump",
+        brand: "STUDIO NUE",
+        size: "8",
+        price: 195,
+        imageLabel: "Item: Pointed Leather Pump",
+      },
+    ],
+  },
+  {
+    id: "track-ready",
+    name: "Track Ready",
+    category: "Athleisure",
+    imageLabel: "Look: Track Ready",
+    items: [
+      {
+        id: "zip-track-jacket",
+        tag: "OVER",
+        name: "Zip Track Jacket",
+        brand: "STUDIO NUE",
+        size: "M",
+        price: 108,
+        imageLabel: "Item: Zip Track Jacket",
+      },
+      {
+        id: "compression-legging",
+        tag: "BASE",
+        name: "Compression Legging",
+        brand: "ADDICTSTYLE",
+        size: "S",
+        price: 74,
+        imageLabel: "Item: Compression Legging",
+      },
+      {
+        id: "running-shoe",
+        tag: "OVER",
+        name: "Running Shoe",
+        brand: "STUDIO NUE",
+        size: "9",
+        price: 165,
+        imageLabel: "Item: Running Shoe",
+      },
+    ],
+  },
+  {
+    id: "cocktail-hour",
+    name: "Cocktail Hour",
+    category: "Evening",
+    imageLabel: "Look: Cocktail Hour",
+    items: [
+      {
+        id: "sequin-top",
+        tag: "BASE",
+        name: "Sequin Top",
+        brand: "STUDIO NUE",
+        size: "S",
+        price: 145,
+        imageLabel: "Item: Sequin Top",
+      },
+      {
+        id: "tailored-cigarette-trouser",
+        tag: "BASE",
+        name: "Tailored Cigarette Trouser",
+        brand: "ADDICTSTYLE",
+        size: "28",
+        price: 155,
+        imageLabel: "Item: Tailored Cigarette Trouser",
+      },
+      {
+        id: "satin-heel",
+        tag: "OVER",
+        name: "Satin Heel",
+        brand: "STUDIO NUE",
+        size: "8",
+        price: 190,
+        imageLabel: "Item: Satin Heel",
+      },
+    ],
+  },
+  {
+    id: "skater-street",
+    name: "Skater Street",
+    category: "Streetwear",
+    imageLabel: "Look: Skater Street",
+    items: [
+      {
+        id: "graphic-tee",
+        tag: "BASE",
+        name: "Graphic Tee",
+        brand: "ADDICTSTYLE",
+        size: "M",
+        price: 58,
+        imageLabel: "Item: Graphic Tee",
+      },
+      {
+        id: "relaxed-cargo-pant",
+        tag: "BASE",
+        name: "Relaxed Cargo Pant",
+        brand: "STUDIO NUE",
+        size: "32",
+        price: 118,
+        imageLabel: "Item: Relaxed Cargo Pant",
+      },
+      {
+        id: "canvas-skate-shoe",
+        tag: "OVER",
+        name: "Canvas Skate Shoe",
+        brand: "STUDIO NUE",
+        size: "9",
+        price: 88,
+        imageLabel: "Item: Canvas Skate Shoe",
+      },
+    ],
+  },
+  {
+    id: "beach-resort",
+    name: "Beach Resort",
+    category: "Casual",
+    imageLabel: "Look: Beach Resort",
+    items: [
+      {
+        id: "linen-camp-shirt",
+        tag: "BASE",
+        name: "Linen Camp Shirt",
+        brand: "ADDICTSTYLE",
+        size: "M",
+        price: 92,
+        imageLabel: "Item: Linen Camp Shirt",
+      },
+      {
+        id: "drawstring-linen-pant",
+        tag: "BASE",
+        name: "Drawstring Linen Pant",
+        brand: "ADDICTSTYLE",
+        size: "32",
+        price: 84,
+        imageLabel: "Item: Drawstring Linen Pant",
+      },
+      {
+        id: "leather-sandal",
+        tag: "OVER",
+        name: "Leather Sandal",
+        brand: "STUDIO NUE",
+        size: "9",
+        price: 70,
+        imageLabel: "Item: Leather Sandal",
+      },
+    ],
+  },
+  {
+    id: "minimalist-office",
+    name: "Minimalist Office",
+    category: "Formal",
+    imageLabel: "Look: Minimalist Office",
+    items: [
+      {
+        id: "fine-knit-turtleneck",
+        tag: "BASE",
+        name: "Fine Knit Turtleneck",
+        brand: "ADDICTSTYLE",
+        size: "M",
+        price: 96,
+        imageLabel: "Item: Fine Knit Turtleneck",
+      },
+      {
+        id: "tailored-pencil-skirt",
+        tag: "BASE",
+        name: "Tailored Pencil Skirt",
+        brand: "STUDIO NUE",
+        size: "28",
+        price: 128,
+        imageLabel: "Item: Tailored Pencil Skirt",
+      },
+      {
+        id: "block-heel-loafer",
+        tag: "OVER",
+        name: "Block Heel Loafer",
+        brand: "STUDIO NUE",
+        size: "8",
+        price: 148,
+        imageLabel: "Item: Block Heel Loafer",
       },
     ],
   },

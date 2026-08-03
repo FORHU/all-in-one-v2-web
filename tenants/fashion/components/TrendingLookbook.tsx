@@ -9,9 +9,16 @@ import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { ImagePlaceholder } from "@/shared/components/ImagePlaceholder";
 import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
-import { fashionLooks, type LookItem } from "../data/looks";
+import {
+  fashionLooks,
+  LOOK_CATEGORIES,
+  type LookCategory,
+  type LookItem,
+} from "../data/looks";
 
 const PANEL_HEIGHT = "lg:h-[560px]";
+const ALL_CATEGORIES = "All" as const;
+type CategoryFilter = LookCategory | typeof ALL_CATEGORIES;
 
 /**
  * Fashion — "Shop the Look" widget shown above the filters+grid on
@@ -22,9 +29,17 @@ const PANEL_HEIGHT = "lg:h-[560px]";
  * about what's in "The Off-Duty Set" etc.
  */
 export function TrendingLookbook() {
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [categoryFilter, setCategoryFilter] =
+    useState<CategoryFilter>(ALL_CATEGORIES);
+  const [activeLookId, setActiveLookId] = useState(fashionLooks[0].id);
   const addCartItem = useLocalCartStore((s) => s.addItem);
-  const activeLook = fashionLooks[activeIndex];
+
+  const filteredLooks =
+    categoryFilter === ALL_CATEGORIES
+      ? fashionLooks
+      : fashionLooks.filter((look) => look.category === categoryFilter);
+  const activeLook =
+    fashionLooks.find((look) => look.id === activeLookId) ?? fashionLooks[0];
   const total = activeLook.items.reduce((sum, item) => sum + item.price, 0);
   const carouselRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef({
@@ -80,6 +95,17 @@ export function TrendingLookbook() {
     }
   };
 
+  // Switching category jumps the active look to the first match in the new
+  // filter — the previously active look may not even be in the new list.
+  const handleCategoryChange = (category: CategoryFilter) => {
+    setCategoryFilter(category);
+    const nextLooks =
+      category === ALL_CATEGORIES
+        ? fashionLooks
+        : fashionLooks.filter((look) => look.category === category);
+    if (nextLooks.length > 0) setActiveLookId(nextLooks[0].id);
+  };
+
   const addAllToBag = () => {
     activeLook.items.forEach((item) =>
       addCartItem({
@@ -129,29 +155,57 @@ export function TrendingLookbook() {
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-[160px_1fr_300px]">
+        <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-[420px_1fr_280px]">
           {/* Left — vertical looks carousel */}
           <div
             className={`flex min-w-0 flex-col gap-2 rounded-2xl border p-3 ${PANEL_HEIGHT}`}
             style={{ borderColor }}
           >
+            <div className="scrollbar-hide flex flex-none gap-1.5 overflow-x-auto pb-1 lg:flex-wrap lg:overflow-visible lg:pb-0">
+              {[ALL_CATEGORIES, ...LOOK_CATEGORIES].map((category) => {
+                const isActive = categoryFilter === category;
+                return (
+                  <button
+                    key={category}
+                    type="button"
+                    onClick={() => handleCategoryChange(category)}
+                    aria-pressed={isActive}
+                    className="flex-none rounded-full border px-2.5 py-1 text-[10px] font-semibold transition-colors"
+                    style={{
+                      backgroundColor: isActive
+                        ? "var(--brand-primary)"
+                        : "transparent",
+                      color: isActive
+                        ? "var(--brand-secondary)"
+                        : "var(--brand-primary)",
+                      borderColor: isActive
+                        ? "var(--brand-primary)"
+                        : "color-mix(in srgb, var(--brand-primary) 20%, transparent)",
+                    }}
+                  >
+                    {category}
+                  </button>
+                );
+              })}
+            </div>
+
             <div
               ref={carouselRef}
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
               onPointerLeave={handlePointerUp}
-              className="scrollbar-hide flex min-h-0 flex-1 cursor-grab select-none gap-3 overflow-x-auto overflow-y-hidden pb-1 active:cursor-grabbing lg:flex-col lg:gap-2 lg:overflow-x-hidden lg:overflow-y-auto lg:pb-0"
+              className="scrollbar-hide flex min-h-0 flex-1 cursor-grab select-none gap-3 overflow-x-auto overflow-y-hidden pb-1 active:cursor-grabbing lg:grid lg:grid-cols-4 lg:auto-rows-[calc((100%-1rem)/3)] lg:gap-2 lg:overflow-x-hidden lg:overflow-y-auto lg:pb-0"
             >
-              {fashionLooks.map((look, i) => {
-                const isActive = i === activeIndex;
+              {filteredLooks.map((look) => {
+                const isActive = look.id === activeLookId;
                 return (
                   <button
                     key={look.id}
                     type="button"
                     onClick={() => {
                       if (dragRef.current.moved) return;
-                      setActiveIndex(i);
+                      setActiveLookId(look.id);
                     }}
                     aria-pressed={isActive}
                     aria-label={`Show ${look.name}`}
@@ -160,7 +214,7 @@ export function TrendingLookbook() {
                     }`}
                   >
                     <span
-                      className="block overflow-hidden rounded-xl border-2 transition-colors duration-300"
+                      className="block overflow-hidden rounded-xl border-2 transition-colors duration-300 lg:flex-1"
                       style={{
                         borderColor: isActive
                           ? "var(--brand-primary)"
@@ -169,8 +223,8 @@ export function TrendingLookbook() {
                     >
                       <ImagePlaceholder
                         label={look.imageLabel}
-                        aspect="3/4"
-                        className="w-full"
+                        aspect="1/1"
+                        className="h-32 w-full lg:h-full lg:w-full"
                       />
                     </span>
                     <span className="truncate text-center text-[11px] font-semibold">
@@ -184,13 +238,13 @@ export function TrendingLookbook() {
 
           {/* Center — active look, large */}
           <div
-            className={`flex min-w-0 items-center justify-center rounded-2xl border p-6 ${PANEL_HEIGHT}`}
+            className={`flex min-w-0 justify-center rounded-2xl border p-6 ${PANEL_HEIGHT}`}
             style={{ borderColor }}
           >
             <ImagePlaceholder
               label={activeLook.imageLabel}
               aspect="3/4"
-              className="w-[70%] h-auto sm:w-[46%] lg:h-full lg:max-h-full lg:w-auto"
+              className="w-[70%] h-auto sm:w-[46%] lg:h-auto lg:w-auto lg:max-h-full lg:max-w-full"
             />
           </div>
 
@@ -206,22 +260,22 @@ export function TrendingLookbook() {
               {activeLook.items.map((item) => (
                 <div
                   key={item.id}
-                  className="flex flex-none items-center gap-3 rounded-2xl border p-3"
+                  className="flex flex-1 items-center gap-3 rounded-2xl border p-3"
                   style={{ borderColor }}
                 >
                   <ImagePlaceholder
                     label={item.imageLabel}
                     aspect="1/1"
-                    className="h-14 w-14 flex-none"
+                    className="h-20 w-20 flex-none"
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="text-[10px] font-bold uppercase tracking-wide opacity-50">
+                    <div className="text-[11px] font-bold uppercase tracking-wide opacity-50">
                       {item.tag}
                     </div>
-                    <div className="truncate text-sm font-semibold">
+                    <div className="truncate text-base font-semibold">
                       {item.name}
                     </div>
-                    <div className="text-xs font-bold opacity-70">
+                    <div className="text-sm font-bold opacity-70">
                       ${item.price}
                     </div>
                   </div>
