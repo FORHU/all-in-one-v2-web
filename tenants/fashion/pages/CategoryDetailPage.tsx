@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { SlidersHorizontal, X } from "lucide-react";
 import { FashionStorefrontLayout } from "../layouts/StorefrontLayout";
+import { TrendingLookbook } from "../components/TrendingLookbook";
 import {
   CategoryFilters,
   COLOR_NAMES,
@@ -183,6 +184,7 @@ export function FashionCategoryDetailPage({ slug }: { slug: string }) {
 
   return (
     <FashionStorefrontLayout>
+      <TrendingLookbook />
       <div
         className="mx-auto max-w-7xl px-6 py-10"
         style={{ color: "var(--brand-primary)" }}
