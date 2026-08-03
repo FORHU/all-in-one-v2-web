@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/features/auth/hooks/useAuth";
 import { ApiError } from "@/shared/errors/api-error";
 import { fashionConfig } from "../tenant.config";
-import logo from "../assets/addictstyle-logo.png";
+import logo from "../assets/addictstyle-logo.svg";
+import { useFashionColorMode } from "../stores/colorMode.store";
+import { FASHION_COLOR_VARS } from "../utils/colorModeVars";
 
 /**
  * Fashion — login page.
@@ -21,6 +23,14 @@ export function FashionLoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const colorMode = useFashionColorMode((s) => s.mode);
+
+  // useFashionColorMode persists to localStorage, which isn't available
+  // during SSR — gating behind a mount flag avoids a hydration mismatch
+  // (see layouts/StorefrontLayout.tsx for the same pattern).
+  const [hasMounted, setHasMounted] = useState(false);
+  useEffect(() => setHasMounted(true), []);
+  const mode = hasMounted ? colorMode : "dark";
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -39,6 +49,7 @@ export function FashionLoginPage() {
     <div
       className="flex min-h-screen items-center justify-center px-6 py-16"
       style={{
+        ...FASHION_COLOR_VARS[mode],
         backgroundColor: "var(--brand-secondary)",
         color: "var(--brand-primary)",
         fontFamily: "var(--font-body)",
@@ -46,7 +57,12 @@ export function FashionLoginPage() {
     >
       <div className="w-full max-w-sm">
         <Link href="/" className="mb-8 flex justify-center">
-          <Image src={logo} alt={fashionConfig.name} className="h-14 w-auto" />
+          <Image
+            src={logo}
+            alt={fashionConfig.name}
+            className="h-14 w-auto"
+            style={{ filter: mode === "light" ? "invert(1)" : "none" }}
+          />
         </Link>
 
         <form

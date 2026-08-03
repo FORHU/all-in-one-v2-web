@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Search, ShoppingBag, User, Menu, X } from "lucide-react";
+import { Search, ShoppingBag, User, Menu, X, Sun, Moon } from "lucide-react";
 import { useCartUIStore } from "@/features/storefront/stores/cart.store";
 import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
 import { fashionConfig } from "../tenant.config";
-import logo from "../assets/addictstyle-logo.png";
+import logo from "../assets/addictstyle-logo.svg";
 import { CartDrawer } from "../components/CartDrawer";
+import { useFashionColorMode } from "../stores/colorMode.store";
+import { FASHION_COLOR_VARS } from "../utils/colorModeVars";
 
 const FOOTER_LINKS = {
   Company: [
@@ -85,18 +87,22 @@ export function FashionStorefrontLayout({
   const cartCount = useLocalCartStore((s) =>
     s.items.reduce((n, i) => n + i.quantity, 0),
   );
+  const colorMode = useFashionColorMode((s) => s.mode);
+  const toggleColorMode = useFashionColorMode((s) => s.toggle);
 
-  // useLocalCartStore persists to localStorage, which isn't available
-  // during SSR — gating the badge behind a mount flag avoids a hydration
-  // mismatch between the server's empty render and the client's rehydrated
-  // cart count.
+  // useLocalCartStore/useFashionColorMode persist to localStorage, which
+  // isn't available during SSR — gating both behind a mount flag avoids a
+  // hydration mismatch between the server's default render and the
+  // client's rehydrated values.
   const [hasMounted, setHasMounted] = useState(false);
   useEffect(() => setHasMounted(true), []);
+  const mode = hasMounted ? colorMode : "dark";
 
   return (
     <div
       className="flex min-h-screen flex-col"
       style={{
+        ...FASHION_COLOR_VARS[mode],
         fontFamily: "var(--font-body)",
         backgroundColor: "var(--brand-secondary)",
         color: "var(--brand-primary)",
@@ -176,6 +182,7 @@ export function FashionStorefrontLayout({
               src={logo}
               alt={fashionConfig.name}
               className="h-14 w-auto sm:h-16"
+              style={{ filter: mode === "light" ? "invert(1)" : "none" }}
               priority
             />
           </Link>
@@ -200,6 +207,21 @@ export function FashionStorefrontLayout({
                 />
               </div>
             )}
+            <button
+              type="button"
+              onClick={toggleColorMode}
+              aria-label={
+                mode === "dark" ? "Switch to light mode" : "Switch to dark mode"
+              }
+              className="flex h-10 w-10 items-center justify-center rounded-full outline-none transition-colors hover:bg-current/[0.06] focus-visible:ring-2 focus-visible:ring-current/30"
+              style={{ color: "var(--brand-primary)" }}
+            >
+              {mode === "dark" ? (
+                <Sun className="h-[19px] w-[19px]" strokeWidth={2} />
+              ) : (
+                <Moon className="h-[19px] w-[19px]" strokeWidth={2} />
+              )}
+            </button>
             <Link
               href="/account"
               aria-label="Account"
