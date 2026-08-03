@@ -154,8 +154,11 @@ export function FashionCheckoutPage() {
           </p>
           <Link
             href="/products"
-            className="rounded-2xl px-6 py-3 text-sm font-semibold text-white"
-            style={{ backgroundColor: "var(--brand-primary)" }}
+            className="rounded-2xl px-6 py-3 text-sm font-semibold"
+            style={{
+              backgroundColor: "var(--brand-primary)",
+              color: "var(--brand-secondary)",
+            }}
           >
             Continue Shopping
           </Link>
@@ -203,8 +206,11 @@ export function FashionCheckoutPage() {
                   type="button"
                   disabled={!isEmailValid}
                   onClick={() => setStep(2)}
-                  className="self-start rounded-xl px-6 py-3 text-sm font-semibold text-white disabled:opacity-40"
-                  style={{ backgroundColor: "var(--brand-primary)" }}
+                  className="self-start rounded-xl px-6 py-3 text-sm font-semibold disabled:opacity-40"
+                  style={{
+                    backgroundColor: "var(--brand-primary)",
+                    color: "var(--brand-secondary)",
+                  }}
                 >
                   Continue to Shipping
                 </button>
@@ -340,8 +346,11 @@ export function FashionCheckoutPage() {
                 type="button"
                 disabled={!isAddressValid}
                 onClick={() => setStep(3)}
-                className="mt-4 self-start rounded-xl px-6 py-3 text-sm font-semibold text-white disabled:opacity-40"
-                style={{ backgroundColor: "var(--brand-primary)" }}
+                className="mt-4 self-start rounded-xl px-6 py-3 text-sm font-semibold disabled:opacity-40"
+                style={{
+                  backgroundColor: "var(--brand-primary)",
+                  color: "var(--brand-secondary)",
+                }}
               >
                 Continue to Shipping Method
               </button>
@@ -387,8 +396,11 @@ export function FashionCheckoutPage() {
               <button
                 type="button"
                 onClick={() => setStep(4)}
-                className="mt-4 self-start rounded-xl px-6 py-3 text-sm font-semibold text-white"
-                style={{ backgroundColor: "var(--brand-primary)" }}
+                className="mt-4 self-start rounded-xl px-6 py-3 text-sm font-semibold"
+                style={{
+                  backgroundColor: "var(--brand-primary)",
+                  color: "var(--brand-secondary)",
+                }}
               >
                 Continue to Payment
               </button>
@@ -519,8 +531,11 @@ export function FashionCheckoutPage() {
                   type="button"
                   disabled={!isEmailValid || !isAddressValid || !isCardValid}
                   onClick={placeOrder}
-                  className="mt-2 h-12 rounded-xl text-sm font-semibold text-white disabled:opacity-40"
-                  style={{ backgroundColor: "var(--brand-primary)" }}
+                  className="mt-2 h-12 rounded-xl text-sm font-semibold disabled:opacity-40"
+                  style={{
+                    backgroundColor: "var(--brand-primary)",
+                    color: "var(--brand-secondary)",
+                  }}
                 >
                   Place Order
                 </button>

@@ -40,8 +40,11 @@ export function CartContents({ onNavigate }: { onNavigate?: () => void }) {
         <Link
           href="/products"
           onClick={onNavigate}
-          className="rounded-2xl px-6 py-3 text-sm font-semibold text-white"
-          style={{ backgroundColor: "var(--brand-primary)" }}
+          className="rounded-2xl px-6 py-3 text-sm font-semibold"
+          style={{
+            backgroundColor: "var(--brand-primary)",
+            color: "var(--brand-secondary)",
+          }}
         >
           Continue Shopping
         </Link>
@@ -185,8 +188,11 @@ export function CartContents({ onNavigate }: { onNavigate?: () => void }) {
             <button
               type="button"
               onClick={applyPromo}
-              className="rounded-lg px-4 text-sm font-semibold text-white"
-              style={{ backgroundColor: "var(--brand-primary)" }}
+              className="rounded-lg px-4 text-sm font-semibold"
+              style={{
+                backgroundColor: "var(--brand-primary)",
+                color: "var(--brand-secondary)",
+              }}
             >
               Apply
             </button>
@@ -230,8 +236,11 @@ export function CartContents({ onNavigate }: { onNavigate?: () => void }) {
         <Link
           href="/checkout"
           onClick={onNavigate}
-          className="mt-4 flex h-12 w-full items-center justify-center rounded-xl text-sm font-semibold text-white"
-          style={{ backgroundColor: "var(--brand-primary)" }}
+          className="mt-4 flex h-12 w-full items-center justify-center rounded-xl text-sm font-semibold"
+          style={{
+            backgroundColor: "var(--brand-primary)",
+            color: "var(--brand-secondary)",
+          }}
         >
           Proceed to Checkout
         </Link>

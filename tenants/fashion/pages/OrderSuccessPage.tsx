@@ -56,8 +56,11 @@ export function FashionOrderSuccessPage() {
           </p>
           <Link
             href="/products"
-            className="rounded-2xl px-6 py-3 text-sm font-semibold text-white"
-            style={{ backgroundColor: "var(--brand-primary)" }}
+            className="rounded-2xl px-6 py-3 text-sm font-semibold"
+            style={{
+              backgroundColor: "var(--brand-primary)",
+              color: "var(--brand-secondary)",
+            }}
           >
             Continue Shopping
           </Link>

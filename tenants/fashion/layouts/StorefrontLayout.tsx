@@ -96,7 +96,11 @@ export function FashionStorefrontLayout({
   return (
     <div
       className="flex min-h-screen flex-col"
-      style={{ fontFamily: "var(--font-body)" }}
+      style={{
+        fontFamily: "var(--font-body)",
+        backgroundColor: "var(--brand-secondary)",
+        color: "var(--brand-primary)",
+      }}
     >
       <header
         className="sticky top-0 z-40"
@@ -190,7 +194,7 @@ export function FashionStorefrontLayout({
                   className="h-10 w-36 rounded-full border-none pl-9 pr-3 text-xs outline-none transition-all duration-200 focus:w-52"
                   style={{
                     backgroundColor:
-                      "color-mix(in srgb, var(--brand-primary) 5%, white)",
+                      "color-mix(in srgb, var(--brand-primary) 5%, var(--brand-secondary))",
                     color: "var(--brand-primary)",
                   }}
                 />
@@ -214,8 +218,11 @@ export function FashionStorefrontLayout({
               <ShoppingBag className="h-[19px] w-[19px]" strokeWidth={2} />
               {hasMounted && cartCount > 0 && (
                 <span
-                  className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
-                  style={{ backgroundColor: "var(--brand-primary)" }}
+                  className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold"
+                  style={{
+                    backgroundColor: "var(--brand-primary)",
+                    color: "var(--brand-secondary)",
+                  }}
                 >
                   {cartCount}
                 </span>
@@ -253,11 +260,11 @@ export function FashionStorefrontLayout({
         <footer
           className="py-16"
           style={{
-            backgroundColor: "var(--brand-primary)",
-            color: "var(--brand-secondary)",
+            backgroundColor: "var(--brand-secondary)",
+            color: "var(--brand-primary)",
           }}
         >
-          <div className="mx-auto grid max-w-7xl grid-cols-2 gap-10 border-b border-white/15 px-6 pb-12 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="mx-auto grid max-w-7xl grid-cols-2 gap-10 border-b border-current/15 px-6 pb-12 sm:grid-cols-3 lg:grid-cols-5">
             <div className="col-span-2 flex flex-col gap-3 sm:col-span-1">
               <div
                 className="text-xl font-bold"
@@ -297,7 +304,7 @@ export function FashionStorefrontLayout({
               {PAYMENT_METHODS.map((method) => (
                 <div
                   key={method}
-                  className="rounded-md border border-white/25 px-2.5 py-1 text-[11px] font-semibold opacity-75"
+                  className="rounded-md border border-current/25 px-2.5 py-1 text-[11px] font-semibold opacity-75"
                 >
                   {method}
                 </div>

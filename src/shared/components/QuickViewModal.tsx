@@ -66,12 +66,18 @@ export function QuickViewModal({
         aria-hidden="true"
       />
 
-      <div className="relative z-10 grid max-h-[90vh] w-full max-w-2xl grid-cols-1 gap-6 overflow-y-auto rounded-2xl bg-white p-6 sm:grid-cols-2 sm:p-8">
+      <div
+        className="relative z-10 grid max-h-[90vh] w-full max-w-2xl grid-cols-1 gap-6 overflow-y-auto rounded-2xl p-6 sm:grid-cols-2 sm:p-8"
+        style={{
+          backgroundColor: "var(--brand-secondary)",
+          color: "var(--brand-primary)",
+        }}
+      >
         <button
           type="button"
           onClick={onClose}
           aria-label="Close quick view"
-          className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-black/5 text-black"
+          className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-current/5"
         >
           <X className="h-4 w-4" />
         </button>
@@ -79,10 +85,10 @@ export function QuickViewModal({
         <ImagePlaceholder
           label={product.imageLabel}
           aspect="3/4"
-          className="w-full text-black"
+          className="w-full"
         />
 
-        <div className="flex flex-col gap-2 text-black">
+        <div className="flex flex-col gap-2">
           <div className="text-xs font-bold uppercase tracking-wide opacity-60">
             {product.brand}
           </div>
@@ -115,7 +121,9 @@ export function QuickViewModal({
                     style={{
                       backgroundColor: color,
                       borderColor:
-                        selectedColor === color ? "#000" : "transparent",
+                        selectedColor === color
+                          ? "var(--brand-primary)"
+                          : "transparent",
                     }}
                   />
                 ))}
@@ -136,10 +144,17 @@ export function QuickViewModal({
                     className="rounded-md border px-2.5 py-1 text-xs font-semibold"
                     style={{
                       borderColor:
-                        selectedSize === size ? "#000" : "rgba(0,0,0,.15)",
+                        selectedSize === size
+                          ? "var(--brand-primary)"
+                          : "color-mix(in srgb, var(--brand-primary) 15%, transparent)",
                       backgroundColor:
-                        selectedSize === size ? "#000" : "transparent",
-                      color: selectedSize === size ? "#fff" : "#000",
+                        selectedSize === size
+                          ? "var(--brand-primary)"
+                          : "transparent",
+                      color:
+                        selectedSize === size
+                          ? "var(--brand-secondary)"
+                          : "var(--brand-primary)",
                     }}
                   >
                     {size}
@@ -151,7 +166,7 @@ export function QuickViewModal({
 
           <div className="mt-2 flex flex-col gap-1.5">
             <span className="text-xs font-semibold opacity-60">Quantity</span>
-            <div className="flex items-center gap-2 self-start rounded-full border border-black/15 px-1">
+            <div className="flex items-center gap-2 self-start rounded-full border border-current/15 px-1">
               <button
                 type="button"
                 onClick={() => setQuantity((q) => Math.max(1, q - 1))}
@@ -184,7 +199,11 @@ export function QuickViewModal({
               });
               onClose();
             }}
-            className="mt-4 h-11 rounded-xl bg-black text-sm font-semibold text-white"
+            className="mt-4 h-11 rounded-xl text-sm font-semibold"
+            style={{
+              backgroundColor: "var(--brand-primary)",
+              color: "var(--brand-secondary)",
+            }}
           >
             Add to Cart
           </button>

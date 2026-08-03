@@ -178,8 +178,11 @@ export function FashionReturnsPage() {
             <button
               type="submit"
               disabled={isLookingUp}
-              className="mt-2 h-11 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
-              style={{ backgroundColor: "var(--brand-primary)" }}
+              className="mt-2 h-11 rounded-xl text-sm font-semibold disabled:opacity-50"
+              style={{
+                backgroundColor: "var(--brand-primary)",
+                color: "var(--brand-secondary)",
+              }}
             >
               {isLookingUp ? "Looking up..." : "Find My Order"}
             </button>

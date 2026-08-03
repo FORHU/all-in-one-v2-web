@@ -51,7 +51,8 @@ export function FashionLoginPage() {
 
         <form
           onSubmit={handleSubmit}
-          className="flex flex-col gap-4 rounded-2xl border border-current/10 bg-white p-8"
+          className="flex flex-col gap-4 rounded-2xl border border-current/10 p-8"
+          style={{ backgroundColor: "var(--brand-secondary)" }}
         >
           <h1
             className="text-xl font-bold tracking-tight"
@@ -96,8 +97,11 @@ export function FashionLoginPage() {
           <button
             type="submit"
             disabled={isLoggingIn}
-            className="mt-2 h-11 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
-            style={{ backgroundColor: "var(--brand-primary)" }}
+            className="mt-2 h-11 rounded-xl text-sm font-semibold disabled:opacity-50"
+            style={{
+              backgroundColor: "var(--brand-primary)",
+              color: "var(--brand-secondary)",
+            }}
           >
             {isLoggingIn ? "Signing in..." : "Sign In"}
           </button>

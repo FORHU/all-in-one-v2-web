@@ -238,8 +238,11 @@ export function FashionCategoryDetailPage({ slug }: { slug: string }) {
                 aria-hidden="true"
               />
               <div
-                className="absolute inset-y-0 left-0 w-[85%] max-w-sm overflow-y-auto bg-white p-6"
-                style={{ color: "var(--brand-primary)" }}
+                className="absolute inset-y-0 left-0 w-[85%] max-w-sm overflow-y-auto p-6"
+                style={{
+                  backgroundColor: "var(--brand-secondary)",
+                  color: "var(--brand-primary)",
+                }}
               >
                 <div className="mb-4 flex items-center justify-between">
                   <span className="text-lg font-bold">Filters</span>

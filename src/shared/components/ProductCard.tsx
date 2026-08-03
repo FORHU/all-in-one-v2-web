@@ -51,7 +51,11 @@ export function ProductCard({
             type="button"
             onClick={() => onQuickView(product)}
             aria-label={`Quick view ${product.name}`}
-            className="absolute left-2.5 top-2.5 flex h-8 w-8 items-center justify-center rounded-full bg-white/90"
+            className="absolute left-2.5 top-2.5 flex h-8 w-8 items-center justify-center rounded-full"
+            style={{
+              backgroundColor:
+                "color-mix(in srgb, var(--brand-secondary) 90%, transparent)",
+            }}
           >
             <Eye
               className="h-4 w-4"
@@ -63,8 +67,11 @@ export function ProductCard({
 
         {!compact && (product.discountPercent ?? 0) > 0 && (
           <div
-            className={`absolute left-3 rounded-lg px-2.5 py-1 text-[11px] font-bold text-white ${onQuickView ? "top-[46px]" : "top-3"}`}
-            style={{ backgroundColor: "var(--brand-primary)" }}
+            className={`absolute left-3 rounded-lg px-2.5 py-1 text-[11px] font-bold ${onQuickView ? "top-[46px]" : "top-3"}`}
+            style={{
+              backgroundColor: "var(--brand-primary)",
+              color: "var(--brand-secondary)",
+            }}
           >
             -{product.discountPercent}%
           </div>
@@ -74,8 +81,11 @@ export function ProductCard({
           <button
             type="button"
             onClick={() => onQuickAdd(product)}
-            className="absolute inset-x-2.5 bottom-2.5 rounded-lg py-2.5 text-[13px] font-semibold text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-            style={{ backgroundColor: "var(--brand-primary)" }}
+            className="absolute inset-x-2.5 bottom-2.5 rounded-lg py-2.5 text-[13px] font-semibold opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+            style={{
+              backgroundColor: "var(--brand-primary)",
+              color: "var(--brand-secondary)",
+            }}
           >
             Quick Add to Cart
           </button>

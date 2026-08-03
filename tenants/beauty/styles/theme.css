@@ -3,11 +3,11 @@
  * Consumed by shared/components and features/storefront/components, which
  * must theme themselves only via these variables — never via tenant checks
  * in component code.
- * Palette: deep rose on soft blush — warm, soft cosmetics look.
+ * Palette: pure black & white — permanent dark, monochrome look.
  */
 :root[data-tenant="beauty"] {
-  --brand-primary: #c2185b;
-  --brand-secondary: #fff5f7;
+  --brand-primary: #ffffff;
+  --brand-secondary: #000000;
   --font-heading: sans-serif;
   --font-body: sans-serif;
 }

@@ -55,8 +55,11 @@ export function CheckoutOrderSummary({
                 className="h-16 w-14"
               />
               <span
-                className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white"
-                style={{ backgroundColor: "var(--brand-primary)" }}
+                className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold"
+                style={{
+                  backgroundColor: "var(--brand-primary)",
+                  color: "var(--brand-secondary)",
+                }}
               >
                 {item.quantity}
               </span>
@@ -87,8 +90,11 @@ export function CheckoutOrderSummary({
           <button
             type="button"
             onClick={onApplyDiscount}
-            className="rounded-lg px-4 text-sm font-semibold text-white"
-            style={{ backgroundColor: "var(--brand-primary)" }}
+            className="rounded-lg px-4 text-sm font-semibold"
+            style={{
+              backgroundColor: "var(--brand-primary)",
+              color: "var(--brand-secondary)",
+            }}
           >
             Apply
           </button>

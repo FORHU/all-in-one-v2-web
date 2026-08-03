@@ -9,8 +9,8 @@ export const beautyConfig: TenantConfig = {
   name: "Beauty",
   domain: "askmebeauty.com",
   theme: {
-    colorPrimary: "#C2185B",
-    colorSecondary: "#FFF5F7",
+    colorPrimary: "#FFFFFF",
+    colorSecondary: "#000000",
     fontHeading: "sans-serif",
     fontBody: "sans-serif",
   },

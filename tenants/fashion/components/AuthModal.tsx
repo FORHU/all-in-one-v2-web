@@ -98,14 +98,17 @@ export function AuthModal({
       />
 
       <div
-        className="relative z-10 w-full max-w-sm rounded-2xl bg-white p-7"
-        style={{ color: "var(--brand-primary)" }}
+        className="relative z-10 w-full max-w-sm rounded-2xl p-7"
+        style={{
+          backgroundColor: "var(--brand-secondary)",
+          color: "var(--brand-primary)",
+        }}
       >
         <button
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-black/5"
+          className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-current/5"
         >
           <X className="h-4 w-4" />
         </button>
@@ -189,8 +192,11 @@ export function AuthModal({
           <button
             type="submit"
             disabled={isSubmitting}
-            className="mt-1 h-11 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
-            style={{ backgroundColor: "var(--brand-primary)" }}
+            className="mt-1 h-11 rounded-xl text-sm font-semibold disabled:opacity-50"
+            style={{
+              backgroundColor: "var(--brand-primary)",
+              color: "var(--brand-secondary)",
+            }}
           >
             {isSubmitting
               ? "Please wait..."

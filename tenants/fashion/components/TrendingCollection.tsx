@@ -60,8 +60,11 @@ export function TrendingCollection() {
               <p className="text-[15px] leading-relaxed opacity-70">{copy}</p>
               <Link
                 href={href}
-                className="mt-2 self-start rounded-2xl px-6 py-3.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
-                style={{ backgroundColor: "var(--brand-primary)" }}
+                className="mt-2 self-start rounded-2xl px-6 py-3.5 text-sm font-semibold transition-opacity hover:opacity-90"
+                style={{
+                  backgroundColor: "var(--brand-primary)",
+                  color: "var(--brand-secondary)",
+                }}
               >
                 Discover the Edit
               </Link>

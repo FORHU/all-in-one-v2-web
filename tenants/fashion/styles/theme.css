@@ -3,11 +3,11 @@
  * Consumed by shared/components and features/storefront/components, which
  * must theme themselves only via these variables — never via tenant checks
  * in component code.
- * Palette: pure black and white — high-contrast monochrome look.
+ * Palette: pure white and black — inverted high-contrast monochrome (dark) look.
  */
 :root[data-tenant="fashion"] {
-  --brand-primary: #000000;
-  --brand-secondary: #ffffff;
+  --brand-primary: #ffffff;
+  --brand-secondary: #000000;
   --font-heading: sans-serif;
   --font-body: sans-serif;
 }

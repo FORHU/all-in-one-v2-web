@@ -9,8 +9,8 @@ export const fashionConfig: TenantConfig = {
   name: "addictstyle",
   domain: "addictstyle.com",
   theme: {
-    colorPrimary: "#000000",
-    colorSecondary: "#FFFFFF",
+    colorPrimary: "#FFFFFF",
+    colorSecondary: "#000000",
     fontHeading: "sans-serif",
     fontBody: "sans-serif",
   },

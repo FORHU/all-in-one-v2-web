@@ -16,7 +16,11 @@ export function BeautyStorefrontLayout({
   return (
     <div
       className="flex min-h-screen flex-col"
-      style={{ fontFamily: "var(--font-body)" }}
+      style={{
+        fontFamily: "var(--font-body)",
+        backgroundColor: "var(--brand-secondary)",
+        color: "var(--brand-primary)",
+      }}
     >
       <header
         className="border-b"

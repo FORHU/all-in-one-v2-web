@@ -211,8 +211,11 @@ export function FashionAccountPage() {
             <button
               type="button"
               onClick={() => setIsAuthModalOpen(true)}
-              className="mt-2 rounded-2xl px-10 py-3.5 text-sm font-semibold text-white"
-              style={{ backgroundColor: "var(--brand-primary)" }}
+              className="mt-2 rounded-2xl px-10 py-3.5 text-sm font-semibold"
+              style={{
+                backgroundColor: "var(--brand-primary)",
+                color: "var(--brand-secondary)",
+              }}
             >
               Sign In
             </button>
@@ -641,7 +644,10 @@ export function FashionAccountPage() {
                       className="flex h-6 w-11 flex-none items-center rounded-full p-0.5"
                       style={{ backgroundColor: "var(--brand-primary)" }}
                     >
-                      <span className="ml-auto block h-5 w-5 rounded-full bg-white" />
+                      <span
+                        className="ml-auto block h-5 w-5 rounded-full"
+                        style={{ backgroundColor: "var(--brand-secondary)" }}
+                      />
                     </button>
                   </div>
                 ))}
@@ -686,8 +692,11 @@ export function FashionAccountPage() {
                       "Profile editing isn't wired up yet — this is a UI-only demo.",
                     )
                   }
-                  className="self-start rounded-xl px-6 py-2.5 text-sm font-semibold text-white"
-                  style={{ backgroundColor: "var(--brand-primary)" }}
+                  className="self-start rounded-xl px-6 py-2.5 text-sm font-semibold"
+                  style={{
+                    backgroundColor: "var(--brand-primary)",
+                    color: "var(--brand-secondary)",
+                  }}
                 >
                   Save Changes
                 </button>
