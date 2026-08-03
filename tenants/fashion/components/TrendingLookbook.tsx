@@ -1,29 +1,84 @@
 "use client";
 
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
+import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { ImagePlaceholder } from "@/shared/components/ImagePlaceholder";
 import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
-import { fashionLooks } from "../data/looks";
+import { fashionLooks, type LookItem } from "../data/looks";
+
+const PANEL_HEIGHT = "lg:h-[560px]";
 
 /**
- * Fashion — "Complete the Look" widget shown above the filters+grid on
- * pages/CategoryDetailPage.tsx. The look image is a prev/next carousel over
- * data/looks.ts (same arrow/dot pattern as components/HeroBanner.tsx's own
- * "Get the Look" carousel) so the two widgets never disagree about what's
- * in "The Off-Duty Set" etc.
+ * Fashion — "Shop the Look" widget shown above the filters+grid on
+ * pages/CategoryDetailPage.tsx. Three panels: a vertical looks carousel
+ * (left), the active look at large size (center), and that look's
+ * individual pieces (right). All three read data/looks.ts so this never
+ * disagrees with components/HeroBanner.tsx's own "Get the Look" carousel
+ * about what's in "The Off-Duty Set" etc.
  */
 export function TrendingLookbook() {
   const [activeIndex, setActiveIndex] = useState(0);
   const addCartItem = useLocalCartStore((s) => s.addItem);
   const activeLook = fashionLooks[activeIndex];
   const total = activeLook.items.reduce((sum, item) => sum + item.price, 0);
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef({
+    dragging: false,
+    startX: 0,
+    startY: 0,
+    scrollLeft: 0,
+    scrollTop: 0,
+    moved: false,
+  });
 
-  const goPrev = () =>
-    setActiveIndex((i) => (i - 1 + fashionLooks.length) % fashionLooks.length);
-  const goNext = () => setActiveIndex((i) => (i + 1) % fashionLooks.length);
+  // Click-and-drag scrolling for mouse users — touch already scrolls
+  // natively via swipe, so this only activates for pointerType "mouse".
+  // Pointer capture is deferred until real movement crosses the threshold
+  // (not taken immediately on pointerdown) — setPointerCapture also
+  // redirects the compatibility mouse/click events to the capturing
+  // element, so capturing eagerly silently ate every plain click on the
+  // look thumbnails, drag or not. `moved` gates whether a drag should
+  // suppress the click (dragging past a thumbnail shouldn't select it).
+  const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== "mouse") return;
+    const container = carouselRef.current;
+    if (!container) return;
+    dragRef.current = {
+      dragging: true,
+      startX: event.clientX,
+      startY: event.clientY,
+      scrollLeft: container.scrollLeft,
+      scrollTop: container.scrollTop,
+      moved: false,
+    };
+  };
+
+  const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    const container = carouselRef.current;
+    if (!drag.dragging || !container) return;
+    const dx = event.clientX - drag.startX;
+    const dy = event.clientY - drag.startY;
+    if (!drag.moved && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
+      drag.moved = true;
+      container.setPointerCapture(event.pointerId);
+    }
+    if (!drag.moved) return;
+    container.scrollLeft = drag.scrollLeft - dx;
+    container.scrollTop = drag.scrollTop - dy;
+  };
+
+  const handlePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+    dragRef.current.dragging = false;
+    if (carouselRef.current?.hasPointerCapture(event.pointerId)) {
+      carouselRef.current.releasePointerCapture(event.pointerId);
+    }
+  };
 
   const addAllToBag = () => {
     activeLook.items.forEach((item) =>
@@ -40,10 +95,21 @@ export function TrendingLookbook() {
     toast.success(`Added ${activeLook.items.length} items to your bag`);
   };
 
+  const addItemToBag = (item: LookItem) => {
+    addCartItem({
+      productId: item.id,
+      name: item.name,
+      brand: item.brand,
+      price: item.price,
+      imageLabel: item.imageLabel,
+      size: item.size,
+      quantity: 1,
+    });
+    toast.success(`Added ${item.name} to your bag`);
+  };
+
   const borderColor =
     "color-mix(in srgb, var(--brand-primary) 12%, transparent)";
-  const arrowButtonClass =
-    "flex h-11 w-11 flex-none items-center justify-center rounded-full border outline-none transition-colors hover:bg-current/[0.06] focus-visible:ring-2 focus-visible:ring-current/30";
 
   return (
     <section
@@ -63,145 +129,136 @@ export function TrendingLookbook() {
           </h2>
         </div>
 
-        <div className="flex w-full items-center gap-3 sm:gap-6">
-          <button
-            type="button"
-            onClick={goPrev}
-            aria-label="Previous look"
-            className={arrowButtonClass}
-            style={{
-              borderColor:
-                "color-mix(in srgb, var(--brand-primary) 25%, transparent)",
-            }}
+        <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-[160px_1fr_300px]">
+          {/* Left — vertical looks carousel */}
+          <div
+            className={`flex min-w-0 flex-col gap-2 rounded-2xl border p-3 ${PANEL_HEIGHT}`}
+            style={{ borderColor }}
           >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-
-          <div className="flex min-w-0 flex-1 items-center justify-center gap-3 sm:gap-4">
-            {fashionLooks.map((look, i) => {
-              const rel =
-                (i - activeIndex + fashionLooks.length) % fashionLooks.length;
-              const pos = rel === 0 ? 0 : rel === 1 ? 1 : -1;
-              const isActive = pos === 0;
-              return (
-                <motion.button
-                  key={look.id}
-                  layout
-                  transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
-                  type="button"
-                  onClick={() => setActiveIndex(i)}
-                  aria-pressed={isActive}
-                  aria-label={`Show ${look.name}`}
-                  className={`group flex min-w-0 flex-col items-center gap-2 transition-opacity duration-300 ${
-                    isActive
-                      ? "w-[46%] sm:w-[38%] lg:w-auto"
-                      : "w-[24%] opacity-50 hover:opacity-90 sm:w-[22%] lg:w-auto"
-                  }`}
-                  style={{ order: pos + 1 }}
-                >
-                  <span
-                    className="inline-block w-full min-w-0 overflow-hidden rounded-2xl border-2 transition-all duration-300 group-hover:scale-[1.02] lg:w-auto"
-                    style={{
-                      borderColor: isActive
-                        ? "var(--brand-primary)"
-                        : "transparent",
-                      boxShadow: isActive
-                        ? "0 12px 40px color-mix(in srgb, var(--brand-primary) 15%, transparent)"
-                        : "none",
+            <div
+              ref={carouselRef}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerLeave={handlePointerUp}
+              className="scrollbar-hide flex min-h-0 flex-1 cursor-grab select-none gap-3 overflow-x-auto overflow-y-hidden pb-1 active:cursor-grabbing lg:flex-col lg:gap-2 lg:overflow-x-hidden lg:overflow-y-auto lg:pb-0"
+            >
+              {fashionLooks.map((look, i) => {
+                const isActive = i === activeIndex;
+                return (
+                  <button
+                    key={look.id}
+                    type="button"
+                    onClick={() => {
+                      if (dragRef.current.moved) return;
+                      setActiveIndex(i);
                     }}
-                  >
-                    <ImagePlaceholder
-                      label={look.imageLabel}
-                      aspect="3/4"
-                      className={
-                        isActive
-                          ? "w-full h-auto lg:h-[42vh] lg:max-h-[440px] lg:w-auto"
-                          : "w-full h-auto lg:h-[30vh] lg:max-h-[310px] lg:w-auto"
-                      }
-                    />
-                  </span>
-                  <span
-                    className={`truncate text-center text-xs font-semibold transition-opacity duration-300 ${
-                      isActive ? "opacity-100" : "opacity-0 sm:opacity-60"
+                    aria-pressed={isActive}
+                    aria-label={`Show ${look.name}`}
+                    className={`flex w-24 flex-none flex-col gap-1.5 transition-opacity duration-300 lg:w-full ${
+                      isActive ? "" : "opacity-50 hover:opacity-90"
                     }`}
                   >
-                    {look.name}
-                  </span>
-                </motion.button>
-              );
-            })}
+                    <span
+                      className="block overflow-hidden rounded-xl border-2 transition-colors duration-300"
+                      style={{
+                        borderColor: isActive
+                          ? "var(--brand-primary)"
+                          : "transparent",
+                      }}
+                    >
+                      <ImagePlaceholder
+                        label={look.imageLabel}
+                        aspect="3/4"
+                        className="w-full"
+                      />
+                    </span>
+                    <span className="truncate text-center text-[11px] font-semibold">
+                      {look.name}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          <button
-            type="button"
-            onClick={goNext}
-            aria-label="Next look"
-            className={arrowButtonClass}
-            style={{
-              borderColor:
-                "color-mix(in srgb, var(--brand-primary) 25%, transparent)",
-            }}
+          {/* Center — active look, large */}
+          <div
+            className={`flex min-w-0 items-center justify-center rounded-2xl border p-6 ${PANEL_HEIGHT}`}
+            style={{ borderColor }}
           >
-            <ChevronRight className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="flex items-center justify-center gap-2">
-          {fashionLooks.map((look, i) => (
-            <button
-              key={look.id}
-              type="button"
-              onClick={() => setActiveIndex(i)}
-              aria-label={`Show ${look.name}`}
-              aria-current={i === activeIndex}
-              className="h-1.5 rounded-full transition-all"
-              style={{
-                width: i === activeIndex ? "20px" : "6px",
-                backgroundColor:
-                  i === activeIndex
-                    ? "var(--brand-primary)"
-                    : "color-mix(in srgb, var(--brand-primary) 30%, transparent)",
-              }}
+            <ImagePlaceholder
+              label={activeLook.imageLabel}
+              aspect="3/4"
+              className="w-[70%] h-auto sm:w-[46%] lg:h-full lg:max-h-full lg:w-auto"
             />
-          ))}
-        </div>
-
-        <div>
-          <h3 className="mb-3 text-sm font-bold uppercase tracking-wide opacity-70">
-            Complete the Look
-          </h3>
-          <div className="flex flex-wrap gap-3">
-            {activeLook.items.map((item) => (
-              <div
-                key={item.id}
-                className="flex min-w-[110px] flex-1 flex-col items-center gap-1 rounded-2xl border px-4 py-5 text-center"
-                style={{ borderColor }}
-              >
-                <span className="text-[10px] font-bold uppercase tracking-wide opacity-50">
-                  {item.tag}
-                </span>
-                <span className="text-sm font-semibold">{item.name}</span>
-              </div>
-            ))}
           </div>
-        </div>
 
-        <div
-          className="flex items-center justify-between border-t pt-4"
-          style={{ borderColor }}
-        >
-          <span className="text-2xl font-bold">${total}</span>
-          <button
-            type="button"
-            onClick={addAllToBag}
-            className="rounded-full px-8 py-3 text-sm font-bold transition-opacity hover:opacity-90"
-            style={{
-              backgroundColor: "var(--brand-primary)",
-              color: "var(--brand-secondary)",
-            }}
+          {/* Right — pieces in this look */}
+          <div
+            className={`flex min-w-0 flex-col gap-4 rounded-2xl border p-5 ${PANEL_HEIGHT}`}
+            style={{ borderColor }}
           >
-            Add All to Bag
-          </button>
+            <h3 className="text-sm font-bold uppercase tracking-wide opacity-70">
+              Complete the Look
+            </h3>
+            <div className="scrollbar-hide flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1">
+              {activeLook.items.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex flex-none items-center gap-3 rounded-2xl border p-3"
+                  style={{ borderColor }}
+                >
+                  <ImagePlaceholder
+                    label={item.imageLabel}
+                    aspect="1/1"
+                    className="h-14 w-14 flex-none"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[10px] font-bold uppercase tracking-wide opacity-50">
+                      {item.tag}
+                    </div>
+                    <div className="truncate text-sm font-semibold">
+                      {item.name}
+                    </div>
+                    <div className="text-xs font-bold opacity-70">
+                      ${item.price}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => addItemToBag(item)}
+                    aria-label={`Add ${item.name} to bag`}
+                    className="flex h-9 w-9 flex-none items-center justify-center rounded-full transition-opacity hover:opacity-90"
+                    style={{
+                      backgroundColor: "var(--brand-primary)",
+                      color: "var(--brand-secondary)",
+                    }}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div
+              className="flex flex-none items-center justify-between border-t pt-4"
+              style={{ borderColor }}
+            >
+              <span className="text-2xl font-bold">${total}</span>
+              <button
+                type="button"
+                onClick={addAllToBag}
+                className="rounded-full px-6 py-3 text-sm font-bold transition-opacity hover:opacity-90"
+                style={{
+                  backgroundColor: "var(--brand-primary)",
+                  color: "var(--brand-secondary)",
+                }}
+              >
+                Add All to Bag
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </section>

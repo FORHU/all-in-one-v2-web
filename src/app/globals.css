@@ -113,6 +113,18 @@
 }
 
 @layer utilities {
+  /* Hides the scrollbar track/thumb while keeping native scroll/swipe/wheel
+     behavior intact — used by scrollable carousels that already provide
+     their own click controls (e.g. tenants/fashion's TrendingLookbook). */
+  .scrollbar-hide {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
   /* Shimmer/Glow effects */
   .glow-primary {
     box-shadow: 0 0 20px rgba(124, 58, 237, 0.3);
