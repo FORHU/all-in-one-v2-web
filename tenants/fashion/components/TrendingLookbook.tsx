@@ -195,7 +195,7 @@ export function TrendingLookbook() {
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
               onPointerLeave={handlePointerUp}
-              className="scrollbar-hide flex min-h-0 flex-1 cursor-grab select-none gap-3 overflow-x-auto overflow-y-hidden pb-1 active:cursor-grabbing lg:grid lg:grid-cols-4 lg:auto-rows-[calc((100%-1rem)/3)] lg:gap-2 lg:overflow-x-hidden lg:overflow-y-auto lg:pb-0"
+              className="scrollbar-hide flex min-h-0 flex-1 cursor-grab select-none gap-3 overflow-x-auto overflow-y-hidden pb-1 active:cursor-grabbing lg:grid lg:grid-cols-3 lg:auto-rows-[calc((100%-1rem)/3)] lg:gap-2 lg:overflow-x-hidden lg:overflow-y-auto lg:pb-0"
             >
               {filteredLooks.map((look) => {
                 const isActive = look.id === activeLookId;
