@@ -8,6 +8,20 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * View Transitions API — drives tenants/fashion's light/dark toggle wave.
+ * The default cross-fade animation is disabled here so the only visible
+ * motion is the circular clip-path this component animates by hand via
+ * document.documentElement.animate(...) on ::view-transition-new(root).
+ * No-op on browsers without support or pages that never call
+ * document.startViewTransition.
+ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
 /* 
   2026 Theme Options:
   

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type MouseEvent as ReactMouseEvent } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Search, ShoppingBag, User, Menu, X, Sun, Moon } from "lucide-react";
@@ -97,6 +97,51 @@ export function FashionStorefrontLayout({
   const [hasMounted, setHasMounted] = useState(false);
   useEffect(() => setHasMounted(true), []);
   const mode = hasMounted ? colorMode : "dark";
+
+  // Wave-reveal the mode switch from the clicked point, via the View
+  // Transitions API (Chrome/Edge/Safari). Falls back to an instant toggle
+  // on browsers without support (Firefox) rather than skipping the toggle.
+  const handleToggleColorMode = (event: ReactMouseEvent<HTMLButtonElement>) => {
+    const x = event.clientX;
+    const y = event.clientY;
+    const startViewTransition = (
+      document as Document & {
+        startViewTransition?: (callback: () => void) => {
+          ready: Promise<void>;
+        };
+      }
+    ).startViewTransition?.bind(document);
+
+    if (!startViewTransition) {
+      toggleColorMode();
+      return;
+    }
+
+    const endRadius = Math.hypot(
+      Math.max(x, window.innerWidth - x),
+      Math.max(y, window.innerHeight - y),
+    );
+
+    const transition = startViewTransition(() => {
+      toggleColorMode();
+    });
+
+    transition.ready.then(() => {
+      document.documentElement.animate(
+        {
+          clipPath: [
+            `circle(0px at ${x}px ${y}px)`,
+            `circle(${endRadius}px at ${x}px ${y}px)`,
+          ],
+        },
+        {
+          duration: 600,
+          easing: "ease-in-out",
+          pseudoElement: "::view-transition-new(root)",
+        },
+      );
+    });
+  };
 
   return (
     <div
@@ -209,7 +254,7 @@ export function FashionStorefrontLayout({
             )}
             <button
               type="button"
-              onClick={toggleColorMode}
+              onClick={handleToggleColorMode}
               aria-label={
                 mode === "dark" ? "Switch to light mode" : "Switch to dark mode"
               }
