@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { X } from "lucide-react";
+import { X as CloseIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useLogin, useRegister } from "@/features/auth/hooks";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
@@ -112,7 +112,7 @@ export function AuthModal({
           aria-label="Close"
           className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-current/5"
         >
-          <X className="h-4 w-4" />
+          <CloseIcon className="h-4 w-4" />
         </button>
 
         <div
