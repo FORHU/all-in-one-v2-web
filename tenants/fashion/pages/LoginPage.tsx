@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { useAuth } from "@/features/auth/hooks/useAuth";
+import { useLogin } from "@/features/auth/hooks";
 import { ApiError } from "@/shared/errors/api-error";
 import { fashionConfig } from "../tenant.config";
 import logo from "../assets/addictstyle-logo.svg";
@@ -14,12 +14,12 @@ import { FASHION_COLOR_VARS } from "../utils/colorModeVars";
 /**
  * Fashion — login page.
  * Wired to the real POST /v2/auth/login endpoint via features/auth's
- * useAuth(). No registration form yet — /v2/auth/register exists on the
+ * useLogin(). No registration form yet — /v2/auth/register exists on the
  * backend but isn't scoped here.
  */
 export function FashionLoginPage() {
   const router = useRouter();
-  const { login, isLoggingIn } = useAuth();
+  const { mutateAsync: login, isPending: isLoggingIn } = useLogin();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);

@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement } from "react";
 import { UserListSkeleton } from "@/features/users/components/UserListSkeleton";
-import * as useUsersModule from "@/features/users/hooks/useUsers";
+import * as useUsersModule from "@/features/users/hooks";
 
 // ── Wrapper ──────────────────────────────────────────────────────────────────
 function createWrapper() {

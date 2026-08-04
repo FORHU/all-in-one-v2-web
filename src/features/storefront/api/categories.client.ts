@@ -1,4 +1,4 @@
-import type { Category } from "../types";
+import type { Category } from "../contracts/categories.contract";
 
 /**
  * Storefront — Categories API client.

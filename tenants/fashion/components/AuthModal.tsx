@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { X } from "lucide-react";
 import { toast } from "sonner";
-import { useAuth } from "@/features/auth/hooks/useAuth";
+import { useLogin, useRegister } from "@/features/auth/hooks";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
 
 type Mode = "login" | "register";
@@ -20,7 +20,8 @@ const inputClassName =
  * Fashion — sign in / register modal, used by the account dashboard when
  * signed out (pages/AccountPage.tsx). Email/password forms are wired to
  * the real POST /v2/auth/login and /v2/auth/register endpoints (see
- * features/auth/hooks/useAuth.ts). Google/Apple are presentational only —
+ * features/auth/hooks/mutations/useLogin.ts and useRegister.ts). Google/Apple
+ * are presentational only —
  * no OAuth client is configured anywhere in this codebase.
  */
 export function AuthModal({
@@ -30,7 +31,8 @@ export function AuthModal({
   isOpen: boolean;
   onClose: () => void;
 }) {
-  const { login, register, isLoggingIn, isRegistering } = useAuth();
+  const { mutateAsync: login, isPending: isLoggingIn } = useLogin();
+  const { mutateAsync: register, isPending: isRegistering } = useRegister();
   const setToken = useAuthStore((s) => s.setToken);
   const setUser = useAuthStore((s) => s.setUser);
   const [mode, setMode] = useState<Mode>("login");

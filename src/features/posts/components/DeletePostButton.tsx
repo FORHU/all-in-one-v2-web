@@ -1,7 +1,7 @@
 "use client";
 
 import { Trash2 } from "lucide-react";
-import { useDeletePost } from "../hooks/posts.hooks";
+import { useDeletePost } from "../hooks";
 
 interface DeletePostButtonProps {
   postId: string;

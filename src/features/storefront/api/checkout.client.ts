@@ -1,4 +1,4 @@
-import type { CheckoutSession } from "../types";
+import type { CheckoutSession } from "../contracts/checkout.contract";
 
 /**
  * Storefront — Checkout API client.

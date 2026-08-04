@@ -1,40 +1,9 @@
 /**
- * Storefront — shared domain types.
- * TODO: align these shapes with all-in-one-v2-api's Prisma models
- * (Product, ProductVariant, Category, Cart, CartItem).
+ * Storefront — shared domain types, re-exported from the Zod contracts
+ * that remain the single source of truth (see contracts/*.contract.ts).
  */
 
-export interface Product {
-  id: string;
-  slug: string;
-  title: string;
-}
-
-export interface ProductVariant {
-  id: string;
-  productId: string;
-  title: string;
-  price: number;
-}
-
-export interface Category {
-  id: string;
-  slug: string;
-  name: string;
-}
-
-export interface CartItem {
-  productVariantId: string;
-  quantity: number;
-  unitPrice: number;
-}
-
-export interface Cart {
-  id: string;
-  items: CartItem[];
-}
-
-export interface CheckoutSession {
-  id: string;
-  cartId: string;
-}
+export type { Product, ProductVariant } from "../contracts/products.contract";
+export type { Category } from "../contracts/categories.contract";
+export type { CartItem, Cart } from "../contracts/cart.contract";
+export type { CheckoutSession } from "../contracts/checkout.contract";
