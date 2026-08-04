@@ -22,11 +22,11 @@ export default function QueryProvider({
     () =>
       new QueryClient({
         queryCache: new QueryCache({
-          onError: (error) => {
+          onError: (error, query) => {
             logError(error);
             const result = routeError(error);
 
-            if (result.toast) {
+            if (result.toast && !query.meta?.suppressErrorToast) {
               toast.error(result.toast);
             }
 
@@ -38,11 +38,11 @@ export default function QueryProvider({
           },
         }),
         mutationCache: new MutationCache({
-          onError: (error) => {
+          onError: (error, _variables, _context, mutation) => {
             logError(error);
             const result = routeError(error);
 
-            if (result.toast) {
+            if (result.toast && !mutation.meta?.suppressErrorToast) {
               toast.error(result.toast);
             }
 

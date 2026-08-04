@@ -1,0 +1,13 @@
+/**
+ * Living — CSS custom property overrides.
+ * Consumed by shared/components and features/storefront/components, which
+ * must theme themselves only via these variables — never via tenant checks
+ * in component code.
+ * Palette: terracotta on warm cream — cozy, organic home-goods look.
+ */
+:root[data-tenant="living"] {
+  --brand-primary: #b5651d;
+  --brand-secondary: #fbf7f0;
+  --font-heading: sans-serif;
+  --font-body: sans-serif;
+}

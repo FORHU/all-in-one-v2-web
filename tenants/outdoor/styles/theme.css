@@ -1,0 +1,13 @@
+/**
+ * Outdoor — CSS custom property overrides.
+ * Consumed by shared/components and features/storefront/components, which
+ * must theme themselves only via these variables — never via tenant checks
+ * in component code.
+ * Palette: forest green on sage white — rugged, outdoor-adventure look.
+ */
+:root[data-tenant="outdoor"] {
+  --brand-primary: #2f5233;
+  --brand-secondary: #f2f5ec;
+  --font-heading: sans-serif;
+  --font-body: sans-serif;
+}

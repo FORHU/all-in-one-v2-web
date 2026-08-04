@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement } from "react";
-import { useUsers } from "@/features/users/hooks/useUsers";
+import { useUsers } from "@/features/users/hooks";
 import * as usersClient from "@/features/users/api/users.client";
 
 // ── Wrapper ──────────────────────────────────────────────────────────────────

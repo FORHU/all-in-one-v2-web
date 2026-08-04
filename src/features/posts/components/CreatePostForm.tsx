@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { PlusCircle, Loader2 } from "lucide-react";
-import { useCreatePost } from "../hooks/posts.hooks";
+import { useCreatePost } from "../hooks";
 import type { CreatePostInput } from "../contracts/posts.contract";
 
 /**
