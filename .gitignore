@@ -39,4 +39,8 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
-next-env.d.ts
+# next-env.d.ts is committed on purpose — CI runs `tsc --noEmit` without ever
+# running `next dev`/`next build` first, so the file (and the `*.svg`/etc.
+# ambient module declarations it pulls in via next/image-types/global) would
+# otherwise never exist in CI. Regenerated on every `next dev`/`next build`,
+# so it's safe to commit even though Next's own comment says "don't edit".
