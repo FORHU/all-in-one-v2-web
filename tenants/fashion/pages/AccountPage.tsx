@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
@@ -15,7 +15,7 @@ import {
   Settings as SettingsIcon,
 } from "lucide-react";
 import { FashionStorefrontLayout } from "../layouts/StorefrontLayout";
-import { AuthModal } from "../components/AuthModal";
+import { AuthForm } from "../components/AuthForm";
 import { ImagePlaceholder } from "@/shared/components/ImagePlaceholder";
 import { ProductCard } from "@/shared/components/ProductCard";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
@@ -123,8 +123,8 @@ function OrderCard({ order }: { order: DemoOrder }) {
 /**
  * Fashion — account dashboard.
  * Gated on real auth state (useAuthStore's token, set by a real POST
- * /v2/auth/login or /v2/auth/register via AuthModal, with a mock-session
- * fallback in AuthModal for local testing).
+ * /v2/auth/login or /v2/auth/register via the inline AuthForm). A failed
+ * login/register shows an error — there is no mock-session fallback.
  *
  * Orders mixes the one real order (useLastOrderStore, if the user just
  * checked out) with data/orderHistory.ts's fabricated past orders — there
@@ -138,10 +138,26 @@ export function FashionAccountPage() {
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
   const logoutToken = useAuthStore((s) => s.setToken);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<SectionKey>("dashboard");
 
   const lastOrder = useLastOrderStore((s) => s.order);
+
+  // useAuthStore's token comes from localStorage (see shared/lib/token.ts),
+  // which is unavailable during SSR — the server always renders with
+  // token === null. Branching on `token` before mount would render the
+  // signed-out view server-side and the signed-in view client-side for any
+  // already-authenticated visitor, a hydration mismatch. Gating behind a
+  // mount flag keeps the first paint identical on both sides.
+  const [hasMounted, setHasMounted] = useState(false);
+  useEffect(() => setHasMounted(true), []);
+
+  if (!hasMounted) {
+    return (
+      <FashionStorefrontLayout hideSearch hideFooter>
+        <div className="min-h-[calc(100vh-150px)]" />
+      </FashionStorefrontLayout>
+    );
+  }
 
   if (!token) {
     return (
@@ -196,35 +212,24 @@ export function FashionAccountPage() {
           </div>
 
           <div
-            className="flex flex-col items-center justify-center gap-5 px-6 py-20 text-center"
+            className="flex flex-col items-center justify-center gap-6 px-6 py-16"
             style={{ color: "var(--brand-primary)" }}
           >
-            <h2
-              className="text-3xl font-bold tracking-tight sm:text-4xl"
-              style={{ fontFamily: "var(--font-heading)" }}
-            >
-              Welcome
-            </h2>
-            <p className="max-w-xs text-sm opacity-60">
-              Sign in to view your orders, saved addresses, and account details.
-            </p>
-            <button
-              type="button"
-              onClick={() => setIsAuthModalOpen(true)}
-              className="mt-2 rounded-2xl px-10 py-3.5 text-sm font-semibold"
-              style={{
-                backgroundColor: "var(--brand-primary)",
-                color: "var(--brand-secondary)",
-              }}
-            >
-              Sign In
-            </button>
+            <div className="text-center">
+              <h2
+                className="text-3xl font-bold tracking-tight sm:text-4xl"
+                style={{ fontFamily: "var(--font-heading)" }}
+              >
+                Welcome
+              </h2>
+              <p className="mt-2 max-w-xs text-sm opacity-60">
+                Sign in to view your orders, saved addresses, and account
+                details.
+              </p>
+            </div>
+            <AuthForm />
           </div>
         </div>
-        <AuthModal
-          isOpen={isAuthModalOpen}
-          onClose={() => setIsAuthModalOpen(false)}
-        />
       </FashionStorefrontLayout>
     );
   }

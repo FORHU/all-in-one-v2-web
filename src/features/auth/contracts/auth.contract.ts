@@ -25,7 +25,10 @@ export const AuthUserSchema = z.object({
   username: z.string(),
   name: z.string().nullable(),
   role: z.string(),
-  avatar: z.string().nullable(),
+  // The API omits this key entirely (via `user.avatar?.fileUrl`) rather than
+  // sending `null` when there's no avatar file — .optional() to accept a
+  // missing key, not just an explicit null.
+  avatar: z.string().nullable().optional(),
   onboardingCompleted: z.boolean(),
 });
 

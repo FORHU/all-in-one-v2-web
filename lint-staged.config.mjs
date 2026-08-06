@@ -5,7 +5,9 @@ export default {
   // so linting it directly here only produces a "file ignored" warning,
   // which trips --max-warnings=0.
   "*.{ts,tsx}": (filenames) => {
-    const files = filenames.filter((f) => !f.endsWith("next-env.d.ts"));
+    const files = filenames
+      .filter((f) => !f.endsWith("next-env.d.ts"))
+      .map((f) => `"${f}"`);
     if (files.length === 0) return [];
     return [
       `eslint --fix --max-warnings=0 ${files.join(" ")}`,
