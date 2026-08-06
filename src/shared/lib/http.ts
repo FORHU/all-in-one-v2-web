@@ -1,6 +1,7 @@
 import { ApiError } from "@/shared/errors/api-error";
 import { env } from "@/shared/lib/env";
 import { getToken } from "@/shared/lib/token";
+import { getTenantSlug } from "@/shared/lib/tenant";
 
 function classify(
   status: number,
@@ -30,6 +31,7 @@ export async function fetcher<T>(
       ...options,
       headers: {
         "Content-Type": "application/json",
+        "x-tenant-slug": getTenantSlug(),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(options?.headers || {}),
       },

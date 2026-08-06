@@ -3,56 +3,87 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
+import { Skeleton } from "@/shared/components/Skeleton";
+import { useCollections } from "@/features/storefront/hooks/queries/useCollections";
+import type { CollectionItem } from "@/features/storefront/contracts/collections.contract";
 import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
-import { fashionLooks, type LookItem } from "../data/looks";
+
+/** "UpperGarment" -> "Upper Garment" for the slot badge. */
+function humanizeSlot(slot: string | null): string {
+  if (!slot) return "Item";
+  return slot.replace(/([a-z])([A-Z])/g, "$1 $2");
+}
 
 /**
  * Fashion — homepage hero: "Get the Look" curated outfit carousel.
- * Left: a fanned card stack of data/looks.ts's outfit photos, navigated by
- * explicit prev/next arrows + dot indicators (not by clicking the stack
- * itself — that was ambiguous, easy to miss). Right: that look's shoppable
- * items, individually addable or all at once, both wired to the real
- * useLocalCartStore (see that store's doc comment — client-only stand-in
- * for /v2/cart).
+ * Fetches real OUTFIT collections via GET /v2/collections?type=OUTFIT
+ * (see features/storefront/hooks/queries/useCollections.ts). Left: a fanned
+ * card stack of each outfit's lead product photo, navigated by explicit
+ * prev/next arrows + dot indicators. Right: that outfit's shoppable pieces,
+ * individually addable or all at once, wired to useLocalCartStore (see that
+ * store's doc comment — client-only stand-in for /v2/cart).
  */
 export function HeroBanner() {
   const [activeIndex, setActiveIndex] = useState(0);
   const addCartItem = useLocalCartStore((s) => s.addItem);
+  const { data: outfits, isLoading, isError } = useCollections("OUTFIT");
 
-  const activeLook = fashionLooks[activeIndex];
-  const total = activeLook.items.reduce((sum, item) => sum + item.price, 0);
+  if (isLoading) {
+    return (
+      <section
+        className="flex w-full items-center justify-center"
+        style={{ minHeight: "calc(100vh - 150px)" }}
+      >
+        <Skeleton className="h-[500px] w-[90%] max-w-6xl rounded-2xl" />
+      </section>
+    );
+  }
+
+  if (isError || !outfits || outfits.length === 0) {
+    return null;
+  }
+
+  const activeLook = outfits[activeIndex] ?? outfits[0];
+  const total = Number(
+    activeLook.items
+      .reduce((sum, item) => sum + (item.productVariant?.price ?? 0), 0)
+      .toFixed(2),
+  );
 
   const goPrev = () =>
-    setActiveIndex((i) => (i - 1 + fashionLooks.length) % fashionLooks.length);
-  const goNext = () => setActiveIndex((i) => (i + 1) % fashionLooks.length);
+    setActiveIndex((i) => (i - 1 + outfits.length) % outfits.length);
+  const goNext = () => setActiveIndex((i) => (i + 1) % outfits.length);
 
-  const addToBag = (item: LookItem) => {
+  const addToBag = (item: CollectionItem) => {
     addCartItem({
-      productId: item.id,
-      name: item.name,
-      brand: item.brand,
-      price: item.price,
-      imageLabel: item.imageLabel,
-      size: item.size,
+      productId: item.productId,
+      name: item.product.title,
+      brand: humanizeSlot(item.slot),
+      price: item.productVariant?.price ?? 0,
+      imageLabel: item.product.title,
+      size: item.productVariant?.title,
       quantity: 1,
     });
-    toast.success(`Added ${item.name} to your bag`);
+    toast.success(`Added ${item.product.title} to your bag`);
   };
 
   const addAllToBag = () => {
     activeLook.items.forEach((item) =>
       addCartItem({
-        productId: item.id,
-        name: item.name,
-        brand: item.brand,
-        price: item.price,
-        imageLabel: item.imageLabel,
-        size: item.size,
+        productId: item.productId,
+        name: item.product.title,
+        brand: humanizeSlot(item.slot),
+        price: item.productVariant?.price ?? 0,
+        imageLabel: item.product.title,
+        size: item.productVariant?.title,
         quantity: 1,
       }),
     );
     toast.success(`Added ${activeLook.items.length} items to your bag`);
   };
+
+  const heroImageUrl =
+    activeLook.imageUrl ?? activeLook.items[0]?.product.thumbnailUrl ?? null;
 
   return (
     <section
@@ -69,11 +100,12 @@ export function HeroBanner() {
       <div className="grid w-full grid-cols-1 gap-14 px-8 py-16 sm:px-14 md:py-20 lg:grid-cols-2 lg:gap-20 lg:px-20 xl:px-28">
         <div className="flex flex-col items-center gap-7">
           <div className="relative flex min-h-[420px] w-full items-center justify-center sm:min-h-[500px] lg:min-h-[560px]">
-            {fashionLooks.map((look, i) => {
-              const rel =
-                (i - activeIndex + fashionLooks.length) % fashionLooks.length;
+            {outfits.map((look, i) => {
+              const rel = (i - activeIndex + outfits.length) % outfits.length;
               const pos = rel === 0 ? 0 : rel === 1 ? 1 : -1;
               const isActive = pos === 0;
+              const imageUrl =
+                look.imageUrl ?? look.items[0]?.product.thumbnailUrl ?? null;
               return (
                 <div
                   key={look.id}
@@ -96,10 +128,19 @@ export function HeroBanner() {
                         : "none",
                     }}
                   >
-                    {isActive && (
-                      <span className="px-6 text-center text-xs font-medium opacity-50">
-                        {look.imageLabel}
-                      </span>
+                    {imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- external unsplash URLs, remotePatterns not yet configured
+                      <img
+                        src={imageUrl}
+                        alt={look.title}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      isActive && (
+                        <span className="px-6 text-center text-xs font-medium opacity-50">
+                          {look.title}
+                        </span>
+                      )
                     )}
                   </div>
                 </div>
@@ -122,12 +163,12 @@ export function HeroBanner() {
             </button>
 
             <div className="flex items-center gap-2">
-              {fashionLooks.map((look, i) => (
+              {outfits.map((look, i) => (
                 <button
                   key={look.id}
                   type="button"
                   onClick={() => setActiveIndex(i)}
-                  aria-label={`Go to ${look.name}`}
+                  aria-label={`Go to ${look.title}`}
                   aria-current={i === activeIndex}
                   className="h-1.5 rounded-full transition-all"
                   style={{
@@ -156,7 +197,7 @@ export function HeroBanner() {
           </div>
 
           <div className="text-sm font-semibold opacity-70">
-            {activeLook.name}
+            {activeLook.title}
           </div>
         </div>
 
@@ -190,17 +231,28 @@ export function HeroBanner() {
                 <span className="text-sm font-semibold opacity-50">
                   {String(i + 1).padStart(2, "0")}
                 </span>
-                <div
-                  role="img"
-                  aria-label={item.imageLabel}
-                  className="h-16 w-16 flex-none rounded-lg border sm:h-20 sm:w-20"
-                  style={{
-                    backgroundColor:
-                      "color-mix(in srgb, var(--brand-primary) 8%, transparent)",
-                    borderColor:
-                      "color-mix(in srgb, var(--brand-primary) 15%, transparent)",
-                  }}
-                />
+                {item.product.thumbnailUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- external unsplash URLs, remotePatterns not yet configured
+                  <img
+                    src={item.product.thumbnailUrl}
+                    alt={item.product.title}
+                    className="h-16 w-16 flex-none rounded-lg border object-cover sm:h-20 sm:w-20"
+                    style={{
+                      borderColor:
+                        "color-mix(in srgb, var(--brand-primary) 15%, transparent)",
+                    }}
+                  />
+                ) : (
+                  <div
+                    className="h-16 w-16 flex-none rounded-lg border sm:h-20 sm:w-20"
+                    style={{
+                      backgroundColor:
+                        "color-mix(in srgb, var(--brand-primary) 8%, transparent)",
+                      borderColor:
+                        "color-mix(in srgb, var(--brand-primary) 15%, transparent)",
+                    }}
+                  />
+                )}
                 <div className="min-w-0 flex-1">
                   <span
                     className="inline-block rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide"
@@ -209,13 +261,14 @@ export function HeroBanner() {
                         "color-mix(in srgb, var(--brand-primary) 12%, transparent)",
                     }}
                   >
-                    {item.tag}
+                    {humanizeSlot(item.slot)}
                   </span>
                   <div className="mt-1.5 truncate text-base font-bold">
-                    {item.name}
+                    {item.product.title}
                   </div>
                   <div className="text-sm opacity-60">
-                    Size {item.size} · ${item.price}
+                    {item.productVariant?.title ?? "One Size"} · $
+                    {item.productVariant?.price ?? 0}
                   </div>
                 </div>
                 <button
