@@ -218,7 +218,10 @@ export function HeroBanner() {
             />
           </div>
 
-          <div className="flex flex-col gap-4">
+          {/* Fixed height + internal scroll so switching outfits with a
+              different item count never changes the section's overall
+              height — only the products inside this panel change. */}
+          <div className="scrollbar-hide flex h-[420px] flex-col gap-4 overflow-y-auto pr-1">
             {activeLook.items.map((item, i) => (
               <div
                 key={item.id}
