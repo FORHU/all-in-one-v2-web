@@ -26,5 +26,5 @@ export default async function CategoryDetailPage({
 
   if (!tenant || !TenantCategoryDetailPage) return null;
 
-  return <TenantCategoryDetailPage slug={slug} />;
+  return <TenantCategoryDetailPage slug={slug} tenantSlug={tenantSlug} />;
 }

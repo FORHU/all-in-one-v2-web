@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { SlidersHorizontal, X } from "lucide-react";
 import { FashionStorefrontLayout } from "../layouts/StorefrontLayout";
 import { TrendingLookbook } from "../components/TrendingLookbook";
 import {
   CategoryFilters,
-  COLOR_NAMES,
   type CategoryFilterState,
 } from "../components/CategoryFilters";
 import {
@@ -20,8 +20,9 @@ import {
 } from "@/shared/components/QuickViewModal";
 import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
 import { toast } from "sonner";
-import { fashionCategories } from "../data/categories";
-import { fashionProducts } from "../data/products";
+import { useProducts } from "@/features/storefront/hooks/queries/useProducts";
+import type { Product } from "@/features/storefront/contracts/products.contract";
+import type { ProductListingParams } from "@/features/storefront/api/products.client";
 import { quickAddToCart } from "../utils/quickAddToCart";
 
 function humanize(slug: string) {
@@ -31,20 +32,18 @@ function humanize(slug: string) {
     .join(" ");
 }
 
-const AVAILABLE_SIZES = Array.from(
-  new Set(fashionProducts.flatMap((p) => p.sizes ?? [])),
-);
-const AVAILABLE_COLORS = Array.from(
-  new Set(fashionProducts.flatMap((p) => p.colors ?? [])),
-);
-const AVAILABLE_BRANDS = Array.from(
-  new Set(fashionProducts.map((p) => p.brand)),
-);
-const PRICES = fashionProducts.map((p) => p.price);
-const PRICE_BOUNDS: [number, number] = [
-  Math.min(...PRICES),
-  Math.max(...PRICES),
-];
+/**
+ * Nav links (Women/Men/...) use a short department taxonomy that doesn't
+ * match the seeded backend category slugs. Renaming the backend slugs would
+ * ripple into 40+ references in the product seeder, so the mismatch is
+ * resolved here instead. `shoes`/`accessories` already match directly.
+ * `kids`/`sale` have no backing category — the API correctly returns zero
+ * results for those, which the empty state below already handles.
+ */
+const CATEGORY_SLUG_ALIASES: Record<string, string> = {
+  women: "womens-fashion",
+  men: "mens-fashion",
+};
 
 type SortOption = "newest" | "price-asc" | "popularity";
 
@@ -60,31 +59,131 @@ function toggleValue(list: string[], value: string) {
     : [...list, value];
 }
 
-/**
- * Fashion — category / collection page.
- * `slug` may or may not match an entry in data/categories.ts — nav items
- * (women/men/kids/sale) route here too but belong to a separate,
- * unreconciled department taxonomy (see data/categories.ts's comment).
- * There is still no real category->product mapping, so every category
- * shows the full static catalog (data/products.ts) filtered/sorted
- * entirely client-side — a placeholder for real category-scoped,
- * server-side filtering once product-search is implemented.
- */
-export function FashionCategoryDetailPage({ slug }: { slug: string }) {
-  const category = fashionCategories.find((c) => c.slug === slug);
-  const label = category?.label ?? humanize(slug);
+function parseCsv(value: string | null): string[] {
+  return value
+    ? value
+        .split(",")
+        .map((v) => v.trim())
+        .filter(Boolean)
+    : [];
+}
 
-  const [filters, setFilters] = useState<CategoryFilterState>({
-    sizes: [],
-    colors: [],
-    brands: [],
-    priceRange: PRICE_BOUNDS,
-  });
-  const [sort, setSort] = useState<SortOption>("newest");
+function toProductCardProduct(product: Product): ProductCardProduct {
+  const discountPercent =
+    product.price != null &&
+    product.compareAtPrice != null &&
+    product.compareAtPrice > product.price
+      ? Math.round(
+          ((product.compareAtPrice - product.price) / product.compareAtPrice) *
+            100,
+        )
+      : undefined;
+
+  return {
+    id: product.id,
+    name: product.title,
+    brand: product.brand ?? "",
+    price: product.price ?? 0,
+    originalPrice: product.compareAtPrice ?? undefined,
+    discountPercent,
+    rating: product.rating,
+    reviewCount: product.reviewCount,
+    colors: product.colors.map((c) => c.swatchColor ?? "#999999"),
+    sizes: product.sizes.map((s) => s.value.toUpperCase()),
+    imageLabel: product.title,
+    imageUrl: product.thumbnailUrl,
+  };
+}
+
+/**
+ * Fashion — category / collection page. Filters, sort, and page are all
+ * URL-driven (shareable, bookmarkable) and passed straight through to
+ * GET /v2/products. `tenantSlug` is resolved server-side by the route entry
+ * point (src/app/categories/[slug]/page.tsx) and threaded down here since no
+ * shared client-side tenant-detection module exists yet.
+ */
+export function FashionCategoryDetailPage({
+  slug,
+  tenantSlug,
+}: {
+  slug: string;
+  tenantSlug: string;
+}) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const categorySlug = CATEGORY_SLUG_ALIASES[slug] ?? slug;
+  const label = humanize(slug);
+
+  const page = Number(searchParams.get("page")) || 1;
+  const sort = (searchParams.get("sort") as SortOption) || "newest";
+  const sizes = parseCsv(searchParams.get("sizes"));
+  const colors = parseCsv(searchParams.get("colors"));
+  const brands = parseCsv(searchParams.get("brands"));
+  const urlPriceMin = searchParams.get("priceMin");
+  const urlPriceMax = searchParams.get("priceMax");
+
   const [quickViewProduct, setQuickViewProduct] =
     useState<ProductCardProduct | null>(null);
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
   const addItem = useLocalCartStore((s) => s.addItem);
+
+  const updateParams = (patch: Record<string, string | null>) => {
+    const params = new URLSearchParams(searchParams.toString());
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === null || value === "") params.delete(key);
+      else params.set(key, value);
+    }
+    // Any filter/sort change resets pagination back to page 1.
+    if (!("page" in patch)) params.delete("page");
+    router.replace(`${pathname}?${params.toString()}`);
+  };
+
+  const queryParams: ProductListingParams = useMemo(
+    () => ({
+      categorySlug,
+      sort:
+        sort === "popularity"
+          ? "popularity"
+          : sort === "price-asc"
+            ? "price-asc"
+            : "newest",
+      sizes: sizes.length ? sizes : undefined,
+      colors: colors.length ? colors : undefined,
+      brands: brands.length ? brands : undefined,
+      priceMin: urlPriceMin ? Number(urlPriceMin) : undefined,
+      priceMax: urlPriceMax ? Number(urlPriceMax) : undefined,
+      page,
+      limit: 12,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      categorySlug,
+      sort,
+      sizes.join(","),
+      colors.join(","),
+      brands.join(","),
+      urlPriceMin,
+      urlPriceMax,
+      page,
+    ],
+  );
+
+  const { data, isLoading, isError } = useProducts(tenantSlug, queryParams);
+
+  const products = data?.items ?? [];
+  const facets = data?.facets;
+  const priceBounds: [number, number] = [
+    facets?.priceMin ?? 0,
+    facets?.priceMax ?? 0,
+  ];
+  const priceRange: [number, number] = [
+    urlPriceMin ? Number(urlPriceMin) : priceBounds[0],
+    urlPriceMax ? Number(urlPriceMax) : priceBounds[1],
+  ];
+
+  const filters: CategoryFilterState = { sizes, colors, brands, priceRange };
 
   const handleAddToCart = (
     product: ProductCardProduct,
@@ -103,83 +202,65 @@ export function FashionCategoryDetailPage({ slug }: { slug: string }) {
     toast.success(`Added ${product.name} to cart`);
   };
 
-  const filtered = fashionProducts.filter((p) => {
-    if (
-      filters.sizes.length > 0 &&
-      !p.sizes?.some((s) => filters.sizes.includes(s))
-    )
-      return false;
-    if (
-      filters.colors.length > 0 &&
-      !p.colors?.some((c) => filters.colors.includes(c))
-    )
-      return false;
-    if (filters.brands.length > 0 && !filters.brands.includes(p.brand))
-      return false;
-    if (p.price < filters.priceRange[0] || p.price > filters.priceRange[1])
-      return false;
-    return true;
-  });
+  const isPriceFiltered = urlPriceMin !== null || urlPriceMax !== null;
 
-  const sorted = [...filtered].sort((a, b) => {
-    if (sort === "price-asc") return a.price - b.price;
-    if (sort === "popularity")
-      return (b.reviewCount ?? 0) - (a.reviewCount ?? 0);
-    return 0; // "newest" = catalog order — no real createdAt field yet
-  });
-
-  const isPriceFiltered =
-    filters.priceRange[0] !== PRICE_BOUNDS[0] ||
-    filters.priceRange[1] !== PRICE_BOUNDS[1];
+  const colorLabel = (value: string) =>
+    facets?.colors.find((c) => c.value === value)?.label ?? value;
+  const sizeLabel = (value: string) => value.toUpperCase();
 
   const activePills: { key: string; label: string; onRemove: () => void }[] = [
-    ...filters.sizes.map((size) => ({
+    ...sizes.map((size) => ({
       key: `size-${size}`,
-      label: `Size: ${size}`,
+      label: `Size: ${sizeLabel(size)}`,
       onRemove: () =>
-        setFilters((f) => ({ ...f, sizes: toggleValue(f.sizes, size) })),
+        updateParams({ sizes: toggleValue(sizes, size).join(",") || null }),
     })),
-    ...filters.colors.map((color) => ({
+    ...colors.map((color) => ({
       key: `color-${color}`,
-      label: `Color: ${COLOR_NAMES[color] ?? color}`,
+      label: `Color: ${colorLabel(color)}`,
       onRemove: () =>
-        setFilters((f) => ({ ...f, colors: toggleValue(f.colors, color) })),
+        updateParams({ colors: toggleValue(colors, color).join(",") || null }),
     })),
-    ...filters.brands.map((brand) => ({
+    ...brands.map((brand) => ({
       key: `brand-${brand}`,
       label: brand,
       onRemove: () =>
-        setFilters((f) => ({ ...f, brands: toggleValue(f.brands, brand) })),
+        updateParams({ brands: toggleValue(brands, brand).join(",") || null }),
     })),
     ...(isPriceFiltered
       ? [
           {
             key: "price",
-            label: `$${filters.priceRange[0]} - $${filters.priceRange[1]}`,
-            onRemove: () =>
-              setFilters((f) => ({ ...f, priceRange: PRICE_BOUNDS })),
+            label: `$${priceRange[0]} - $${priceRange[1]}`,
+            onRemove: () => updateParams({ priceMin: null, priceMax: null }),
           },
         ]
       : []),
   ];
 
   const clearAll = () =>
-    setFilters({ sizes: [], colors: [], brands: [], priceRange: PRICE_BOUNDS });
+    updateParams({
+      sizes: null,
+      colors: null,
+      brands: null,
+      priceMin: null,
+      priceMax: null,
+    });
 
   const filterSidebarProps = {
-    availableSizes: AVAILABLE_SIZES,
-    availableColors: AVAILABLE_COLORS,
-    availableBrands: AVAILABLE_BRANDS,
-    priceBounds: PRICE_BOUNDS,
+    availableSizes: facets?.sizes ?? [],
+    availableColors: facets?.colors ?? [],
+    availableBrands: facets?.brands ?? [],
+    priceBounds,
     filters,
     onToggleSize: (size: string) =>
-      setFilters((f) => ({ ...f, sizes: toggleValue(f.sizes, size) })),
+      updateParams({ sizes: toggleValue(sizes, size).join(",") || null }),
     onToggleColor: (color: string) =>
-      setFilters((f) => ({ ...f, colors: toggleValue(f.colors, color) })),
+      updateParams({ colors: toggleValue(colors, color).join(",") || null }),
     onToggleBrand: (brand: string) =>
-      setFilters((f) => ({ ...f, brands: toggleValue(f.brands, brand) })),
+      updateParams({ brands: toggleValue(brands, brand).join(",") || null }),
     onPriceChange: (range: [number, number]) =>
-      setFilters((f) => ({ ...f, priceRange: range })),
+      updateParams({ priceMin: String(range[0]), priceMax: String(range[1]) }),
   };
 
   return (
@@ -211,130 +292,184 @@ export function FashionCategoryDetailPage({ slug }: { slug: string }) {
           >
             {label}
           </h1>
-          <span className="text-sm opacity-60">{sorted.length} items</span>
+          <span className="text-sm opacity-60">
+            {isLoading ? "Loading…" : `${data?.total ?? 0} items`}
+          </span>
         </div>
 
-        <div className="flex flex-col gap-8 lg:flex-row">
-          <button
-            type="button"
-            onClick={() => setIsMobileFiltersOpen(true)}
-            className="flex items-center gap-2 self-start rounded-xl border px-4 py-2.5 text-sm font-semibold lg:hidden"
-            style={{
-              borderColor:
-                "color-mix(in srgb, var(--brand-primary) 20%, transparent)",
-            }}
-          >
-            <SlidersHorizontal className="h-4 w-4" />
-            Filters
-          </button>
+        {isError ? (
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-current/10 py-20 text-center">
+            <p className="text-sm opacity-60">
+              Something went wrong loading these products.
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-8 lg:flex-row">
+            <button
+              type="button"
+              onClick={() => setIsMobileFiltersOpen(true)}
+              className="flex items-center gap-2 self-start rounded-xl border px-4 py-2.5 text-sm font-semibold lg:hidden"
+              style={{
+                borderColor:
+                  "color-mix(in srgb, var(--brand-primary) 20%, transparent)",
+              }}
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              Filters
+            </button>
 
-          <aside className="hidden w-64 flex-none lg:block">
-            <CategoryFilters {...filterSidebarProps} />
-          </aside>
+            <aside className="hidden w-64 flex-none lg:block">
+              <CategoryFilters {...filterSidebarProps} />
+            </aside>
 
-          {isMobileFiltersOpen && (
-            <div className="fixed inset-0 z-50 lg:hidden">
-              <div
-                className="absolute inset-0 bg-black/50"
-                onClick={() => setIsMobileFiltersOpen(false)}
-                aria-hidden="true"
-              />
-              <div
-                className="absolute inset-y-0 left-0 w-[85%] max-w-sm overflow-y-auto p-6"
-                style={{
-                  backgroundColor: "var(--brand-secondary)",
-                  color: "var(--brand-primary)",
-                }}
-              >
-                <div className="mb-4 flex items-center justify-between">
-                  <span className="text-lg font-bold">Filters</span>
-                  <button
-                    type="button"
-                    onClick={() => setIsMobileFiltersOpen(false)}
-                    aria-label="Close filters"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
+            {isMobileFiltersOpen && (
+              <div className="fixed inset-0 z-50 lg:hidden">
+                <div
+                  className="absolute inset-0 bg-black/50"
+                  onClick={() => setIsMobileFiltersOpen(false)}
+                  aria-hidden="true"
+                />
+                <div
+                  className="absolute inset-y-0 left-0 w-[85%] max-w-sm overflow-y-auto p-6"
+                  style={{
+                    backgroundColor: "var(--brand-secondary)",
+                    color: "var(--brand-primary)",
+                  }}
+                >
+                  <div className="mb-4 flex items-center justify-between">
+                    <span className="text-lg font-bold">Filters</span>
+                    <button
+                      type="button"
+                      onClick={() => setIsMobileFiltersOpen(false)}
+                      aria-label="Close filters"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+                  <CategoryFilters {...filterSidebarProps} />
                 </div>
-                <CategoryFilters {...filterSidebarProps} />
               </div>
-            </div>
-          )}
+            )}
 
-          <div className="flex-1">
-            <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-              <div className="flex flex-wrap items-center gap-2">
-                {activePills.map((pill) => (
-                  <button
-                    key={pill.key}
-                    type="button"
-                    onClick={pill.onRemove}
-                    className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold"
-                    style={{
-                      backgroundColor:
-                        "color-mix(in srgb, var(--brand-primary) 8%, transparent)",
-                    }}
-                  >
-                    {pill.label}
-                    <X className="h-3 w-3" />
-                  </button>
-                ))}
-                {activePills.length > 0 && (
+            <div className="flex-1">
+              <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  {activePills.map((pill) => (
+                    <button
+                      key={pill.key}
+                      type="button"
+                      onClick={pill.onRemove}
+                      className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold"
+                      style={{
+                        backgroundColor:
+                          "color-mix(in srgb, var(--brand-primary) 8%, transparent)",
+                      }}
+                    >
+                      {pill.label}
+                      <X className="h-3 w-3" />
+                    </button>
+                  ))}
+                  {activePills.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={clearAll}
+                      className="text-xs font-semibold underline opacity-70"
+                    >
+                      Clear all
+                    </button>
+                  )}
+                </div>
+
+                <select
+                  value={sort}
+                  onChange={(event) =>
+                    updateParams({ sort: event.target.value })
+                  }
+                  className="h-10 rounded-full border bg-transparent px-4 text-xs font-semibold outline-none"
+                  style={{
+                    borderColor:
+                      "color-mix(in srgb, var(--brand-primary) 20%, transparent)",
+                    color: "var(--brand-primary)",
+                  }}
+                >
+                  {(Object.keys(SORT_LABELS) as SortOption[]).map((key) => (
+                    <option key={key} value={key}>
+                      {SORT_LABELS[key]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {!isLoading && products.length === 0 ? (
+                <div className="flex flex-col items-center gap-3 rounded-2xl border border-current/10 py-20 text-center">
+                  <p className="text-sm opacity-60">
+                    No products match these filters.
+                  </p>
                   <button
                     type="button"
                     onClick={clearAll}
-                    className="text-xs font-semibold underline opacity-70"
+                    className="text-sm font-semibold underline"
                   >
-                    Clear all
+                    Clear filters
                   </button>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 xl:grid-cols-4">
+                  {isLoading && products.length === 0
+                    ? Array.from({ length: 8 }).map((_, i) => (
+                        <div
+                          key={i}
+                          className="aspect-[3/4] animate-pulse rounded-2xl bg-current/5"
+                        />
+                      ))
+                    : products.map((product) => {
+                        const cardProduct = toProductCardProduct(product);
+                        return (
+                          <ProductCard
+                            key={cardProduct.id}
+                            product={cardProduct}
+                            onQuickView={setQuickViewProduct}
+                            onQuickAdd={quickAddToCart}
+                          />
+                        );
+                      })}
+                </div>
+              )}
 
-              <select
-                value={sort}
-                onChange={(event) => setSort(event.target.value as SortOption)}
-                className="h-10 rounded-full border bg-transparent px-4 text-xs font-semibold outline-none"
-                style={{
-                  borderColor:
-                    "color-mix(in srgb, var(--brand-primary) 20%, transparent)",
-                  color: "var(--brand-primary)",
-                }}
-              >
-                {(Object.keys(SORT_LABELS) as SortOption[]).map((key) => (
-                  <option key={key} value={key}>
-                    {SORT_LABELS[key]}
-                  </option>
-                ))}
-              </select>
+              {data && data.totalPages > 1 && (
+                <div className="mt-10 flex items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    disabled={page <= 1}
+                    onClick={() => updateParams({ page: String(page - 1) })}
+                    className="rounded-full border px-4 py-2 text-xs font-semibold disabled:opacity-30"
+                    style={{
+                      borderColor:
+                        "color-mix(in srgb, var(--brand-primary) 20%, transparent)",
+                    }}
+                  >
+                    Previous
+                  </button>
+                  <span className="text-xs opacity-60">
+                    Page {data.page} of {data.totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={page >= data.totalPages}
+                    onClick={() => updateParams({ page: String(page + 1) })}
+                    className="rounded-full border px-4 py-2 text-xs font-semibold disabled:opacity-30"
+                    style={{
+                      borderColor:
+                        "color-mix(in srgb, var(--brand-primary) 20%, transparent)",
+                    }}
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
             </div>
-
-            {sorted.length === 0 ? (
-              <div className="flex flex-col items-center gap-3 rounded-2xl border border-current/10 py-20 text-center">
-                <p className="text-sm opacity-60">
-                  No products match these filters.
-                </p>
-                <button
-                  type="button"
-                  onClick={clearAll}
-                  className="text-sm font-semibold underline"
-                >
-                  Clear filters
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 xl:grid-cols-4">
-                {sorted.map((product) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    onQuickView={setQuickViewProduct}
-                    onQuickAdd={quickAddToCart}
-                  />
-                ))}
-              </div>
-            )}
           </div>
-        </div>
+        )}
       </div>
 
       <QuickViewModal
