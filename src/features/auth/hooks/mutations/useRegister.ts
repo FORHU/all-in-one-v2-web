@@ -1,25 +1,16 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { useSafeMutation } from "@/shared/query/useSafeMutation";
 import { register } from "@/features/auth/api";
-import { useAuthStore } from "@/features/auth/stores/auth.store";
 
-/** Registers a new account and applies the returned session. */
+/**
+ * Registers a new account. Deliberately does NOT apply the returned session
+ * (setToken/setUser) — registering shouldn't auto-sign-in; the caller sends
+ * the user to sign in with their new credentials instead (see AuthForm).
+ */
 export function useRegister() {
-  const setToken = useAuthStore((s) => s.setToken);
-  const setUser = useAuthStore((s) => s.setUser);
-  const queryClient = useQueryClient();
-
   return useSafeMutation({
     mutationFn: register,
-    onSuccess: (response) => {
-      setToken(response.data.accessToken);
-      setUser({
-        id: response.data.user.id,
-        email: response.data.user.email,
-        username: response.data.user.username,
-        name: response.data.user.name,
-      });
-      queryClient.invalidateQueries();
-    },
+    // Same reasoning as useLogin — a failed register (e.g. email taken) is a
+    // form outcome, not a session expiring.
+    meta: { suppressErrorToast: true, suppressAuthRedirect: true },
   });
 }

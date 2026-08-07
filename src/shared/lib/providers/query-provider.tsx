@@ -46,7 +46,14 @@ export default function QueryProvider({
               toast.error(result.toast);
             }
 
-            if (result.action === "logout") {
+            // A 401 from login/register itself means "wrong credentials", not
+            // "your session expired" — those mutations set suppressAuthRedirect
+            // so a failed sign-in attempt doesn't clear an (nonexistent) session
+            // and bounce the user to /login instead of showing a form error.
+            if (
+              result.action === "logout" &&
+              !mutation.meta?.suppressAuthRedirect
+            ) {
               if (typeof window !== "undefined") {
                 window.dispatchEvent(new CustomEvent("auth:unauthorized"));
               }

@@ -11,6 +11,10 @@ export function useLogin() {
 
   return useSafeMutation({
     mutationFn: login,
+    // A failed login is a normal form outcome (wrong credentials), not a
+    // session expiring — suppress the global "Session expired" toast and
+    // auth:unauthorized redirect so it only shows as an inline form error.
+    meta: { suppressErrorToast: true, suppressAuthRedirect: true },
     onSuccess: (response) => {
       setToken(response.data.accessToken);
       setUser({
