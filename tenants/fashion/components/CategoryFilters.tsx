@@ -1,6 +1,7 @@
 "use client";
 
 import { Accordion } from "@/shared/components/Accordion";
+import type { ProductAttributeOption } from "@/features/storefront/contracts/products.contract";
 
 export interface CategoryFilterState {
   sizes: string[];
@@ -10,9 +11,12 @@ export interface CategoryFilterState {
 }
 
 /**
- * Swatch hex -> human label, for this catalog's specific palette (see
- * tenants/fashion/data/products.ts). Needed for accessible labels/titles on
- * the color swatch buttons — can't be derived from the hex value alone.
+ * Hex -> human label fallback, used by cart/order-success displays
+ * (CartContents, OrderSuccessPage) to label a color already stored on a cart
+ * line item. Unrelated to this component's own facet-driven color swatches
+ * below, which now carry their own `label` from the API. Consumers fall back
+ * to the raw hex string when a color isn't in this table, so an incomplete
+ * mapping degrades gracefully rather than breaking.
  */
 export const COLOR_NAMES: Record<string, string> = {
   "#2b2b2b": "Charcoal",
@@ -25,13 +29,19 @@ export const COLOR_NAMES: Record<string, string> = {
   "#5a5a52": "Olive Grey",
   "#5c3a24": "Brown",
   "#3d4f63": "Slate Blue",
+  "#000000": "Black",
+  "#FFFFFF": "White",
+  "#000080": "Navy Blue",
+  "#DC143C": "Crimson Red",
+  "#708238": "Olive Green",
 };
 
 /**
  * Fashion — category page filter sidebar (Size / Color / Price / Brand).
- * Facet options and callbacks are all supplied by the parent page, which
- * derives them from the static tenants/fashion/data/products.ts catalog —
- * this component holds no product data of its own.
+ * Facet options and callbacks are all supplied by the parent page, sourced
+ * from the API's `facets` payload (see CategoryDetailPage) — this component
+ * holds no product data of its own. `filters.sizes`/`filters.colors` hold
+ * attribute `value`s (e.g. "m", "black"), matching the API's filter params.
  */
 export function CategoryFilters({
   availableSizes,
@@ -44,8 +54,8 @@ export function CategoryFilters({
   onToggleBrand,
   onPriceChange,
 }: {
-  availableSizes: string[];
-  availableColors: string[];
+  availableSizes: ProductAttributeOption[];
+  availableColors: ProductAttributeOption[];
   availableBrands: string[];
   priceBounds: [number, number];
   filters: CategoryFilterState;
@@ -59,13 +69,14 @@ export function CategoryFilters({
       <Accordion title="Size">
         <div className="flex flex-wrap gap-2">
           {availableSizes.map((size) => {
-            const active = filters.sizes.includes(size);
+            const active = filters.sizes.includes(size.value);
             return (
               <button
-                key={size}
+                key={size.value}
                 type="button"
-                onClick={() => onToggleSize(size)}
+                onClick={() => onToggleSize(size.value)}
                 aria-pressed={active}
+                title={size.label}
                 className="rounded-md border px-2.5 py-1.5 text-xs font-semibold transition-colors"
                 style={{
                   borderColor: active
@@ -79,7 +90,7 @@ export function CategoryFilters({
                     : "var(--brand-primary)",
                 }}
               >
-                {size}
+                {size.value.toUpperCase()}
               </button>
             );
           })}
@@ -89,19 +100,18 @@ export function CategoryFilters({
       <Accordion title="Color">
         <div className="flex flex-wrap gap-3">
           {availableColors.map((color) => {
-            const active = filters.colors.includes(color);
-            const label = COLOR_NAMES[color] ?? color;
+            const active = filters.colors.includes(color.value);
             return (
               <button
-                key={color}
+                key={color.value}
                 type="button"
-                onClick={() => onToggleColor(color)}
+                onClick={() => onToggleColor(color.value)}
                 aria-pressed={active}
-                aria-label={label}
-                title={label}
+                aria-label={color.label}
+                title={color.label}
                 className="h-7 w-7 rounded-full border-2 transition-colors"
                 style={{
-                  backgroundColor: color,
+                  backgroundColor: color.swatchColor ?? "#999999",
                   borderColor: active ? "var(--brand-primary)" : "transparent",
                 }}
               />

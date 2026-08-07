@@ -84,6 +84,7 @@ export function QuickViewModal({
 
         <ImagePlaceholder
           label={product.imageLabel}
+          imageUrl={product.imageUrl}
           aspect="3/4"
           className="w-full"
         />

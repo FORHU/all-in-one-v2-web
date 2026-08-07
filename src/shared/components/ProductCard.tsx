@@ -16,6 +16,7 @@ export interface ProductCardProduct {
   colors?: string[];
   sizes?: string[];
   imageLabel: string;
+  imageUrl?: string | null;
 }
 
 /**
@@ -42,6 +43,7 @@ export function ProductCard({
       <div className="group relative aspect-[3/4] overflow-hidden rounded-2xl">
         <ImagePlaceholder
           label={product.imageLabel}
+          imageUrl={product.imageUrl}
           aspect="3/4"
           className="h-full w-full transition-transform duration-500 ease-out group-hover:scale-105"
         />

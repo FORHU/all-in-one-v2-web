@@ -2,6 +2,14 @@
 
 const nextConfig = {
   reactStrictMode: true,
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+      },
+    ],
+  },
   // Next picks the next free port (3001, 3002...) whenever 3000 is taken,
   // so each dev origin is listed for a few fallback ports too.
   allowedDevOrigins: [
