@@ -11,9 +11,12 @@ export const CategorySchema = z.object({
   id: z.string(),
   slug: z.string(),
   name: z.string(),
+  description: z.string().nullable(),
 });
 
-export const CategoriesResponseSchema = z.array(CategorySchema);
+export const CategoriesEnvelopeSchema = z.object({
+  data: z.array(CategorySchema),
+});
 
 export type Category = z.infer<typeof CategorySchema>;
-export type CategoriesResponse = z.infer<typeof CategoriesResponseSchema>;
+export type CategoriesResponse = Category[];

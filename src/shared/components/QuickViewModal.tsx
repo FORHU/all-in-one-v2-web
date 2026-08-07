@@ -82,21 +82,34 @@ export function QuickViewModal({
           <X className="h-4 w-4" />
         </button>
 
-        <ImagePlaceholder
-          label={product.imageLabel}
-          aspect="3/4"
-          className="w-full"
-        />
+        {product.imageUrl ? (
+          <div className="aspect-[3/4] w-full overflow-hidden rounded-2xl">
+            {/* eslint-disable-next-line @next/next/no-img-element -- external unsplash URLs, remotePatterns not yet configured */}
+            <img
+              src={product.imageUrl}
+              alt={product.name}
+              className="h-full w-full object-cover"
+            />
+          </div>
+        ) : (
+          <ImagePlaceholder
+            label={product.imageLabel}
+            aspect="3/4"
+            className="w-full"
+          />
+        )}
 
         <div className="flex flex-col gap-2">
           <div className="text-xs font-bold uppercase tracking-wide opacity-60">
             {product.brand}
           </div>
           <h2 className="text-xl font-bold tracking-tight">{product.name}</h2>
-          <StarRating
-            rating={product.rating}
-            reviewCount={product.reviewCount}
-          />
+          {typeof product.rating === "number" && (
+            <StarRating
+              rating={product.rating}
+              reviewCount={product.reviewCount}
+            />
+          )}
           <div className="mt-1 flex items-center gap-2">
             <span className="text-lg font-bold">${product.price}</span>
             {product.originalPrice && (

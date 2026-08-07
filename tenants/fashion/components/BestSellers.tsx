@@ -1,66 +1,33 @@
-import {
-  ProductCard,
-  type ProductCardProduct,
-} from "@/shared/components/ProductCard";
+"use client";
+
+import { ProductCard } from "@/shared/components/ProductCard";
 import { HorizontalScroller } from "@/shared/components/HorizontalScroller";
+import { Skeleton } from "@/shared/components/Skeleton";
+import { useStorefrontPage } from "@/features/storefront/hooks/queries/useStorefrontPage";
+import { toProductCardProduct } from "../utils/toProductCardProduct";
+import { repeatToFill } from "../utils/repeatToFill";
+
+const MIN_RAIL_ITEMS = 6;
 
 /**
  * Fashion — homepage best-sellers rail.
- * Static placeholder products until features/storefront's useProducts()
- * supports a "best selling" sort/filter param backed by a real API.
+ * Reads the BEST_SELLERS-strategy section off the "home" storefront page —
+ * same shared query as FeaturedProducts.tsx (see useStorefrontPage.ts), so
+ * this doesn't issue a second network request.
+ *
+ * Note: the backend's BEST_SELLERS strategy currently only resolves a
+ * single product per tenant (a real backend gap in the strategy engine,
+ * not a frontend bug) — repeatToFill() cycles the real product(s) it does
+ * return until the rail has MIN_RAIL_ITEMS, rather than showing a sparse
+ * one-item row. Remove once the backend strategy resolves a full list.
  */
-const bestSellers: ProductCardProduct[] = [
-  {
-    id: "wool-overcoat",
-    name: "Wool Overcoat",
-    brand: "ADDICTSTYLE",
-    price: 248,
-    rating: 4.6,
-    imageLabel: "Product: Wool Overcoat",
-  },
-  {
-    id: "cashmere-knit",
-    name: "Cashmere Knit",
-    brand: "STUDIO NUE",
-    price: 214,
-    rating: 4.9,
-    imageLabel: "Product: Cashmere Knit",
-  },
-  {
-    id: "leather-ankle-boot",
-    name: "Leather Ankle Boot",
-    brand: "ADDICTSTYLE",
-    price: 286,
-    rating: 4.7,
-    imageLabel: "Product: Leather Ankle Boot",
-  },
-  {
-    id: "silk-slip-dress",
-    name: "Silk Slip Dress",
-    brand: "ADDICTSTYLE",
-    price: 168,
-    rating: 4.8,
-    imageLabel: "Product: Silk Slip Dress",
-  },
-  {
-    id: "minimal-leather-tote",
-    name: "Minimal Leather Tote",
-    brand: "ADDICTSTYLE",
-    price: 320,
-    rating: 4.8,
-    imageLabel: "Product: Minimal Leather Tote",
-  },
-  {
-    id: "tailored-trouser",
-    name: "Tailored Trouser",
-    brand: "ADDICTSTYLE",
-    price: 138,
-    rating: 4.5,
-    imageLabel: "Product: Tailored Trouser",
-  },
-];
-
 export function BestSellers() {
+  const { data: page, isLoading, isError } = useStorefrontPage("home");
+  const section = page?.sections.find((s) => s.strategy === "BEST_SELLERS");
+  const displayProducts = section
+    ? repeatToFill(section.products, MIN_RAIL_ITEMS)
+    : [];
+
   return (
     <section className="mx-auto max-w-7xl px-6 py-16">
       <h2
@@ -72,18 +39,32 @@ export function BestSellers() {
       >
         Best Sellers
       </h2>
-      <div style={{ color: "var(--brand-primary)" }}>
-        <HorizontalScroller>
-          {bestSellers.map((product) => (
-            <ProductCard
-              key={product.id}
-              product={product}
-              compact
-              className="w-[240px] flex-none"
+
+      {isLoading && (
+        <div className="flex gap-5">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton
+              key={i}
+              className="h-[340px] w-[240px] flex-none rounded-2xl"
             />
           ))}
-        </HorizontalScroller>
-      </div>
+        </div>
+      )}
+
+      {!isLoading && !isError && displayProducts.length > 0 && (
+        <div style={{ color: "var(--brand-primary)" }}>
+          <HorizontalScroller>
+            {displayProducts.map((product, i) => (
+              <ProductCard
+                key={`${product.id}-${i}`}
+                product={toProductCardProduct(product)}
+                compact
+                className="w-[240px] flex-none"
+              />
+            ))}
+          </HorizontalScroller>
+        </div>
+      )}
     </section>
   );
 }

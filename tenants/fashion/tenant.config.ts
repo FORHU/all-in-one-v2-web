@@ -15,13 +15,18 @@ export const fashionConfig: TenantConfig = {
     fontBody: "sans-serif",
   },
   logoUrl: "/tenants/fashion/logo.svg",
+  // Every href below is a real, existing category slug (verified against
+  // prisma/seeders/categories.seeder.ts) — "Kids" and "Sale" were dropped
+  // rather than left pointing at slugs that don't exist and never will
+  // (this catalog has no kids' line, and "sale" isn't a category, it's a
+  // discount filter with no backing concept yet).
   nav: [
-    { label: "Women", href: "/categories/women" },
-    { label: "Men", href: "/categories/men" },
-    { label: "Kids", href: "/categories/kids" },
+    { label: "Women", href: "/categories/womens-fashion" },
+    { label: "Men", href: "/categories/mens-fashion" },
+    { label: "Outerwear", href: "/categories/outerwear" },
     { label: "Accessories", href: "/categories/accessories" },
     { label: "Shoes", href: "/categories/shoes" },
-    { label: "Sale", href: "/categories/sale" },
+    { label: "Bags & Backpacks", href: "/categories/bags" },
   ],
   seo: {
     title: "addictstyle",

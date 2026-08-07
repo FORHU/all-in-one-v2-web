@@ -11,11 +11,14 @@ export interface ProductCardProduct {
   price: number;
   originalPrice?: number;
   discountPercent?: number;
-  rating: number;
+  /** Omit when no real rating data exists — StarRating is skipped rather than fabricating a value. */
+  rating?: number;
   reviewCount?: number;
   colors?: string[];
   sizes?: string[];
   imageLabel: string;
+  /** Real product photo. Falls back to ImagePlaceholder when absent. */
+  imageUrl?: string;
 }
 
 /**
@@ -40,11 +43,20 @@ export function ProductCard({
   return (
     <div className={`flex flex-col gap-3 ${className}`}>
       <div className="group relative aspect-[3/4] overflow-hidden rounded-2xl">
-        <ImagePlaceholder
-          label={product.imageLabel}
-          aspect="3/4"
-          className="h-full w-full transition-transform duration-500 ease-out group-hover:scale-105"
-        />
+        {product.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- external unsplash URLs, remotePatterns not yet configured
+          <img
+            src={product.imageUrl}
+            alt={product.name}
+            className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+          />
+        ) : (
+          <ImagePlaceholder
+            label={product.imageLabel}
+            aspect="3/4"
+            className="h-full w-full transition-transform duration-500 ease-out group-hover:scale-105"
+          />
+        )}
 
         {!compact && onQuickView && (
           <button
@@ -97,11 +109,13 @@ export function ProductCard({
           {product.brand}
         </div>
         <div className="text-sm font-semibold">{product.name}</div>
-        <StarRating
-          rating={product.rating}
-          reviewCount={product.reviewCount}
-          className="mt-0.5"
-        />
+        {typeof product.rating === "number" && (
+          <StarRating
+            rating={product.rating}
+            reviewCount={product.reviewCount}
+            className="mt-0.5"
+          />
+        )}
         <div className="mt-0.5 flex items-center gap-2">
           <span className="text-[15px] font-bold">${product.price}</span>
           {product.originalPrice && (

@@ -5,14 +5,15 @@ import { Accordion } from "@/shared/components/Accordion";
 export interface CategoryFilterState {
   sizes: string[];
   colors: string[];
-  brands: string[];
   priceRange: [number, number];
 }
 
 /**
- * Swatch hex -> human label, for this catalog's specific palette (see
- * tenants/fashion/data/products.ts). Needed for accessible labels/titles on
- * the color swatch buttons — can't be derived from the hex value alone.
+ * Swatch hex -> human label. Kept for other consumers (OrderSuccessPage,
+ * CartContents) that display a saved cart line's color and gracefully
+ * fall back to the raw value (`COLOR_NAMES[color] ?? color`) when it isn't
+ * a known hex code — which is the common case now, since real product
+ * variants carry color as a name string (e.g. "Terracotta"), not hex.
  */
 export const COLOR_NAMES: Record<string, string> = {
   "#2b2b2b": "Charcoal",
@@ -28,30 +29,30 @@ export const COLOR_NAMES: Record<string, string> = {
 };
 
 /**
- * Fashion — category page filter sidebar (Size / Color / Price / Brand).
- * Facet options and callbacks are all supplied by the parent page, which
- * derives them from the static tenants/fashion/data/products.ts catalog —
- * this component holds no product data of its own.
+ * Fashion — category page filter sidebar (Size / Color / Price).
+ * Facet options and callbacks are supplied by the parent page, derived
+ * from real product variants (see CategoryDetailPage.tsx) — this
+ * component holds no product data of its own. Color renders as labeled
+ * pills rather than swatches: real variant colors are name strings (e.g.
+ * "Terracotta"), not hex codes, so there's no color value to paint a
+ * swatch with. No Brand facet — every product in this catalog belongs to
+ * one storefront brand, so a brand filter would have nothing to filter.
  */
 export function CategoryFilters({
   availableSizes,
   availableColors,
-  availableBrands,
   priceBounds,
   filters,
   onToggleSize,
   onToggleColor,
-  onToggleBrand,
   onPriceChange,
 }: {
   availableSizes: string[];
   availableColors: string[];
-  availableBrands: string[];
   priceBounds: [number, number];
   filters: CategoryFilterState;
   onToggleSize: (size: string) => void;
   onToggleColor: (color: string) => void;
-  onToggleBrand: (brand: string) => void;
   onPriceChange: (range: [number, number]) => void;
 }) {
   return (
@@ -87,30 +88,36 @@ export function CategoryFilters({
       </Accordion>
 
       <Accordion title="Color">
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-2">
           {availableColors.map((color) => {
             const active = filters.colors.includes(color);
-            const label = COLOR_NAMES[color] ?? color;
             return (
               <button
                 key={color}
                 type="button"
                 onClick={() => onToggleColor(color)}
                 aria-pressed={active}
-                aria-label={label}
-                title={label}
-                className="h-7 w-7 rounded-full border-2 transition-colors"
+                className="rounded-md border px-2.5 py-1.5 text-xs font-semibold transition-colors"
                 style={{
-                  backgroundColor: color,
-                  borderColor: active ? "var(--brand-primary)" : "transparent",
+                  borderColor: active
+                    ? "var(--brand-primary)"
+                    : "color-mix(in srgb, var(--brand-primary) 20%, transparent)",
+                  backgroundColor: active
+                    ? "var(--brand-primary)"
+                    : "transparent",
+                  color: active
+                    ? "var(--brand-secondary)"
+                    : "var(--brand-primary)",
                 }}
-              />
+              >
+                {color}
+              </button>
             );
           })}
         </div>
       </Accordion>
 
-      <Accordion title="Price Range">
+      <Accordion title="Price Range" className="border-b-0">
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between text-xs font-semibold opacity-70">
             <span>${filters.priceRange[0]}</span>
@@ -152,28 +159,6 @@ export function CategoryFilters({
               />
             </label>
           </div>
-        </div>
-      </Accordion>
-
-      <Accordion title="Brand" className="border-b-0">
-        <div className="flex flex-col gap-2.5">
-          {availableBrands.map((brand) => {
-            const active = filters.brands.includes(brand);
-            return (
-              <label
-                key={brand}
-                className="flex cursor-pointer items-center gap-2.5 text-sm"
-              >
-                <input
-                  type="checkbox"
-                  checked={active}
-                  onChange={() => onToggleBrand(brand)}
-                  className="h-4 w-4"
-                />
-                {brand}
-              </label>
-            );
-          })}
         </div>
       </Accordion>
     </div>
