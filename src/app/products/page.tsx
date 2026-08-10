@@ -19,5 +19,5 @@ export default async function ProductsPage() {
 
   if (!tenant || !TenantProductsPage) return null;
 
-  return <TenantProductsPage />;
+  return <TenantProductsPage tenantSlug={slug} />;
 }
