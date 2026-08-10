@@ -233,7 +233,7 @@ export function FashionCategoryDetailPage({
     <FashionStorefrontLayout>
       <TrendingLookbook tenantSlug={tenantSlug} categorySlug={categorySlug} />
       <div
-        className="mx-auto max-w-7xl px-6 py-10"
+        className="mx-auto max-w-[1600px] px-6 py-10"
         style={{ color: "var(--brand-primary)" }}
       >
         <nav
