@@ -62,7 +62,7 @@ const bestSellers: ProductCardProduct[] = [
 
 export function BestSellers() {
   return (
-    <section className="mx-auto max-w-[1600px] px-6 py-16">
+    <section className="mx-auto max-w-7xl px-6 py-16">
       <h2
         className="mb-8 text-2xl font-bold tracking-tight sm:text-3xl"
         style={{

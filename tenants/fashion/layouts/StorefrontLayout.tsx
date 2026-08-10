@@ -356,7 +356,7 @@ export function FashionStorefrontLayout({
             color: "var(--brand-primary)",
           }}
         >
-          <div className="mx-auto grid max-w-[1600px] grid-cols-2 gap-10 border-b border-current/15 px-6 pb-12 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="mx-auto grid max-w-7xl grid-cols-2 gap-10 border-b border-current/15 px-6 pb-12 sm:grid-cols-3 lg:grid-cols-5">
             <div className="col-span-2 flex flex-col gap-3 sm:col-span-1">
               <div
                 className="text-xl font-bold"
@@ -387,7 +387,7 @@ export function FashionStorefrontLayout({
             ))}
           </div>
 
-          <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-4 px-6 pt-8">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 pt-8">
             <div className="text-xs opacity-50">
               © {new Date().getFullYear()} {fashionConfig.name}. All rights
               reserved.

@@ -42,7 +42,7 @@ export function FashionProductsPage({ tenantSlug }: { tenantSlug: string }) {
   return (
     <FashionStorefrontLayout>
       <section
-        className="mx-auto max-w-[1600px] px-6 py-16"
+        className="mx-auto max-w-7xl px-6 py-16"
         style={{ color: "var(--brand-primary)" }}
       >
         <div className="mb-8 flex items-baseline justify-between gap-4">

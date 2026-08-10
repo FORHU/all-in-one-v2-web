@@ -28,7 +28,7 @@ const collections = [
 
 export function TrendingCollection() {
   return (
-    <section className="mx-auto flex max-w-[1600px] flex-col gap-16 px-6 py-16 sm:gap-24">
+    <section className="mx-auto flex max-w-7xl flex-col gap-16 px-6 py-16 sm:gap-24">
       {collections.map(
         ({ eyebrow, title, copy, imageLabel, href, imageFirst }) => (
           <div

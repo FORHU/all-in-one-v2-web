@@ -9,7 +9,7 @@ import { fashionCategories } from "../data/categories";
  */
 export function CategoryGrid() {
   return (
-    <section className="mx-auto max-w-[1600px] px-6 py-16">
+    <section className="mx-auto max-w-7xl px-6 py-16">
       <div className="mb-8 flex items-baseline justify-between">
         <h2
           className="text-2xl font-bold tracking-tight sm:text-3xl"

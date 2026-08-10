@@ -12,7 +12,7 @@ import { quickAddToCart } from "../utils/quickAddToCart";
  */
 export function FeaturedProducts() {
   return (
-    <section className="mx-auto max-w-[1600px] px-6 py-16">
+    <section className="mx-auto max-w-7xl px-6 py-16">
       <div className="mb-8 flex items-end justify-between">
         <div>
           <h2

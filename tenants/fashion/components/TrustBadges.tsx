@@ -15,7 +15,7 @@ export function TrustBadges() {
           "color-mix(in srgb, var(--brand-primary) 12%, transparent)",
       }}
     >
-      <div className="mx-auto grid max-w-[1600px] grid-cols-1 gap-8 px-6 py-12 sm:grid-cols-3">
+      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-8 px-6 py-12 sm:grid-cols-3">
         {badges.map(({ label, detail, Icon }) => (
           <div
             key={label}

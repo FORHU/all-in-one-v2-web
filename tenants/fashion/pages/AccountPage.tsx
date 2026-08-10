@@ -259,7 +259,7 @@ export function FashionAccountPage() {
   return (
     <FashionStorefrontLayout hideSearch hideFooter>
       <div
-        className="mx-auto flex max-w-[1600px] gap-10 px-6 py-10"
+        className="mx-auto flex max-w-7xl gap-10 px-6 py-10"
         style={{ color: "var(--brand-primary)" }}
       >
         <aside className="hidden w-64 flex-none flex-col gap-6 lg:flex">
