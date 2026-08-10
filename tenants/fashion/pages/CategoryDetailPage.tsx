@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { SlidersHorizontal, X } from "lucide-react";
@@ -21,9 +21,9 @@ import {
 import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
 import { toast } from "sonner";
 import { useProducts } from "@/features/storefront/hooks/queries/useProducts";
-import type { Product } from "@/features/storefront/contracts/products.contract";
 import type { ProductListingParams } from "@/features/storefront/api/products.client";
 import { quickAddToCart } from "../utils/quickAddToCart";
+import { toProductCardProduct } from "../utils/toProductCardProduct";
 
 function humanize(slug: string) {
   return slug
@@ -68,33 +68,6 @@ function parseCsv(value: string | null): string[] {
     : [];
 }
 
-function toProductCardProduct(product: Product): ProductCardProduct {
-  const discountPercent =
-    product.price != null &&
-    product.compareAtPrice != null &&
-    product.compareAtPrice > product.price
-      ? Math.round(
-          ((product.compareAtPrice - product.price) / product.compareAtPrice) *
-            100,
-        )
-      : undefined;
-
-  return {
-    id: product.id,
-    name: product.title,
-    brand: product.brand ?? "",
-    price: product.price ?? 0,
-    originalPrice: product.compareAtPrice ?? undefined,
-    discountPercent,
-    rating: product.rating,
-    reviewCount: product.reviewCount,
-    colors: product.colors.map((c) => c.swatchColor ?? "#999999"),
-    sizes: product.sizes.map((s) => s.value.toUpperCase()),
-    imageLabel: product.title,
-    imageUrl: product.thumbnailUrl,
-  };
-}
-
 /**
  * Fashion — category / collection page. Filters, sort, and page are all
  * URL-driven (shareable, bookmarkable) and passed straight through to
@@ -137,38 +110,31 @@ export function FashionCategoryDetailPage({
     }
     // Any filter/sort change resets pagination back to page 1.
     if (!("page" in patch)) params.delete("page");
-    router.replace(`${pathname}?${params.toString()}`);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
-  const queryParams: ProductListingParams = useMemo(
-    () => ({
-      categorySlug,
-      sort:
-        sort === "popularity"
-          ? "popularity"
-          : sort === "price-asc"
-            ? "price-asc"
-            : "newest",
-      sizes: sizes.length ? sizes : undefined,
-      colors: colors.length ? colors : undefined,
-      brands: brands.length ? brands : undefined,
-      priceMin: urlPriceMin ? Number(urlPriceMin) : undefined,
-      priceMax: urlPriceMax ? Number(urlPriceMax) : undefined,
-      page,
-      limit: 12,
-    }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      categorySlug,
-      sort,
-      sizes.join(","),
-      colors.join(","),
-      brands.join(","),
-      urlPriceMin,
-      urlPriceMax,
-      page,
-    ],
-  );
+  // Not memoized: sizes/colors/brands come from parseCsv() on searchParams,
+  // a new array reference every render regardless, so a useMemo here would
+  // recompute every time anyway — no real memoization to be had. TanStack
+  // Query dedupes by the query key's serialized content (see
+  // productsKeys.list), not by this object's identity, so rebuilding it
+  // plainly on every render is harmless.
+  const queryParams: ProductListingParams = {
+    categorySlug,
+    sort:
+      sort === "popularity"
+        ? "popularity"
+        : sort === "price-asc"
+          ? "price-asc"
+          : "newest",
+    sizes: sizes.length ? sizes : undefined,
+    colors: colors.length ? colors : undefined,
+    brands: brands.length ? brands : undefined,
+    priceMin: urlPriceMin ? Number(urlPriceMin) : undefined,
+    priceMax: urlPriceMax ? Number(urlPriceMax) : undefined,
+    page,
+    limit: 12,
+  };
 
   const { data, isLoading, isError } = useProducts(tenantSlug, queryParams);
 
