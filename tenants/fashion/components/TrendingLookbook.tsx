@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
@@ -9,12 +10,14 @@ import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { ImagePlaceholder } from "@/shared/components/ImagePlaceholder";
 import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
+import { useCollections } from "@/features/storefront/hooks/queries/useCollections";
 import {
-  fashionLooks,
   LOOK_CATEGORIES,
+  type Look,
   type LookCategory,
   type LookItem,
 } from "../data/looks";
+import { toLook } from "../utils/toLook";
 
 const PANEL_HEIGHT = "lg:h-[680px]";
 const ALL_CATEGORIES = "All" as const;
@@ -24,23 +27,45 @@ type CategoryFilter = LookCategory | typeof ALL_CATEGORIES;
  * Fashion — "Shop the Look" widget shown above the filters+grid on
  * pages/CategoryDetailPage.tsx. Three panels: a vertical looks carousel
  * (left), the active look at large size (center), and that look's
- * individual pieces (right). All three read data/looks.ts so this never
- * disagrees with components/HeroBanner.tsx's own "Get the Look" carousel
- * about what's in "The Off-Duty Set" etc.
+ * individual pieces (right). Backed by CatalogCollection/CatalogCollectionItem
+ * via GET /v2/collections (no type filter — fetches both OUTFIT and LOOKBOOK
+ * rows), scoped to `categorySlug` so each category page only shows looks
+ * featured under it (e.g. Men only shows looks tagged mens-fashion) — a
+ * category with no tagged looks renders nothing (see the early return
+ * below), which is expected for categories like Shoes/Accessories/Kids that
+ * don't have a dedicated look yet. Separate from components/HeroBanner.tsx's
+ * own "Get the Look" carousel, which still reads the static data/looks.ts
+ * mock — that's the homepage widget, out of scope here.
  */
-export function TrendingLookbook() {
+export function TrendingLookbook({
+  tenantSlug,
+  categorySlug,
+}: {
+  tenantSlug: string;
+  categorySlug?: string;
+}) {
+  const { data: collections, isLoading } = useCollections(
+    tenantSlug,
+    undefined,
+    categorySlug,
+  );
+  const looks: Look[] = (collections ?? []).map(toLook);
+
   const [categoryFilter, setCategoryFilter] =
     useState<CategoryFilter>(ALL_CATEGORIES);
-  const [activeLookId, setActiveLookId] = useState(fashionLooks[0].id);
+  const [activeLookId, setActiveLookId] = useState<string | null>(null);
   const addCartItem = useLocalCartStore((s) => s.addItem);
 
-  const filteredLooks =
-    categoryFilter === ALL_CATEGORIES
-      ? fashionLooks
-      : fashionLooks.filter((look) => look.category === categoryFilter);
-  const activeLook =
-    fashionLooks.find((look) => look.id === activeLookId) ?? fashionLooks[0];
-  const total = activeLook.items.reduce((sum, item) => sum + item.price, 0);
+  // Looks load asynchronously — pick the first one once they arrive, and
+  // re-pick if the currently active look disappears (e.g. data refetches).
+  useEffect(() => {
+    if (looks.length === 0) return;
+    if (!looks.some((look) => look.id === activeLookId)) {
+      setActiveLookId(looks[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [looks.map((l) => l.id).join(",")]);
+
   const carouselRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef({
     dragging: false,
@@ -50,6 +75,18 @@ export function TrendingLookbook() {
     scrollTop: 0,
     moved: false,
   });
+
+  // No looks yet (still loading) or none exist for this tenant — hide the
+  // whole widget rather than render an empty shell.
+  if (isLoading || looks.length === 0) return null;
+
+  const filteredLooks =
+    categoryFilter === ALL_CATEGORIES
+      ? looks
+      : looks.filter((look) => look.category === categoryFilter);
+  const activeLook = looks.find((look) => look.id === activeLookId) ?? looks[0];
+  if (!activeLook) return null;
+  const total = activeLook.items.reduce((sum, item) => sum + item.price, 0);
 
   // Click-and-drag scrolling for mouse users — touch already scrolls
   // natively via swipe, so this only activates for pointerType "mouse".
@@ -101,8 +138,8 @@ export function TrendingLookbook() {
     setCategoryFilter(category);
     const nextLooks =
       category === ALL_CATEGORIES
-        ? fashionLooks
-        : fashionLooks.filter((look) => look.category === category);
+        ? looks
+        : looks.filter((look) => look.category === category);
     if (nextLooks.length > 0) setActiveLookId(nextLooks[0].id);
   };
 
@@ -223,6 +260,7 @@ export function TrendingLookbook() {
                     >
                       <ImagePlaceholder
                         label={look.imageLabel}
+                        imageUrl={look.imageUrl}
                         aspect="1/1"
                         className="h-32 w-full lg:h-full lg:w-full"
                       />
@@ -243,6 +281,7 @@ export function TrendingLookbook() {
           >
             <ImagePlaceholder
               label={activeLook.imageLabel}
+              imageUrl={activeLook.imageUrl}
               aspect="3/4"
               className="w-[70%] h-auto sm:w-[46%] lg:h-auto lg:w-auto lg:max-h-full lg:max-w-full"
             />
@@ -265,6 +304,7 @@ export function TrendingLookbook() {
                 >
                   <ImagePlaceholder
                     label={item.imageLabel}
+                    imageUrl={item.imageUrl}
                     aspect="1/1"
                     className="h-20 w-20 flex-none"
                   />
@@ -276,7 +316,7 @@ export function TrendingLookbook() {
                       {item.name}
                     </div>
                     <div className="text-sm font-bold opacity-70">
-                      ${item.price}
+                      ${item.price.toFixed(2)}
                     </div>
                   </div>
                   <button
@@ -296,14 +336,14 @@ export function TrendingLookbook() {
             </div>
 
             <div
-              className="flex flex-none items-center justify-between border-t pt-4"
+              className="flex flex-none items-center justify-between gap-3 border-t pt-4"
               style={{ borderColor }}
             >
-              <span className="text-2xl font-bold">${total}</span>
+              <span className="text-2xl font-bold">${total.toFixed(2)}</span>
               <button
                 type="button"
                 onClick={addAllToBag}
-                className="rounded-full px-6 py-3 text-sm font-bold transition-opacity hover:opacity-90"
+                className="flex-none whitespace-nowrap rounded-full px-6 py-3 text-sm font-bold transition-opacity hover:opacity-90"
                 style={{
                   backgroundColor: "var(--brand-primary)",
                   color: "var(--brand-secondary)",

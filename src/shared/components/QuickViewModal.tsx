@@ -99,10 +99,12 @@ export function QuickViewModal({
             reviewCount={product.reviewCount}
           />
           <div className="mt-1 flex items-center gap-2">
-            <span className="text-lg font-bold">${product.price}</span>
+            <span className="text-lg font-bold">
+              ${product.price.toFixed(2)}
+            </span>
             {product.originalPrice && (
               <span className="text-sm opacity-40 line-through">
-                ${product.originalPrice}
+                ${product.originalPrice.toFixed(2)}
               </span>
             )}
           </div>

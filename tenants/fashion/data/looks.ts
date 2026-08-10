@@ -6,6 +6,7 @@ export interface LookItem {
   size: string;
   price: number;
   imageLabel: string;
+  imageUrl?: string | null;
 }
 
 export type LookCategory =
@@ -28,6 +29,7 @@ export interface Look {
   name: string;
   category: LookCategory;
   imageLabel: string;
+  imageUrl?: string | null;
   items: LookItem[];
 }
 

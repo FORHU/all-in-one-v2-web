@@ -197,7 +197,7 @@ export function FashionCategoryDetailPage({
       ? [
           {
             key: "price",
-            label: `$${priceRange[0]} - $${priceRange[1]}`,
+            label: `$${priceRange[0].toFixed(2)} - $${priceRange[1].toFixed(2)}`,
             onRemove: () => updateParams({ priceMin: null, priceMax: null }),
           },
         ]
@@ -231,7 +231,7 @@ export function FashionCategoryDetailPage({
 
   return (
     <FashionStorefrontLayout>
-      <TrendingLookbook />
+      <TrendingLookbook tenantSlug={tenantSlug} categorySlug={categorySlug} />
       <div
         className="mx-auto max-w-7xl px-6 py-10"
         style={{ color: "var(--brand-primary)" }}

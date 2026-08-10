@@ -123,8 +123,8 @@ export function CategoryFilters({
       <Accordion title="Price Range">
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between text-xs font-semibold opacity-70">
-            <span>${filters.priceRange[0]}</span>
-            <span>${filters.priceRange[1]}</span>
+            <span>${filters.priceRange[0].toFixed(2)}</span>
+            <span>${filters.priceRange[1].toFixed(2)}</span>
           </div>
           <div className="flex flex-col gap-2.5">
             <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide opacity-50">
