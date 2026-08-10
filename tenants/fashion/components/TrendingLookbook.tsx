@@ -6,10 +6,11 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Heart, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { ImagePlaceholder } from "@/shared/components/ImagePlaceholder";
 import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
+import { useWishlistStore } from "@/features/storefront/stores/wishlist.store";
 import { useCollections } from "@/features/storefront/hooks/queries/useCollections";
 import {
   LOOK_CATEGORIES,
@@ -59,6 +60,8 @@ export function TrendingLookbook({
     useState<CategoryFilter>(ALL_CATEGORIES);
   const [activeLookId, setActiveLookId] = useState<string | null>(null);
   const addCartItem = useLocalCartStore((s) => s.addItem);
+  const wishlistIds = useWishlistStore((s) => s.ids);
+  const toggleFavorite = useWishlistStore((s) => s.toggle);
 
   // Looks load asynchronously — pick the first one once they arrive, and
   // re-pick if the currently active look disappears (e.g. data refetches).
@@ -123,6 +126,8 @@ export function TrendingLookbook({
   const lookNumber = String(
     looks.findIndex((look) => look.id === activeLook.id) + 1,
   ).padStart(3, "0");
+  const baseItems = activeLook.items.filter((item) => item.tag === "BASE");
+  const accessoryItems = activeLook.items.filter((item) => item.tag === "OVER");
 
   // Center-panel arrows step through the same filteredLooks list the left
   // carousel renders, so advancing here also moves the highlighted
@@ -303,36 +308,66 @@ export function TrendingLookbook({
         >
           {filteredLooks.map((look) => {
             const isActive = look.id === activeLookId;
+            const isFavorite = wishlistIds.includes(look.id);
             const lookTotal = look.items.reduce(
               (sum, item) => sum + item.price,
               0,
             );
             return (
-              <button
+              <div
                 key={look.id}
-                type="button"
-                onClick={() => {
-                  if (dragRef.current.moved) return;
-                  setActiveLookId(look.id);
-                }}
-                aria-pressed={isActive}
-                aria-label={`Show ${look.name}`}
                 className="flex w-20 flex-none flex-col gap-1 transition-opacity duration-300 lg:w-full"
                 style={{ opacity: isActive ? 1 : 0.6 }}
               >
-                <span
-                  className="block overflow-hidden rounded-lg border-2 transition-colors duration-300 lg:flex-1"
+                <div
+                  className="relative h-20 w-full overflow-hidden rounded-lg border-2 transition-colors duration-300 lg:h-full lg:w-full lg:flex-1"
                   style={{
                     borderColor: isActive ? STL_COLORS.gold : "transparent",
                   }}
                 >
-                  <ImagePlaceholder
-                    label={look.imageLabel}
-                    imageUrl={look.imageUrl}
-                    aspect="1/1"
-                    className="h-20 w-full lg:h-full lg:w-full"
-                  />
-                </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (dragRef.current.moved) return;
+                      setActiveLookId(look.id);
+                    }}
+                    aria-pressed={isActive}
+                    aria-label={`Show ${look.name}`}
+                    className="absolute inset-0"
+                  >
+                    <ImagePlaceholder
+                      label={look.imageLabel}
+                      imageUrl={look.imageUrl}
+                      aspect="1/1"
+                      className="h-full w-full"
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      toggleFavorite(look.id);
+                    }}
+                    aria-pressed={isFavorite}
+                    aria-label={
+                      isFavorite
+                        ? `Remove ${look.name} from wishlist`
+                        : `Add ${look.name} to wishlist`
+                    }
+                    className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full transition-colors"
+                    style={{
+                      backgroundColor: `${STL_COLORS.bgPage}b3`,
+                      color: isFavorite
+                        ? STL_COLORS.gold
+                        : STL_COLORS.textPrimary,
+                    }}
+                  >
+                    <Heart
+                      className="h-3.5 w-3.5"
+                      fill={isFavorite ? "currentColor" : "none"}
+                    />
+                  </button>
+                </div>
                 <span
                   className="truncate text-center text-[11px] font-semibold"
                   style={{
@@ -349,7 +384,7 @@ export function TrendingLookbook({
                 >
                   ${lookTotal.toFixed(2)}
                 </span>
-              </button>
+              </div>
             );
           })}
         </div>
@@ -429,53 +464,36 @@ export function TrendingLookbook({
               className="pointer-events-none absolute bottom-2 left-1.5 top-2 border-l border-dashed"
               style={{ borderColor: STL_COLORS.borderLine }}
             />
-            {activeLook.items.map((item) => (
-              <div key={item.id} className="flex items-center gap-3 py-2.5">
-                <div className="flex w-3 flex-none items-center justify-center self-stretch">
-                  <span
-                    className="h-1.5 w-1.5 rounded-full"
-                    style={{ backgroundColor: STL_COLORS.goldDim }}
-                  />
-                </div>
-                <ImagePlaceholder
-                  label={item.imageLabel}
-                  imageUrl={item.imageUrl}
-                  aspect="1/1"
-                  className="h-14 w-14 flex-none overflow-hidden rounded-lg"
-                />
-                <div className="min-w-0 flex-1">
-                  <div
-                    className="text-[10px] font-bold uppercase tracking-wide"
-                    style={{ color: STL_COLORS.textFaint }}
-                  >
-                    {item.tag}
-                  </div>
-                  <div
-                    className="truncate text-sm font-semibold"
-                    style={{ color: STL_COLORS.textPrimary }}
-                  >
-                    {item.name}
-                  </div>
-                  <div
-                    className="text-xs font-bold"
-                    style={{ color: STL_COLORS.gold }}
-                  >
-                    ${item.price.toFixed(2)}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => addItemToBag(item)}
-                  aria-label={`Add ${item.name} to bag`}
-                  className="flex h-8 w-8 flex-none items-center justify-center rounded-full transition-opacity hover:opacity-90"
-                  style={{
-                    backgroundColor: STL_COLORS.gold,
-                    color: STL_COLORS.ctaText,
-                  }}
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
+            {baseItems.length > 0 && (
+              <div
+                className="pl-3 text-[10px] font-bold uppercase tracking-[0.2em]"
+                style={{ color: STL_COLORS.textFaint }}
+              >
+                Base Item
               </div>
+            )}
+            {baseItems.map((item) => (
+              <ShopTheLookItemRow
+                key={item.id}
+                item={item}
+                onAdd={addItemToBag}
+              />
+            ))}
+
+            {accessoryItems.length > 0 && (
+              <div
+                className="pl-3 pt-2 text-[10px] font-bold uppercase tracking-[0.2em]"
+                style={{ color: STL_COLORS.textFaint }}
+              >
+                Accessory Items
+              </div>
+            )}
+            {accessoryItems.map((item) => (
+              <ShopTheLookItemRow
+                key={item.id}
+                item={item}
+                onAdd={addItemToBag}
+              />
             ))}
           </div>
 
@@ -512,5 +530,51 @@ export function TrendingLookbook({
         </div>
       </div>
     </section>
+  );
+}
+
+/** A single "Complete the Look" row, shared by the Base Item and Accessory Items groups. */
+function ShopTheLookItemRow({
+  item,
+  onAdd,
+}: {
+  item: LookItem;
+  onAdd: (item: LookItem) => void;
+}) {
+  return (
+    <div className="flex items-center gap-3 py-2.5">
+      <div className="flex w-3 flex-none items-center justify-center self-stretch">
+        <span
+          className="h-1.5 w-1.5 rounded-full"
+          style={{ backgroundColor: STL_COLORS.goldDim }}
+        />
+      </div>
+      <ImagePlaceholder
+        label={item.imageLabel}
+        imageUrl={item.imageUrl}
+        aspect="1/1"
+        className="h-14 w-14 flex-none overflow-hidden rounded-lg"
+      />
+      <div className="min-w-0 flex-1">
+        <div
+          className="truncate text-sm font-semibold"
+          style={{ color: STL_COLORS.textPrimary }}
+        >
+          {item.name}
+        </div>
+        <div className="text-xs font-bold" style={{ color: STL_COLORS.gold }}>
+          ${item.price.toFixed(2)}
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={() => onAdd(item)}
+        aria-label={`Add ${item.name} to bag`}
+        className="flex h-8 w-8 flex-none items-center justify-center rounded-full transition-opacity hover:opacity-90"
+        style={{ backgroundColor: STL_COLORS.gold, color: STL_COLORS.ctaText }}
+      >
+        <Plus className="h-4 w-4" />
+      </button>
+    </div>
   );
 }
