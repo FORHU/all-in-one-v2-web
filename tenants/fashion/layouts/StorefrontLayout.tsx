@@ -3,6 +3,7 @@
 import { useEffect, useState, type MouseEvent as ReactMouseEvent } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { Search, ShoppingBag, User, Menu, X, Sun, Moon } from "lucide-react";
 import { useCartUIStore } from "@/features/storefront/stores/cart.store";
 import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
@@ -83,6 +84,7 @@ export function FashionStorefrontLayout({
   hideFooter?: boolean;
 }) {
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const pathname = usePathname();
   const toggleDrawer = useCartUIStore((s) => s.toggleDrawer);
   const cartCount = useLocalCartStore((s) =>
     s.items.reduce((n, i) => n + i.quantity, 0),
@@ -194,16 +196,26 @@ export function FashionStorefrontLayout({
           <div className="flex items-center">
             {fashionConfig.nav.length > 0 && (
               <nav className="hidden items-center gap-7 md:flex">
-                {fashionConfig.nav.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className="text-sm font-semibold opacity-70 transition-opacity hover:opacity-100"
-                    style={{ color: "var(--brand-primary)" }}
-                  >
-                    {item.label}
-                  </Link>
-                ))}
+                {fashionConfig.nav.map((item) => {
+                  const isActive = pathname === item.href;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      aria-current={isActive ? "page" : undefined}
+                      className="border-b-2 pb-1 text-sm font-semibold transition-opacity hover:opacity-100"
+                      style={{
+                        color: "var(--brand-primary)",
+                        opacity: isActive ? 1 : 0.7,
+                        borderColor: isActive
+                          ? "var(--brand-primary)"
+                          : "transparent",
+                      }}
+                    >
+                      {item.label}
+                    </Link>
+                  );
+                })}
               </nav>
             )}
             <button
@@ -306,17 +318,30 @@ export function FashionStorefrontLayout({
                 "color-mix(in srgb, var(--brand-primary) 12%, transparent)",
             }}
           >
-            {fashionConfig.nav.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setIsMobileNavOpen(false)}
-                className="py-2 text-sm font-semibold"
-                style={{ color: "var(--brand-primary)" }}
-              >
-                {item.label}
-              </Link>
-            ))}
+            {fashionConfig.nav.map((item) => {
+              const isActive = pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setIsMobileNavOpen(false)}
+                  aria-current={isActive ? "page" : undefined}
+                  className="flex items-center gap-2 py-2 text-sm font-semibold"
+                  style={{
+                    color: "var(--brand-primary)",
+                    opacity: isActive ? 1 : 0.7,
+                  }}
+                >
+                  {item.label}
+                  {isActive && (
+                    <span
+                      className="h-1.5 w-1.5 rounded-full"
+                      style={{ backgroundColor: "var(--brand-primary)" }}
+                    />
+                  )}
+                </Link>
+              );
+            })}
           </nav>
         )}
       </header>

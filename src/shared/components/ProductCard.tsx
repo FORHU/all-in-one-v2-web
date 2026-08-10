@@ -105,10 +105,12 @@ export function ProductCard({
           className="mt-0.5"
         />
         <div className="mt-0.5 flex items-center gap-2">
-          <span className="text-[15px] font-bold">${product.price}</span>
+          <span className="text-[15px] font-bold">
+            ${product.price.toFixed(2)}
+          </span>
           {product.originalPrice && (
             <span className="text-[13px] opacity-40 line-through">
-              ${product.originalPrice}
+              ${product.originalPrice.toFixed(2)}
             </span>
           )}
         </div>
