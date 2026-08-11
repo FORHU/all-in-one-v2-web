@@ -3,28 +3,83 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
+import { ImagePlaceholder } from "@/shared/components/ImagePlaceholder";
 import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
-import { fashionLooks, type LookItem } from "../data/looks";
+import { useCollections } from "@/features/storefront/hooks/queries/useCollections";
+import type { Look, LookItem } from "../data/looks";
+import { toLook } from "../utils/toLook";
 
 /**
- * Fashion — homepage hero: "Get the Look" curated outfit carousel.
- * Left: a fanned card stack of data/looks.ts's outfit photos, navigated by
+ * Fashion — homepage hero: "Get the Look" curated outfit carousel. Shows
+ * exactly one look per Women/Men/Kids/Accessories/Shoes category — the
+ * first CatalogCollection returned for each via
+ * GET /v2/collections?categorySlug= (same endpoint/mapper TrendingLookbook
+ * uses). This is a fixed 5-look editorial pick, one per category, not a
+ * full browse. Left: a fanned card stack of outfit photos, navigated by
  * explicit prev/next arrows + dot indicators (not by clicking the stack
  * itself — that was ambiguous, easy to miss). Right: that look's shoppable
  * items, individually addable or all at once, both wired to the real
  * useLocalCartStore (see that store's doc comment — client-only stand-in
  * for /v2/cart).
  */
-export function HeroBanner() {
+export function HeroBanner({ tenantSlug }: { tenantSlug: string }) {
+  const { data: womensLooks, isLoading: loadingWomens } = useCollections(
+    tenantSlug,
+    undefined,
+    "womens-fashion",
+  );
+  const { data: mensLooks, isLoading: loadingMens } = useCollections(
+    tenantSlug,
+    undefined,
+    "mens-fashion",
+  );
+  const { data: kidsLooks, isLoading: loadingKids } = useCollections(
+    tenantSlug,
+    undefined,
+    "kids",
+  );
+  const { data: accessoriesLooks, isLoading: loadingAccessories } =
+    useCollections(tenantSlug, undefined, "accessories");
+  const { data: shoesLooks, isLoading: loadingShoes } = useCollections(
+    tenantSlug,
+    undefined,
+    "shoes",
+  );
+
   const [activeIndex, setActiveIndex] = useState(0);
   const addCartItem = useLocalCartStore((s) => s.addItem);
 
-  const activeLook = fashionLooks[activeIndex];
+  const looks: Look[] = [
+    womensLooks?.[0],
+    mensLooks?.[0],
+    kidsLooks?.[0],
+    accessoriesLooks?.[0],
+    shoesLooks?.[0],
+  ]
+    .filter((collection): collection is NonNullable<typeof collection> =>
+      Boolean(collection),
+    )
+    .map(toLook);
+
+  // Still loading, or none of the five categories have a look yet — hide
+  // the hero rather than render an empty/broken carousel.
+  const isLoading =
+    loadingWomens ||
+    loadingMens ||
+    loadingKids ||
+    loadingAccessories ||
+    loadingShoes;
+  if (isLoading || looks.length === 0) {
+    return null;
+  }
+
+  const safeIndex = activeIndex % looks.length;
+  const activeLook = looks[safeIndex];
   const total = activeLook.items.reduce((sum, item) => sum + item.price, 0);
 
   const goPrev = () =>
-    setActiveIndex((i) => (i - 1 + fashionLooks.length) % fashionLooks.length);
-  const goNext = () => setActiveIndex((i) => (i + 1) % fashionLooks.length);
+    setActiveIndex((i) => (i - 1 + looks.length) % looks.length);
+  const goNext = () => setActiveIndex((i) => (i + 1) % looks.length);
 
   const addToBag = (item: LookItem) => {
     addCartItem({
@@ -58,7 +113,7 @@ export function HeroBanner() {
     <section
       className="flex w-full items-center overflow-hidden"
       style={{
-        minHeight: "calc(100vh - 150px)",
+        minHeight: "calc(100vh - 320px)",
         background:
           "radial-gradient(ellipse 70% 60% at 28% 45%, color-mix(in srgb, var(--brand-primary) 12%, transparent), transparent 70%), " +
           "radial-gradient(ellipse 50% 45% at 85% 15%, color-mix(in srgb, var(--brand-primary) 6%, transparent), transparent 70%), " +
@@ -66,12 +121,11 @@ export function HeroBanner() {
         color: "var(--brand-primary)",
       }}
     >
-      <div className="grid w-full grid-cols-1 gap-14 px-8 py-16 sm:px-14 md:py-20 lg:grid-cols-2 lg:gap-20 lg:px-20 xl:px-28">
+      <div className="grid w-full grid-cols-1 gap-14 px-8 pb-16 pt-6 sm:px-14 md:pb-20 md:pt-8 lg:grid-cols-2 lg:gap-20 lg:px-20 xl:px-28">
         <div className="flex flex-col items-center gap-7">
           <div className="relative flex min-h-[420px] w-full items-center justify-center sm:min-h-[500px] lg:min-h-[560px]">
-            {fashionLooks.map((look, i) => {
-              const rel =
-                (i - activeIndex + fashionLooks.length) % fashionLooks.length;
+            {looks.map((look, i) => {
+              const rel = (i - safeIndex + looks.length) % looks.length;
               const pos = rel === 0 ? 0 : rel === 1 ? 1 : -1;
               const isActive = pos === 0;
               return (
@@ -87,20 +141,18 @@ export function HeroBanner() {
                   <div
                     className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-2xl border transition-shadow duration-500"
                     style={{
-                      backgroundColor: isActive
-                        ? "color-mix(in srgb, var(--brand-primary) 10%, transparent)"
-                        : "color-mix(in srgb, var(--brand-primary) 5%, transparent)",
                       borderColor: `color-mix(in srgb, var(--brand-primary) ${isActive ? 25 : 12}%, transparent)`,
                       boxShadow: isActive
                         ? "0 0 100px color-mix(in srgb, var(--brand-primary) 20%, transparent)"
                         : "none",
                     }}
                   >
-                    {isActive && (
-                      <span className="px-6 text-center text-xs font-medium opacity-50">
-                        {look.imageLabel}
-                      </span>
-                    )}
+                    <ImagePlaceholder
+                      label={look.imageLabel}
+                      imageUrl={look.imageUrl}
+                      aspect="3/4"
+                      className="h-full w-full"
+                    />
                   </div>
                 </div>
               );
@@ -122,18 +174,18 @@ export function HeroBanner() {
             </button>
 
             <div className="flex items-center gap-2">
-              {fashionLooks.map((look, i) => (
+              {looks.map((look, i) => (
                 <button
                   key={look.id}
                   type="button"
                   onClick={() => setActiveIndex(i)}
                   aria-label={`Go to ${look.name}`}
-                  aria-current={i === activeIndex}
+                  aria-current={i === safeIndex}
                   className="h-1.5 rounded-full transition-all"
                   style={{
-                    width: i === activeIndex ? "24px" : "6px",
+                    width: i === safeIndex ? "24px" : "6px",
                     backgroundColor:
-                      i === activeIndex
+                      i === safeIndex
                         ? "var(--brand-primary)"
                         : "color-mix(in srgb, var(--brand-primary) 30%, transparent)",
                   }}
@@ -190,16 +242,11 @@ export function HeroBanner() {
                 <span className="text-sm font-semibold opacity-50">
                   {String(i + 1).padStart(2, "0")}
                 </span>
-                <div
-                  role="img"
-                  aria-label={item.imageLabel}
-                  className="h-16 w-16 flex-none rounded-lg border sm:h-20 sm:w-20"
-                  style={{
-                    backgroundColor:
-                      "color-mix(in srgb, var(--brand-primary) 8%, transparent)",
-                    borderColor:
-                      "color-mix(in srgb, var(--brand-primary) 15%, transparent)",
-                  }}
+                <ImagePlaceholder
+                  label={item.imageLabel}
+                  imageUrl={item.imageUrl}
+                  aspect="1/1"
+                  className="h-16 w-16 flex-none sm:h-20 sm:w-20"
                 />
                 <div className="min-w-0 flex-1">
                   <span
@@ -215,7 +262,7 @@ export function HeroBanner() {
                     {item.name}
                   </div>
                   <div className="text-sm opacity-60">
-                    Size {item.size} · ${item.price}
+                    Size {item.size} · ${item.price.toFixed(2)}
                   </div>
                 </div>
                 <button
@@ -242,7 +289,7 @@ export function HeroBanner() {
           >
             <div>
               <div className="text-sm opacity-60">Complete the look</div>
-              <div className="text-3xl font-bold">${total}</div>
+              <div className="text-3xl font-bold">${total.toFixed(2)}</div>
             </div>
             <button
               type="button"
