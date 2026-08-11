@@ -7,7 +7,6 @@ import { LivingHomePage } from "@/tenants/living/pages/HomePage";
 import { OutdoorHomePage } from "@/tenants/outdoor/pages/HomePage";
 
 const homePagesBySlug = {
-  fashion: FashionHomePage,
   beauty: BeautyHomePage,
   electronics: ElectronicsHomePage,
   living: LivingHomePage,
@@ -17,9 +16,16 @@ const homePagesBySlug = {
 export default async function RootPage() {
   const slug = (await headers()).get("x-tenant-slug") ?? "fashion";
   const tenant = getTenantConfig(slug);
-  const HomePage = homePagesBySlug[slug as keyof typeof homePagesBySlug];
+  if (!tenant) return null;
 
-  if (!tenant || !HomePage) return null;
+  // Fashion is special-cased since it's the only home page that needs
+  // tenantSlug (its hero fetches real "Get the Look" data) — the other
+  // tenant home pages are still static, matching /products' single-tenant
+  // pattern until they get real data too.
+  if (slug === "fashion") return <FashionHomePage tenantSlug={slug} />;
+
+  const HomePage = homePagesBySlug[slug as keyof typeof homePagesBySlug];
+  if (!HomePage) return null;
 
   return <HomePage />;
 }
