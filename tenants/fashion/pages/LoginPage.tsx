@@ -10,6 +10,7 @@ import { fashionConfig } from "../tenant.config";
 import logo from "../assets/addictstyle-logo.svg";
 import { useFashionColorMode } from "../stores/colorMode.store";
 import { FASHION_COLOR_VARS } from "../utils/colorModeVars";
+import { fashionFraunces, fashionInter } from "../theme";
 
 /**
  * Fashion — login page.
@@ -47,7 +48,7 @@ export function FashionLoginPage() {
 
   return (
     <div
-      className="flex min-h-screen items-center justify-center px-6 py-16"
+      className={`flex min-h-screen items-center justify-center px-6 py-16 ${fashionFraunces.variable} ${fashionInter.variable}`}
       style={{
         ...FASHION_COLOR_VARS[mode],
         backgroundColor: "var(--brand-secondary)",

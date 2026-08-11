@@ -12,6 +12,7 @@ import logo from "../assets/addictstyle-logo.svg";
 import { CartDrawer } from "../components/CartDrawer";
 import { useFashionColorMode } from "../stores/colorMode.store";
 import { FASHION_COLOR_VARS } from "../utils/colorModeVars";
+import { fashionFraunces, fashionInter } from "../theme";
 
 const FOOTER_LINKS = {
   Company: [
@@ -147,7 +148,7 @@ export function FashionStorefrontLayout({
 
   return (
     <div
-      className="flex min-h-screen flex-col"
+      className={`flex min-h-screen flex-col ${fashionFraunces.variable} ${fashionInter.variable}`}
       style={{
         ...FASHION_COLOR_VARS[mode],
         fontFamily: "var(--font-body)",

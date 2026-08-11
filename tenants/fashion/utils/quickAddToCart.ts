@@ -15,6 +15,7 @@ export function quickAddToCart(product: ProductCardProduct) {
     brand: product.brand,
     price: product.price,
     imageLabel: product.imageLabel,
+    imageUrl: product.imageUrl,
     size: product.sizes?.[0],
     color: product.colors?.[0],
     quantity: 1,
