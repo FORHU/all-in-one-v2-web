@@ -2,15 +2,26 @@
 
 import Link from "next/link";
 import { ProductCard } from "@/shared/components/ProductCard";
-import { fashionProducts } from "../data/products";
+import { useProducts } from "@/features/storefront/hooks/queries/useProducts";
 import { quickAddToCart } from "../utils/quickAddToCart";
+import { toProductCardProduct } from "../utils/toProductCardProduct";
 
 /**
- * Fashion — homepage featured-products section.
- * Static placeholder products (see tenants/fashion/data/products.ts) until
- * features/storefront's useProducts() is backed by a real API.
+ * Fashion — homepage "New Arrivals" rail, shown below Trending. Real data
+ * via GET /v2/products?sort=newest, no client-side shuffling — the
+ * catalog's normal newest-first order, deliberately predictable/stable in
+ * contrast to Trending's randomized sample.
  */
-export function FeaturedProducts() {
+export function FeaturedProducts({ tenantSlug }: { tenantSlug: string }) {
+  const { data, isLoading } = useProducts(tenantSlug, {
+    sort: "newest",
+    page: 1,
+    limit: 12,
+  });
+  const products = data?.items ?? [];
+
+  if (isLoading || products.length === 0) return null;
+
   return (
     <section className="mx-auto max-w-7xl px-6 py-16">
       <div className="mb-8 flex items-end justify-between">
@@ -38,13 +49,13 @@ export function FeaturedProducts() {
         </Link>
       </div>
       <div
-        className="grid grid-cols-2 gap-7 sm:grid-cols-3 lg:grid-cols-4"
+        className="grid grid-cols-3 gap-5 sm:grid-cols-4 lg:grid-cols-6"
         style={{ color: "var(--brand-primary)" }}
       >
-        {fashionProducts.map((product) => (
+        {products.map((product) => (
           <ProductCard
             key={product.id}
-            product={product}
+            product={toProductCardProduct(product)}
             onQuickAdd={quickAddToCart}
           />
         ))}
