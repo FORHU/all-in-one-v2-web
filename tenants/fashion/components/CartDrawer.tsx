@@ -1,21 +1,18 @@
 "use client";
 
-import { X } from "lucide-react";
 import { useCartUIStore } from "@/features/storefront/stores/cart.store";
-import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
 import { CartContents } from "./CartContents";
+import { FASHION_DARK_COLORS } from "../theme";
 
 /**
- * Fashion — slide-over cart drawer, triggered from the header cart icon
- * (see layouts/StorefrontLayout.tsx). Rendered once in
- * FashionStorefrontLayout so it's available from any page.
+ * Fashion — slide-over cart drawer shell (overlay + positioning only). All
+ * header/item-list/footer markup lives in CartContents so the drawer and
+ * the full cart page (pages/CartPage.tsx) render identically — see that
+ * file's doc comment.
  */
 export function CartDrawer() {
   const isOpen = useCartUIStore((s) => s.isDrawerOpen);
   const toggleDrawer = useCartUIStore((s) => s.toggleDrawer);
-  const itemCount = useLocalCartStore((s) =>
-    s.items.reduce((n, i) => n + i.quantity, 0),
-  );
 
   if (!isOpen) return null;
 
@@ -29,19 +26,14 @@ export function CartDrawer() {
       <div
         role="dialog"
         aria-label="Shopping cart"
-        className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col"
+        className="absolute inset-y-0 right-0 flex w-full max-w-[420px] flex-col"
         style={{
-          backgroundColor: "var(--brand-secondary)",
-          color: "var(--brand-primary)",
+          backgroundColor: FASHION_DARK_COLORS.ink,
+          color: FASHION_DARK_COLORS.bone,
+          borderLeft: `1px solid ${FASHION_DARK_COLORS.hairline}`,
         }}
       >
-        <div className="flex items-center justify-between border-b border-current/10 px-6 py-5">
-          <h2 className="text-lg font-bold">Your Cart ({itemCount})</h2>
-          <button type="button" onClick={toggleDrawer} aria-label="Close cart">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <CartContents onNavigate={toggleDrawer} />
+        <CartContents onNavigate={toggleDrawer} onClose={toggleDrawer} />
       </div>
     </div>
   );

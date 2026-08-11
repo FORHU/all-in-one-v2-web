@@ -3,14 +3,17 @@
  * Consumed by shared/components and features/storefront/components, which
  * must theme themselves only via these variables — never via tenant checks
  * in component code.
- * Palette: soft off-white on charcoal — a softer dark mode than pure
- * black/white (see utils/colorModeVars.ts's "dark" entry, kept in sync with
- * these values since this is also the default mode before the toggle
- * hydrates).
+ * Palette: warm ivory (Bone) on near-black (Ink) — see tenants/fashion/
+ * theme.ts's FASHION_DARK_COLORS, the canonical source these values are
+ * copied from (kept in sync with utils/colorModeVars.ts's "dark" entry,
+ * since this is also the default mode before the toggle hydrates).
+ * --font-fraunces/--font-inter-fashion are set by next/font/google via the
+ * fashionFraunces/fashionInter .variable classNames applied in
+ * layouts/StorefrontLayout.tsx and pages/LoginPage.tsx (theme.ts).
  */
 :root[data-tenant="fashion"] {
-  --brand-primary: #f2f2f2;
-  --brand-secondary: #1a1a1a;
-  --font-heading: sans-serif;
-  --font-body: sans-serif;
+  --brand-primary: #f6f1e7;
+  --brand-secondary: #121110;
+  --font-heading: var(--font-fraunces), serif;
+  --font-body: var(--font-inter-fashion), sans-serif;
 }

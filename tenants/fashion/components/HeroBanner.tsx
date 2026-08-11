@@ -88,6 +88,7 @@ export function HeroBanner({ tenantSlug }: { tenantSlug: string }) {
       brand: item.brand,
       price: item.price,
       imageLabel: item.imageLabel,
+      imageUrl: item.imageUrl,
       size: item.size,
       quantity: 1,
     });
@@ -102,6 +103,7 @@ export function HeroBanner({ tenantSlug }: { tenantSlug: string }) {
         brand: item.brand,
         price: item.price,
         imageLabel: item.imageLabel,
+        imageUrl: item.imageUrl,
         size: item.size,
         quantity: 1,
       }),

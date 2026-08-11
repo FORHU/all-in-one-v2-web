@@ -161,6 +161,7 @@ export function FashionCategoryDetailPage({
       brand: product.brand,
       price: product.price,
       imageLabel: product.imageLabel,
+      imageUrl: product.imageUrl,
       size: selection.size,
       color: selection.color,
       quantity: selection.quantity,
