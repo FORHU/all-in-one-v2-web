@@ -6,10 +6,11 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Heart, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { ImagePlaceholder } from "@/shared/components/ImagePlaceholder";
 import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
+import { useWishlistStore } from "@/features/storefront/stores/wishlist.store";
 import { useCollections } from "@/features/storefront/hooks/queries/useCollections";
 import {
   LOOK_CATEGORIES,
@@ -18,8 +19,9 @@ import {
   type LookItem,
 } from "../data/looks";
 import { toLook } from "../utils/toLook";
+import { STL_COLORS, STL_SERIF_FONT } from "./shopTheLookTheme";
 
-const PANEL_HEIGHT = "lg:h-[680px]";
+const PANEL_HEIGHT = "lg:h-[520px]";
 const ALL_CATEGORIES = "All" as const;
 type CategoryFilter = LookCategory | typeof ALL_CATEGORIES;
 
@@ -36,6 +38,9 @@ type CategoryFilter = LookCategory | typeof ALL_CATEGORIES;
  * don't have a dedicated look yet. Separate from components/HeroBanner.tsx's
  * own "Get the Look" carousel, which still reads the static data/looks.ts
  * mock — that's the homepage widget, out of scope here.
+ *
+ * Visual design (fixed near-black palette) is intentionally scoped to this
+ * component only — see shopTheLookTheme.ts.
  */
 export function TrendingLookbook({
   tenantSlug,
@@ -55,6 +60,8 @@ export function TrendingLookbook({
     useState<CategoryFilter>(ALL_CATEGORIES);
   const [activeLookId, setActiveLookId] = useState<string | null>(null);
   const addCartItem = useLocalCartStore((s) => s.addItem);
+  const wishlistIds = useWishlistStore((s) => s.ids);
+  const toggleFavorite = useWishlistStore((s) => s.toggle);
 
   // Looks load asynchronously — pick the first one once they arrive, and
   // re-pick if the currently active look disappears (e.g. data refetches).
@@ -65,6 +72,33 @@ export function TrendingLookbook({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [looks.map((l) => l.id).join(",")]);
+
+  // Crossfades the center photo when the active look changes (arrows,
+  // thumbnail clicks, category switches). The photo shown is deliberately
+  // decoupled from `activeLookId` — title/subtitle/right panel update
+  // immediately, but the image itself keeps rendering the *previous* look
+  // until it has faded to 0, only then swapping `src` and fading back in.
+  // Swapping the src immediately (e.g. via a plain opacity toggle on the
+  // same render as the id change) makes the new photo pop in at full
+  // opacity on the very first frame, since nothing lags behind to fade —
+  // this is what made the transition invisible before.
+  const FADE_MS = 300;
+  const [displayedLookId, setDisplayedLookId] = useState<string | null>(null);
+  const [imageVisible, setImageVisible] = useState(true);
+  useEffect(() => {
+    if (activeLookId === null || activeLookId === displayedLookId) return;
+    if (displayedLookId === null) {
+      // First look ever selected — show it immediately, nothing to fade from.
+      setDisplayedLookId(activeLookId);
+      return;
+    }
+    setImageVisible(false);
+    const timeout = setTimeout(() => {
+      setDisplayedLookId(activeLookId);
+      setImageVisible(true);
+    }, FADE_MS);
+    return () => clearTimeout(timeout);
+  }, [activeLookId, displayedLookId]);
 
   const carouselRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef({
@@ -86,7 +120,38 @@ export function TrendingLookbook({
       : looks.filter((look) => look.category === categoryFilter);
   const activeLook = looks.find((look) => look.id === activeLookId) ?? looks[0];
   if (!activeLook) return null;
+  const displayedLook =
+    looks.find((look) => look.id === displayedLookId) ?? activeLook;
   const total = activeLook.items.reduce((sum, item) => sum + item.price, 0);
+  const lookNumber = String(
+    looks.findIndex((look) => look.id === activeLook.id) + 1,
+  ).padStart(3, "0");
+  const baseItems = activeLook.items.filter((item) => item.tag === "BASE");
+  const accessoryItems = activeLook.items.filter((item) => item.tag === "OVER");
+
+  // Center-panel arrows step through the same filteredLooks list the left
+  // carousel renders, so advancing here also moves the highlighted
+  // thumbnail there — one shared selection, two ways to drive it.
+  const activeIndexInFiltered = filteredLooks.findIndex(
+    (look) => look.id === activeLook.id,
+  );
+
+  const showPrevLook = () => {
+    if (filteredLooks.length === 0) return;
+    const currentIndex =
+      activeIndexInFiltered === -1 ? 0 : activeIndexInFiltered;
+    const prevIndex =
+      (currentIndex - 1 + filteredLooks.length) % filteredLooks.length;
+    setActiveLookId(filteredLooks[prevIndex].id);
+  };
+
+  const showNextLook = () => {
+    if (filteredLooks.length === 0) return;
+    const currentIndex =
+      activeIndexInFiltered === -1 ? 0 : activeIndexInFiltered;
+    const nextIndex = (currentIndex + 1) % filteredLooks.length;
+    setActiveLookId(filteredLooks[nextIndex].id);
+  };
 
   // Click-and-drag scrolling for mouse users — touch already scrolls
   // natively via swipe, so this only activates for pointerType "mouse".
@@ -171,74 +236,96 @@ export function TrendingLookbook({
     toast.success(`Added ${item.name} to your bag`);
   };
 
-  const borderColor =
-    "color-mix(in srgb, var(--brand-primary) 12%, transparent)";
-
   return (
-    <section
-      className="mx-auto max-w-7xl px-6 pt-10"
-      style={{ color: "var(--brand-primary)" }}
-    >
-      <div
-        className="flex w-full flex-col gap-6 rounded-2xl border p-6"
-        style={{ borderColor }}
-      >
-        <div className="flex flex-col items-center gap-1 text-center">
-          <span className="text-xs font-bold uppercase tracking-widest opacity-50">
-            Shop the Look
-          </span>
-          <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
+    <section className="mx-auto flex max-w-7xl flex-col gap-6 px-6 pt-10">
+      {/* Header — eyebrow, title, subtitle, category tabs */}
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <div className="flex items-center justify-center gap-4">
+            <span
+              className="h-px w-10"
+              style={{ backgroundColor: STL_COLORS.borderLine }}
+            />
+            <span
+              className="text-[11px] font-semibold uppercase tracking-[0.35em]"
+              style={{ color: STL_COLORS.teal }}
+            >
+              Shop the Look
+            </span>
+            <span
+              className="h-px w-10"
+              style={{ backgroundColor: STL_COLORS.borderLine }}
+            />
+          </div>
+
+          <h2
+            className="text-2xl font-medium tracking-tight sm:text-3xl"
+            style={{
+              color: STL_COLORS.textPrimary,
+              fontFamily: STL_SERIF_FONT,
+            }}
+          >
             {activeLook.name}
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-[420px_1fr_280px]">
-          {/* Left — vertical looks carousel */}
-          <div
-            className={`flex min-w-0 flex-col gap-2 rounded-2xl border p-3 ${PANEL_HEIGHT}`}
-            style={{ borderColor }}
-          >
-            <div className="scrollbar-hide flex flex-none gap-1.5 overflow-x-auto pb-1 lg:flex-wrap lg:overflow-visible lg:pb-0">
-              {[ALL_CATEGORIES, ...LOOK_CATEGORIES].map((category) => {
-                const isActive = categoryFilter === category;
-                return (
-                  <button
-                    key={category}
-                    type="button"
-                    onClick={() => handleCategoryChange(category)}
-                    aria-pressed={isActive}
-                    className="flex-none rounded-full border px-2.5 py-1 text-[10px] font-semibold transition-colors"
-                    style={{
-                      backgroundColor: isActive
-                        ? "var(--brand-primary)"
-                        : "transparent",
-                      color: isActive
-                        ? "var(--brand-secondary)"
-                        : "var(--brand-primary)",
-                      borderColor: isActive
-                        ? "var(--brand-primary)"
-                        : "color-mix(in srgb, var(--brand-primary) 20%, transparent)",
-                    }}
-                  >
-                    {category}
-                  </button>
-                );
-              })}
-            </div>
+        <div className="scrollbar-hide flex max-w-full flex-wrap items-center gap-x-6 gap-y-2 overflow-x-auto pt-2">
+          {[ALL_CATEGORIES, ...LOOK_CATEGORIES].map((category) => {
+            const isActive = categoryFilter === category;
+            return (
+              <button
+                key={category}
+                type="button"
+                onClick={() => handleCategoryChange(category)}
+                aria-pressed={isActive}
+                className="relative flex-none pb-1.5 text-xs font-semibold uppercase tracking-wider transition-colors"
+                style={{
+                  color: isActive ? STL_COLORS.textPrimary : STL_COLORS.textDim,
+                }}
+              >
+                {category}
+                {isActive && (
+                  <span
+                    className="absolute bottom-0 left-0 right-0 h-[2px]"
+                    style={{ backgroundColor: STL_COLORS.gold }}
+                  />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-            <div
-              ref={carouselRef}
-              onPointerDown={handlePointerDown}
-              onPointerMove={handlePointerMove}
-              onPointerUp={handlePointerUp}
-              onPointerLeave={handlePointerUp}
-              className="scrollbar-hide flex min-h-0 flex-1 cursor-grab select-none gap-3 overflow-x-auto overflow-y-hidden pb-1 active:cursor-grabbing lg:grid lg:grid-cols-3 lg:auto-rows-[220px] lg:gap-2 lg:overflow-x-hidden lg:overflow-y-auto lg:pb-0"
-            >
-              {filteredLooks.map((look) => {
-                const isActive = look.id === activeLookId;
-                return (
+      <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-[400px_1fr_320px]">
+        {/* Left — looks carousel, product-photo thumbnails */}
+        <div
+          ref={carouselRef}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={handlePointerUp}
+          className={`scrollbar-hide flex min-w-0 cursor-grab select-none gap-2 overflow-x-auto overflow-y-hidden pb-1 active:cursor-grabbing lg:grid lg:grid-cols-3 lg:auto-rows-[240px] lg:gap-1.5 lg:overflow-x-hidden lg:overflow-y-auto lg:pb-0 ${PANEL_HEIGHT}`}
+        >
+          {filteredLooks.map((look) => {
+            const isActive = look.id === activeLookId;
+            const isFavorite = wishlistIds.includes(look.id);
+            const lookTotal = look.items.reduce(
+              (sum, item) => sum + item.price,
+              0,
+            );
+            return (
+              <div
+                key={look.id}
+                className="flex w-20 flex-none flex-col gap-1 transition-opacity duration-300 lg:w-full"
+                style={{ opacity: isActive ? 1 : 0.6 }}
+              >
+                <div
+                  className="relative h-20 w-full overflow-hidden rounded-lg border-2 transition-colors duration-300 lg:h-full lg:w-full lg:flex-1"
+                  style={{
+                    borderColor: isActive ? STL_COLORS.gold : "transparent",
+                  }}
+                >
                   <button
-                    key={look.id}
                     type="button"
                     onClick={() => {
                       if (dragRef.current.moved) return;
@@ -246,115 +333,248 @@ export function TrendingLookbook({
                     }}
                     aria-pressed={isActive}
                     aria-label={`Show ${look.name}`}
-                    className={`flex w-24 flex-none flex-col gap-1.5 transition-opacity duration-300 lg:w-full ${
-                      isActive ? "" : "opacity-50 hover:opacity-90"
-                    }`}
+                    className="absolute inset-0"
                   >
-                    <span
-                      className="block overflow-hidden rounded-xl border-2 transition-colors duration-300 lg:flex-1"
-                      style={{
-                        borderColor: isActive
-                          ? "var(--brand-primary)"
-                          : "transparent",
-                      }}
-                    >
-                      <ImagePlaceholder
-                        label={look.imageLabel}
-                        imageUrl={look.imageUrl}
-                        aspect="1/1"
-                        className="h-32 w-full lg:h-full lg:w-full"
-                      />
-                    </span>
-                    <span className="truncate text-center text-[11px] font-semibold">
-                      {look.name}
-                    </span>
+                    <ImagePlaceholder
+                      label={look.imageLabel}
+                      imageUrl={look.imageUrl}
+                      aspect="1/1"
+                      className="h-full w-full"
+                    />
                   </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Center — active look, large */}
-          <div
-            className={`flex min-w-0 justify-center rounded-2xl border p-6 ${PANEL_HEIGHT}`}
-            style={{ borderColor }}
-          >
-            <ImagePlaceholder
-              label={activeLook.imageLabel}
-              imageUrl={activeLook.imageUrl}
-              aspect="3/4"
-              className="w-[70%] h-auto sm:w-[46%] lg:h-auto lg:w-auto lg:max-h-full lg:max-w-full"
-            />
-          </div>
-
-          {/* Right — pieces in this look */}
-          <div
-            className={`flex min-w-0 flex-col gap-4 rounded-2xl border p-5 ${PANEL_HEIGHT}`}
-            style={{ borderColor }}
-          >
-            <h3 className="text-sm font-bold uppercase tracking-wide opacity-70">
-              Complete the Look
-            </h3>
-            <div className="scrollbar-hide flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1">
-              {activeLook.items.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex flex-1 items-center gap-3 rounded-2xl border p-3"
-                  style={{ borderColor }}
-                >
-                  <ImagePlaceholder
-                    label={item.imageLabel}
-                    imageUrl={item.imageUrl}
-                    aspect="1/1"
-                    className="h-20 w-20 flex-none"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[11px] font-bold uppercase tracking-wide opacity-50">
-                      {item.tag}
-                    </div>
-                    <div className="truncate text-base font-semibold">
-                      {item.name}
-                    </div>
-                    <div className="text-sm font-bold opacity-70">
-                      ${item.price.toFixed(2)}
-                    </div>
-                  </div>
                   <button
                     type="button"
-                    onClick={() => addItemToBag(item)}
-                    aria-label={`Add ${item.name} to bag`}
-                    className="flex h-9 w-9 flex-none items-center justify-center rounded-full transition-opacity hover:opacity-90"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      toggleFavorite(look.id);
+                    }}
+                    aria-pressed={isFavorite}
+                    aria-label={
+                      isFavorite
+                        ? `Remove ${look.name} from wishlist`
+                        : `Add ${look.name} to wishlist`
+                    }
+                    className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full transition-colors"
                     style={{
-                      backgroundColor: "var(--brand-primary)",
-                      color: "var(--brand-secondary)",
+                      backgroundColor: `${STL_COLORS.bgPage}b3`,
+                      color: isFavorite
+                        ? STL_COLORS.gold
+                        : STL_COLORS.textPrimary,
                     }}
                   >
-                    <Plus className="h-4 w-4" />
+                    <Heart
+                      className="h-3.5 w-3.5"
+                      fill={isFavorite ? "currentColor" : "none"}
+                    />
                   </button>
                 </div>
-              ))}
-            </div>
+                <span
+                  className="truncate text-center text-[11px] font-semibold"
+                  style={{
+                    color: isActive
+                      ? STL_COLORS.textPrimary
+                      : STL_COLORS.textDim,
+                  }}
+                >
+                  {look.name}
+                </span>
+                <span
+                  className="text-center text-[10px] font-bold"
+                  style={{ color: STL_COLORS.gold }}
+                >
+                  ${lookTotal.toFixed(2)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
 
-            <div
-              className="flex flex-none items-center justify-between gap-3 border-t pt-4"
-              style={{ borderColor }}
+        {/* Center — active look, large */}
+        <div
+          className={`relative flex min-w-0 items-center justify-center ${PANEL_HEIGHT}`}
+        >
+          <div
+            className="relative mx-auto flex h-full w-full max-w-[320px] items-center justify-center overflow-hidden rounded-2xl border"
+            style={{
+              backgroundColor: STL_COLORS.bgPanel,
+              borderColor: STL_COLORS.borderLine,
+            }}
+          >
+            <ImagePlaceholder
+              label={displayedLook.imageLabel}
+              imageUrl={displayedLook.imageUrl}
+              aspect="3/4"
+              className={`h-full w-full transition-opacity duration-300 ${
+                imageVisible ? "opacity-100" : "opacity-0"
+              }`}
+            />
+            <span
+              className="absolute bottom-3 right-3 text-[10px] font-semibold uppercase tracking-[0.3em]"
+              style={{
+                color: STL_COLORS.goldDim,
+                writingMode: "vertical-rl",
+              }}
             >
-              <span className="text-2xl font-bold">${total.toFixed(2)}</span>
+              Look № {lookNumber}
+            </span>
+          </div>
+
+          {filteredLooks.length > 1 && (
+            <>
               <button
                 type="button"
-                onClick={addAllToBag}
-                className="flex-none whitespace-nowrap rounded-full px-6 py-3 text-sm font-bold transition-opacity hover:opacity-90"
+                onClick={showPrevLook}
+                aria-label="Show previous look"
+                className="absolute left-0 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border transition-colors hover:border-current"
                 style={{
-                  backgroundColor: "var(--brand-primary)",
-                  color: "var(--brand-secondary)",
+                  backgroundColor: STL_COLORS.bgRaised,
+                  borderColor: STL_COLORS.borderLine,
+                  color: STL_COLORS.textPrimary,
                 }}
               >
-                Add All to Bag
+                <ChevronLeft className="h-5 w-5" />
               </button>
+              <button
+                type="button"
+                onClick={showNextLook}
+                aria-label="Show next look"
+                className="absolute right-0 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border transition-colors hover:border-current"
+                style={{
+                  backgroundColor: STL_COLORS.bgRaised,
+                  borderColor: STL_COLORS.borderLine,
+                  color: STL_COLORS.textPrimary,
+                }}
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </>
+          )}
+        </div>
+
+        {/* Right — pieces in this look */}
+        <div className={`flex min-w-0 flex-col gap-4 ${PANEL_HEIGHT}`}>
+          <h3
+            className="text-xs font-bold uppercase tracking-[0.25em]"
+            style={{ color: STL_COLORS.teal }}
+          >
+            Complete the Look
+          </h3>
+          <div className="relative flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto pr-1 scrollbar-hide">
+            <div
+              className="pointer-events-none absolute bottom-2 left-1.5 top-2 border-l border-dashed"
+              style={{ borderColor: STL_COLORS.borderLine }}
+            />
+            {baseItems.length > 0 && (
+              <div
+                className="pl-3 text-[10px] font-bold uppercase tracking-[0.2em]"
+                style={{ color: STL_COLORS.textFaint }}
+              >
+                Base Item
+              </div>
+            )}
+            {baseItems.map((item) => (
+              <ShopTheLookItemRow
+                key={item.id}
+                item={item}
+                onAdd={addItemToBag}
+              />
+            ))}
+
+            {accessoryItems.length > 0 && (
+              <div
+                className="pl-3 pt-2 text-[10px] font-bold uppercase tracking-[0.2em]"
+                style={{ color: STL_COLORS.textFaint }}
+              >
+                Accessory Items
+              </div>
+            )}
+            {accessoryItems.map((item) => (
+              <ShopTheLookItemRow
+                key={item.id}
+                item={item}
+                onAdd={addItemToBag}
+              />
+            ))}
+          </div>
+
+          <div
+            className="flex flex-none items-center justify-between gap-3 border-t pt-3"
+            style={{ borderColor: STL_COLORS.borderLine }}
+          >
+            <div>
+              <div
+                className="text-[10px] font-bold uppercase tracking-[0.2em]"
+                style={{ color: STL_COLORS.textFaint }}
+              >
+                Edit Total
+              </div>
+              <span
+                className="text-lg font-bold"
+                style={{ color: STL_COLORS.gold }}
+              >
+                ${total.toFixed(2)}
+              </span>
             </div>
+            <button
+              type="button"
+              onClick={addAllToBag}
+              className="flex-none whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-bold transition-opacity hover:opacity-90"
+              style={{
+                backgroundColor: STL_COLORS.gold,
+                color: STL_COLORS.ctaText,
+              }}
+            >
+              Add all to bag
+            </button>
           </div>
         </div>
       </div>
     </section>
+  );
+}
+
+/** A single "Complete the Look" row, shared by the Base Item and Accessory Items groups. */
+function ShopTheLookItemRow({
+  item,
+  onAdd,
+}: {
+  item: LookItem;
+  onAdd: (item: LookItem) => void;
+}) {
+  return (
+    <div className="flex items-center gap-3 py-2.5">
+      <div className="flex w-3 flex-none items-center justify-center self-stretch">
+        <span
+          className="h-1.5 w-1.5 rounded-full"
+          style={{ backgroundColor: STL_COLORS.goldDim }}
+        />
+      </div>
+      <ImagePlaceholder
+        label={item.imageLabel}
+        imageUrl={item.imageUrl}
+        aspect="1/1"
+        className="h-14 w-14 flex-none overflow-hidden rounded-lg"
+      />
+      <div className="min-w-0 flex-1">
+        <div
+          className="truncate text-sm font-semibold"
+          style={{ color: STL_COLORS.textPrimary }}
+        >
+          {item.name}
+        </div>
+        <div className="text-xs font-bold" style={{ color: STL_COLORS.gold }}>
+          ${item.price.toFixed(2)}
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={() => onAdd(item)}
+        aria-label={`Add ${item.name} to bag`}
+        className="flex h-8 w-8 flex-none items-center justify-center rounded-full transition-opacity hover:opacity-90"
+        style={{ backgroundColor: STL_COLORS.gold, color: STL_COLORS.ctaText }}
+      >
+        <Plus className="h-4 w-4" />
+      </button>
+    </div>
   );
 }
