@@ -53,6 +53,24 @@ export const ProductsListApiEnvelopeSchema = z.object({
   data: ProductsListResponseSchema,
 });
 
+export const ProductVariantStockSchema = z.object({
+  color: z.string().nullable(),
+  size: z.string().nullable(),
+  stock: z.number(),
+});
+
+export const ProductDetailSchema = ProductSchema.extend({
+  description: z.string().nullable(),
+  images: z.array(z.string()),
+  categorySlug: z.string().nullable(),
+  categoryName: z.string().nullable(),
+  variants: z.array(ProductVariantStockSchema),
+});
+
+export const ProductDetailApiEnvelopeSchema = z.object({
+  data: ProductDetailSchema,
+});
+
 export const ProductVariantSchema = z.object({
   id: z.string(),
   productId: z.string(),
@@ -64,6 +82,7 @@ export type ProductAttributeOption = z.infer<
   typeof ProductAttributeOptionSchema
 >;
 export type Product = z.infer<typeof ProductSchema>;
+export type ProductDetail = z.infer<typeof ProductDetailSchema>;
 export type ProductFacets = z.infer<typeof ProductFacetsSchema>;
 export type ProductsListResponse = z.infer<typeof ProductsListResponseSchema>;
 export type ProductVariant = z.infer<typeof ProductVariantSchema>;

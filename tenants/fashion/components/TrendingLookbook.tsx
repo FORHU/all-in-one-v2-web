@@ -6,6 +6,7 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import Link from "next/link";
 import { ChevronLeft, ChevronRight, Heart, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { ImagePlaceholder } from "@/shared/components/ImagePlaceholder";
@@ -548,14 +549,8 @@ function ShopTheLookItemRow({
   item: LookItem;
   onAdd: (item: LookItem) => void;
 }) {
-  return (
-    <div className="flex items-center gap-3 py-2.5">
-      <div className="flex w-3 flex-none items-center justify-center self-stretch">
-        <span
-          className="h-1.5 w-1.5 rounded-full"
-          style={{ backgroundColor: FASHION_DARK_COLORS.brassDim }}
-        />
-      </div>
+  const itemContent = (
+    <>
       <ImagePlaceholder
         label={item.imageLabel}
         imageUrl={item.imageUrl}
@@ -576,6 +571,29 @@ function ShopTheLookItemRow({
           ${item.price.toFixed(2)}
         </div>
       </div>
+    </>
+  );
+
+  return (
+    <div className="flex items-center gap-3 py-2.5">
+      <div className="flex w-3 flex-none items-center justify-center self-stretch">
+        <span
+          className="h-1.5 w-1.5 rounded-full"
+          style={{ backgroundColor: FASHION_DARK_COLORS.brassDim }}
+        />
+      </div>
+      {item.slug ? (
+        <Link
+          href={`/products/${item.slug}`}
+          className="flex min-w-0 flex-1 items-center gap-3"
+        >
+          {itemContent}
+        </Link>
+      ) : (
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          {itemContent}
+        </div>
+      )}
       <button
         type="button"
         onClick={() => onAdd(item)}

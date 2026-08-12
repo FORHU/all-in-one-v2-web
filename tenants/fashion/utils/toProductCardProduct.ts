@@ -21,6 +21,7 @@ export function toProductCardProduct(product: Product): ProductCardProduct {
 
   return {
     id: product.id,
+    slug: product.slug,
     name: product.title,
     brand: product.brand ?? "",
     price: product.price ?? 0,

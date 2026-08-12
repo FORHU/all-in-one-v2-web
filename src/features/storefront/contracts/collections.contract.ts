@@ -13,6 +13,7 @@ import { z } from "zod";
 
 export const CollectionProductSchema = z.object({
   id: z.string(),
+  slug: z.string(),
   title: z.string(),
   brand: z.string().nullable(),
   price: z.coerce.number().nullable(),

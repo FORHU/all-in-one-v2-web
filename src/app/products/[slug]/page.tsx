@@ -1,14 +1,30 @@
+import { headers } from "next/headers";
+import { getTenantConfig } from "@/tenants/registry";
+import { FashionProductDetailPage } from "@/tenants/fashion/pages/ProductDetailPage";
+
+const productDetailPagesBySlug = {
+  fashion: FashionProductDetailPage,
+} as const;
+
 /**
  * Route entry point only — no business logic here.
- * TODO: resolve the active tenant and render the storefront's product detail
- * page for `slug`, composed from `features/storefront` hooks and the
- * tenant's presentation layer.
+ * TODO: extend productDetailPagesBySlug as other tenants get their own
+ * ProductDetailPage.
  */
 export default async function ProductDetailPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  await params;
-  return null;
+  const { slug } = await params;
+  const tenantSlug = (await headers()).get("x-tenant-slug") ?? "fashion";
+  const tenant = getTenantConfig(tenantSlug);
+  const TenantProductDetailPage =
+    productDetailPagesBySlug[
+      tenantSlug as keyof typeof productDetailPagesBySlug
+    ];
+
+  if (!tenant || !TenantProductDetailPage) return null;
+
+  return <TenantProductDetailPage tenantSlug={tenantSlug} slug={slug} />;
 }

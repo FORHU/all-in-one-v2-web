@@ -28,6 +28,7 @@ function toCategory(metadata: Collection["metadata"]): LookCategory {
 function toLookItem(item: CollectionItem): LookItem {
   return {
     id: item.id,
+    slug: item.product.slug,
     tag: toTag(item.slot),
     name: item.product.title,
     brand: item.product.brand ?? "",
