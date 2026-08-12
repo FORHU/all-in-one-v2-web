@@ -13,7 +13,7 @@ export const featureManifest = {
   dependsOn: [] as const,
   exposes: [
     "useProducts",
-    "useProduct",
+    "useProductDetail",
     "useCategories",
     "useCart",
     "useCheckout",

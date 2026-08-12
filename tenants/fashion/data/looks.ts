@@ -1,5 +1,7 @@
 export interface LookItem {
   id: string;
+  /** Optional — only real API-backed items (via toLook.ts) have one; the static mock looks below don't. When present, the row links to /products/{slug}. */
+  slug?: string;
   tag: "BASE" | "OVER";
   name: string;
   brand: string;

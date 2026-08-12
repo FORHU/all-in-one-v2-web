@@ -1,7 +1,9 @@
 import { fetcher } from "@/shared/lib/http";
+import { ApiError } from "@/shared/errors/api-error";
 import {
+  ProductDetailApiEnvelopeSchema,
   ProductsListApiEnvelopeSchema,
-  type Product,
+  type ProductDetail,
   type ProductsListResponse,
 } from "../contracts/products.contract";
 
@@ -54,7 +56,19 @@ export const getProducts = async (
 };
 
 export const getProductBySlug = async (
+  tenantSlug: string,
   slug: string,
-): Promise<Product | null> => {
-  throw new Error(`Not implemented: getProductBySlug(${slug})`);
+): Promise<ProductDetail | null> => {
+  try {
+    const raw = await fetcher<unknown>(`/api/v2/products/${slug}`, {
+      headers: { "x-tenant-slug": tenantSlug },
+    });
+    return ProductDetailApiEnvelopeSchema.parse(raw).data;
+  } catch (err) {
+    // A 404 (product not found) is an expected outcome here, not a fetch
+    // failure — the page renders its own "not found" state instead of
+    // erroring — so it resolves to null rather than throwing.
+    if (err instanceof ApiError && err.category === "NOT_FOUND") return null;
+    throw err;
+  }
 };

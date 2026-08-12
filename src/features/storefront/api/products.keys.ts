@@ -4,5 +4,6 @@ export const productsKeys = {
   all: ["storefront", "products"] as const,
   list: (tenantSlug: string, params: ProductListingParams) =>
     [...productsKeys.all, "list", tenantSlug, params] as const,
-  detail: (slug: string) => [...productsKeys.all, "detail", slug] as const,
+  detail: (tenantSlug: string, slug: string) =>
+    [...productsKeys.all, "detail", tenantSlug, slug] as const,
 } as const;
