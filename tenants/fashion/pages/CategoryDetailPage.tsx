@@ -24,6 +24,7 @@ import { useProducts } from "@/features/storefront/hooks/queries/useProducts";
 import type { ProductListingParams } from "@/features/storefront/api/products.client";
 import { quickAddToCart } from "../utils/quickAddToCart";
 import { toProductCardProduct } from "../utils/toProductCardProduct";
+import { useBuyNow } from "../hooks/useBuyNow";
 
 function humanize(slug: string) {
   return slug
@@ -101,6 +102,7 @@ export function FashionCategoryDetailPage({
     useState<ProductCardProduct | null>(null);
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
   const addItem = useLocalCartStore((s) => s.addItem);
+  const buyNow = useBuyNow();
 
   const updateParams = (patch: Record<string, string | null>) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -397,6 +399,7 @@ export function FashionCategoryDetailPage({
                             product={cardProduct}
                             onQuickView={setQuickViewProduct}
                             onQuickAdd={quickAddToCart}
+                            onBuyNow={buyNow}
                           />
                         );
                       })}
@@ -443,6 +446,7 @@ export function FashionCategoryDetailPage({
         product={quickViewProduct}
         onClose={() => setQuickViewProduct(null)}
         onAddToCart={handleAddToCart}
+        onBuyNow={buyNow}
       />
     </FashionStorefrontLayout>
   );

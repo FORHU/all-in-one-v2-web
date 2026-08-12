@@ -2,13 +2,12 @@
 
 import { useEffect, useState, type MouseEvent as ReactMouseEvent } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Search, ShoppingBag, User, Menu, X, Sun, Moon } from "lucide-react";
 import { useCartUIStore } from "@/features/storefront/stores/cart.store";
 import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
 import { fashionConfig } from "../tenant.config";
-import logo from "../assets/addictstyle-logo.svg";
+import { AddictStyleLogo } from "../assets/AddictStyleLogo";
 import { CartDrawer } from "../components/CartDrawer";
 import { useFashionColorMode } from "../stores/colorMode.store";
 import { FASHION_COLOR_VARS } from "../utils/colorModeVars";
@@ -235,13 +234,19 @@ export function FashionStorefrontLayout({
             </button>
           </div>
 
-          <Link href="/" className="justify-self-center">
-            <Image
-              src={logo}
-              alt={fashionConfig.name}
+          <Link
+            href="/"
+            className={`justify-self-center transition-colors ${
+              mode === "dark" ? "text-[#EFE3A2] hover:text-[#E8DA97]" : ""
+            }`}
+            style={
+              mode === "dark" ? undefined : { color: "var(--brand-primary)" }
+            }
+          >
+            <AddictStyleLogo
+              role="img"
+              aria-label={fashionConfig.name}
               className="h-14 w-auto sm:h-16"
-              style={{ filter: mode === "light" ? "invert(1)" : "none" }}
-              priority
             />
           </Link>
 

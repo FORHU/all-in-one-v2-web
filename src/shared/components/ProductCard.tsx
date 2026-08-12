@@ -31,12 +31,14 @@ export function ProductCard({
   className = "",
   onQuickView,
   onQuickAdd,
+  onBuyNow,
 }: {
   product: ProductCardProduct;
   compact?: boolean;
   className?: string;
   onQuickView?: (product: ProductCardProduct) => void;
   onQuickAdd?: (product: ProductCardProduct) => void;
+  onBuyNow?: (product: ProductCardProduct) => void;
 }) {
   return (
     <div className={`flex flex-col gap-3 ${className}`}>
@@ -79,18 +81,37 @@ export function ProductCard({
           </div>
         )}
 
-        {!compact && onQuickAdd && (
-          <button
-            type="button"
-            onClick={() => onQuickAdd(product)}
-            className="absolute inset-x-2.5 bottom-2.5 rounded-lg py-2.5 text-[13px] font-semibold opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-            style={{
-              backgroundColor: "var(--brand-primary)",
-              color: "var(--brand-secondary)",
-            }}
-          >
-            Quick Add to Cart
-          </button>
+        {!compact && (onQuickAdd || onBuyNow) && (
+          <div className="absolute inset-x-2.5 bottom-2.5 flex gap-1.5 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+            {onQuickAdd && (
+              <button
+                type="button"
+                onClick={() => onQuickAdd(product)}
+                className="flex-1 rounded-lg py-2.5 text-[12px] font-semibold"
+                style={{
+                  backgroundColor: "var(--brand-primary)",
+                  color: "var(--brand-secondary)",
+                }}
+              >
+                Add to Cart
+              </button>
+            )}
+            {onBuyNow && (
+              <button
+                type="button"
+                onClick={() => onBuyNow(product)}
+                className="flex-1 rounded-lg border py-2.5 text-[12px] font-semibold"
+                style={{
+                  borderColor: "var(--brand-primary)",
+                  backgroundColor:
+                    "color-mix(in srgb, var(--brand-secondary) 90%, transparent)",
+                  color: "var(--brand-primary)",
+                }}
+              >
+                Buy Now
+              </button>
+            )}
+          </div>
         )}
       </div>
 

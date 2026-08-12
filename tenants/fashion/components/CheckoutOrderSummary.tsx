@@ -1,12 +1,23 @@
 "use client";
 
+import { Lock, ShieldCheck } from "lucide-react";
 import { ImagePlaceholder } from "@/shared/components/ImagePlaceholder";
-import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
+import type { LocalCartItem } from "@/features/storefront/stores/localCart.store";
+import { FASHION_DARK_COLORS, fashionFraunces, fashionInter } from "../theme";
 import { PROMO_CODES } from "../data/checkoutRules";
 
 /**
  * Fashion — checkout right column: item thumbnails, discount code input,
- * and the subtotal/discount/shipping/tax/total breakdown.
+ * and the subtotal/discount/shipping/tax/total breakdown. Fixed dark
+ * palette (Ink/Bone/Brass), matched exactly to a supplied mockup — same
+ * precedent as CartContents.tsx, including the "ticket stub" notch circle
+ * on the box's top border and the dashed rule after the ORDER SUMMARY
+ * label.
+ *
+ * `items` is a prop rather than read from useLocalCartStore directly, so
+ * this same component works for both the normal cart checkout and the
+ * single-item Buy Now checkout (pages/CheckoutPage.tsx resolves which
+ * item list applies and passes it down).
  *
  * Discount state is controlled by the parent (pages/CheckoutPage.tsx)
  * rather than owned here, because CheckoutPage needs the applied discount
@@ -15,6 +26,7 @@ import { PROMO_CODES } from "../data/checkoutRules";
  * knew about it.
  */
 export function CheckoutOrderSummary({
+  items,
   shippingPrice,
   tax,
   total,
@@ -25,6 +37,7 @@ export function CheckoutOrderSummary({
   discountError,
   onApplyDiscount,
 }: {
+  items: LocalCartItem[];
   shippingPrice: number;
   tax: number;
   total: number;
@@ -35,40 +48,76 @@ export function CheckoutOrderSummary({
   discountError: string | null;
   onApplyDiscount: () => void;
 }) {
-  const items = useLocalCartStore((s) => s.items);
   const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
 
   return (
     <div
-      className="flex flex-col gap-5 rounded-2xl border border-current/10 p-6"
-      style={{ color: "var(--brand-primary)" }}
+      className={`relative flex flex-col gap-5 rounded-2xl p-6 ${fashionInter.className}`}
+      style={{
+        backgroundColor: FASHION_DARK_COLORS.ink2,
+        border: `1px solid ${FASHION_DARK_COLORS.hairline}`,
+        color: FASHION_DARK_COLORS.bone,
+      }}
     >
-      <h2 className="text-base font-bold">Order Summary</h2>
+      <span
+        aria-hidden="true"
+        className="absolute left-1/2 top-0 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full"
+        style={{
+          backgroundColor: FASHION_DARK_COLORS.ink,
+          border: `1px solid ${FASHION_DARK_COLORS.hairline}`,
+        }}
+      />
 
-      <ul className="flex flex-col gap-3">
+      <div className="flex items-center gap-3">
+        <h2
+          className="flex-none text-[11px] font-bold uppercase"
+          style={{ color: FASHION_DARK_COLORS.brass, letterSpacing: "1.2px" }}
+        >
+          Order Summary
+        </h2>
+        <span
+          className="h-0 flex-1"
+          style={{
+            borderTop: `1px dashed ${FASHION_DARK_COLORS.hairline}`,
+          }}
+        />
+      </div>
+
+      <ul className="flex flex-col gap-4">
         {items.map((item) => (
           <li key={item.id} className="flex gap-3">
             <div className="relative flex-none">
               <ImagePlaceholder
                 label={item.imageLabel}
+                imageUrl={item.imageUrl}
                 aspect="3/4"
                 className="h-16 w-14"
               />
               <span
                 className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold"
                 style={{
-                  backgroundColor: "var(--brand-primary)",
-                  color: "var(--brand-secondary)",
+                  backgroundColor: FASHION_DARK_COLORS.brass,
+                  color: FASHION_DARK_COLORS.ink,
                 }}
               >
                 {item.quantity}
               </span>
             </div>
             <div className="flex flex-1 flex-col justify-center">
-              <span className="text-xs font-semibold">{item.name}</span>
+              <span
+                className={fashionFraunces.className}
+                style={{ fontSize: 14, fontWeight: 500 }}
+              >
+                {item.name}
+              </span>
               {(item.size || item.color) && (
-                <span className="text-[11px] opacity-60">
-                  {[item.size, item.color].filter(Boolean).join(" / ")}
+                <span
+                  className="text-[11px]"
+                  style={{ color: FASHION_DARK_COLORS.boneDim }}
+                >
+                  {[item.size && `Size ${item.size}`, item.color]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </span>
               )}
             </div>
@@ -79,61 +128,119 @@ export function CheckoutOrderSummary({
         ))}
       </ul>
 
-      <div className="flex flex-col gap-1.5 border-t border-current/10 pt-4">
+      <div className="flex flex-col gap-1.5">
         <div className="flex gap-2">
           <input
             value={discountInput}
             onChange={(event) => onDiscountInputChange(event.target.value)}
             placeholder="Discount code"
-            className="h-10 flex-1 rounded-lg border border-current/15 px-3 text-sm outline-none"
+            className="h-10 flex-1 rounded-lg px-3 text-sm outline-none"
+            style={{
+              backgroundColor: FASHION_DARK_COLORS.ink,
+              border: `1px solid ${FASHION_DARK_COLORS.hairline}`,
+              color: FASHION_DARK_COLORS.bone,
+            }}
           />
           <button
             type="button"
             onClick={onApplyDiscount}
-            className="rounded-lg px-4 text-sm font-semibold"
+            className="rounded-lg px-4 text-sm font-semibold uppercase transition-colors hover:bg-[#B9945C] hover:text-[#121110]"
             style={{
-              backgroundColor: "var(--brand-primary)",
-              color: "var(--brand-secondary)",
+              border: `1px solid ${FASHION_DARK_COLORS.brass}`,
+              color: FASHION_DARK_COLORS.brass,
+              letterSpacing: "0.4px",
             }}
           >
             Apply
           </button>
         </div>
         {discountError && (
-          <p className="text-xs text-red-600">{discountError}</p>
+          <p className="text-xs" style={{ color: FASHION_DARK_COLORS.brick }}>
+            {discountError}
+          </p>
         )}
         {appliedDiscount && (
-          <p className="text-xs text-green-700">
+          <p className="text-xs" style={{ color: FASHION_DARK_COLORS.brass }}>
             {PROMO_CODES[appliedDiscount].label} applied
           </p>
         )}
       </div>
 
-      <div className="flex flex-col gap-1.5 border-t border-current/10 pt-4 text-sm">
-        <div className="flex justify-between opacity-70">
+      <div
+        className="flex flex-col gap-1.5 pt-4 text-sm"
+        style={{ borderTop: `1px dashed ${FASHION_DARK_COLORS.hairline}` }}
+      >
+        <div
+          className="flex justify-between"
+          style={{ color: FASHION_DARK_COLORS.boneDim }}
+        >
           <span>Subtotal</span>
-          <span>${subtotal.toFixed(2)}</span>
+          <span style={{ color: FASHION_DARK_COLORS.bone }}>
+            ${subtotal.toFixed(2)}
+          </span>
         </div>
         {discount > 0 && (
-          <div className="flex justify-between text-green-700">
+          <div
+            className="flex justify-between"
+            style={{ color: FASHION_DARK_COLORS.brass }}
+          >
             <span>Discount</span>
             <span>-${discount.toFixed(2)}</span>
           </div>
         )}
-        <div className="flex justify-between opacity-70">
+        <div
+          className="flex justify-between"
+          style={{ color: FASHION_DARK_COLORS.boneDim }}
+        >
           <span>Shipping</span>
-          <span>
+          <span style={{ color: FASHION_DARK_COLORS.bone }}>
             {shippingPrice === 0 ? "Free" : `$${shippingPrice.toFixed(2)}`}
           </span>
         </div>
-        <div className="flex justify-between opacity-70">
+        <div
+          className="flex justify-between"
+          style={{ color: FASHION_DARK_COLORS.boneDim }}
+        >
           <span>Estimated Tax</span>
-          <span>${tax.toFixed(2)}</span>
+          <span style={{ color: FASHION_DARK_COLORS.bone }}>
+            ${tax.toFixed(2)}
+          </span>
         </div>
-        <div className="mt-1 flex justify-between border-t border-current/10 pt-2 text-base font-bold">
+        <div
+          className="mt-1 flex items-baseline justify-between pt-2 text-base font-bold"
+          style={{
+            borderTop: `1px solid ${FASHION_DARK_COLORS.hairlineSoft}`,
+            color: FASHION_DARK_COLORS.bone,
+          }}
+        >
           <span>Total</span>
-          <span>${total.toFixed(2)}</span>
+          <span
+            className={fashionFraunces.className}
+            style={{ fontSize: 20, color: FASHION_DARK_COLORS.brass }}
+          >
+            ${total.toFixed(2)}
+          </span>
         </div>
+      </div>
+
+      <div
+        className="flex items-center gap-4 pt-1 text-[11.5px]"
+        style={{ letterSpacing: "0.2px" }}
+      >
+        <span
+          className="flex items-center gap-1.5 font-semibold"
+          style={{ color: FASHION_DARK_COLORS.brass }}
+        >
+          <Lock className="h-3 w-3" />
+          Secure checkout
+        </span>
+        <span
+          className="flex items-center gap-1.5"
+          style={{ color: FASHION_DARK_COLORS.boneDim }}
+        >
+          <ShieldCheck className="h-3 w-3" />
+          30-day returns
+        </span>
       </div>
     </div>
   );

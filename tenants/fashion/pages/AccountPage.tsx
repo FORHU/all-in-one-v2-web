@@ -27,6 +27,7 @@ import {
   type OrderStatus,
 } from "../data/orderHistory";
 import { quickAddToCart } from "../utils/quickAddToCart";
+import { useBuyNow } from "../hooks/useBuyNow";
 
 type SectionKey =
   | "dashboard"
@@ -139,6 +140,7 @@ export function FashionAccountPage() {
   const user = useAuthStore((s) => s.user);
   const logoutToken = useAuthStore((s) => s.setToken);
   const [activeSection, setActiveSection] = useState<SectionKey>("dashboard");
+  const buyNow = useBuyNow();
 
   const lastOrder = useLastOrderStore((s) => s.order);
 
@@ -455,6 +457,7 @@ export function FashionAccountPage() {
                       key={product.id}
                       product={product}
                       onQuickAdd={quickAddToCart}
+                      onBuyNow={buyNow}
                     />
                   ))}
                 </div>
