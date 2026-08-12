@@ -20,11 +20,13 @@ import {
   type LookItem,
 } from "../data/looks";
 import { toLook } from "../utils/toLook";
-import { FASHION_DARK_COLORS, fashionFraunces } from "../theme";
+import { useFashionColorMode } from "../stores/colorMode.store";
+import { getFashionColors, fashionFraunces } from "../theme";
 
 const PANEL_HEIGHT = "lg:h-[520px]";
 const ALL_CATEGORIES = "All" as const;
 type CategoryFilter = LookCategory | typeof ALL_CATEGORIES;
+type FashionColors = ReturnType<typeof getFashionColors>;
 
 /**
  * Fashion — "Shop the Look" widget shown above the filters+grid on
@@ -40,9 +42,14 @@ type CategoryFilter = LookCategory | typeof ALL_CATEGORIES;
  * own "Get the Look" carousel, which still reads the static data/looks.ts
  * mock — that's the homepage widget, out of scope here.
  *
- * Visual design (fixed dark palette, always-dark regardless of the site's
- * light/dark toggle) uses the tenant's canonical dark palette — see
- * ../theme.ts's FASHION_DARK_COLORS.
+ * Follows the site's light/dark toggle — see ../theme.ts's
+ * getFashionColors. Gated behind a mount flag since useFashionColorMode
+ * persists to localStorage, unavailable during SSR (same pattern as
+ * layouts/StorefrontLayout.tsx). Inactive thumbnails in the left carousel
+ * are dimmed with a black gradient overlay on the image itself rather than
+ * fading the whole element's opacity — a plain opacity fade let the page
+ * background show through and washed out both the image and its label in
+ * light mode.
  */
 export function TrendingLookbook({
   tenantSlug,
@@ -64,6 +71,12 @@ export function TrendingLookbook({
   const addCartItem = useLocalCartStore((s) => s.addItem);
   const wishlistIds = useWishlistStore((s) => s.ids);
   const toggleFavorite = useWishlistStore((s) => s.toggle);
+  const colorMode = useFashionColorMode((s) => s.mode);
+
+  const [hasMounted, setHasMounted] = useState(false);
+  useEffect(() => setHasMounted(true), []);
+  const mode = hasMounted ? colorMode : "dark";
+  const colors = getFashionColors(mode);
 
   // Looks load asynchronously — pick the first one once they arrive, and
   // re-pick if the currently active look disappears (e.g. data refetches).
@@ -248,24 +261,24 @@ export function TrendingLookbook({
           <div className="flex items-center justify-center gap-4">
             <span
               className="h-px w-10"
-              style={{ backgroundColor: FASHION_DARK_COLORS.hairline }}
+              style={{ backgroundColor: colors.hairline }}
             />
             <span
               className="text-[11px] font-semibold uppercase tracking-[0.35em]"
-              style={{ color: FASHION_DARK_COLORS.brass }}
+              style={{ color: colors.brass }}
             >
               Shop the Look
             </span>
             <span
               className="h-px w-10"
-              style={{ backgroundColor: FASHION_DARK_COLORS.hairline }}
+              style={{ backgroundColor: colors.hairline }}
             />
           </div>
 
           <h2
             className="text-2xl font-medium tracking-tight sm:text-3xl"
             style={{
-              color: FASHION_DARK_COLORS.bone,
+              color: colors.bone,
               fontFamily: fashionFraunces.style.fontFamily,
             }}
           >
@@ -284,16 +297,14 @@ export function TrendingLookbook({
                 aria-pressed={isActive}
                 className="relative flex-none pb-1.5 text-xs font-semibold uppercase tracking-wider transition-colors"
                 style={{
-                  color: isActive
-                    ? FASHION_DARK_COLORS.bone
-                    : FASHION_DARK_COLORS.boneDim,
+                  color: isActive ? colors.bone : colors.boneDim,
                 }}
               >
                 {category}
                 {isActive && (
                   <span
                     className="absolute bottom-0 left-0 right-0 h-[2px]"
-                    style={{ backgroundColor: FASHION_DARK_COLORS.brass }}
+                    style={{ backgroundColor: colors.brass }}
                   />
                 )}
               </button>
@@ -322,15 +333,12 @@ export function TrendingLookbook({
             return (
               <div
                 key={look.id}
-                className="flex w-20 flex-none flex-col gap-1 transition-opacity duration-300 lg:w-full"
-                style={{ opacity: isActive ? 1 : 0.6 }}
+                className="flex w-20 flex-none flex-col gap-1 lg:w-full"
               >
                 <div
                   className="relative h-20 w-full overflow-hidden rounded-lg border-2 transition-colors duration-300 lg:h-full lg:w-full lg:flex-1"
                   style={{
-                    borderColor: isActive
-                      ? FASHION_DARK_COLORS.brass
-                      : "transparent",
+                    borderColor: isActive ? colors.brass : "transparent",
                   }}
                 >
                   <button
@@ -349,6 +357,16 @@ export function TrendingLookbook({
                       aspect="1/1"
                       className="h-full w-full"
                     />
+                    {!isActive && (
+                      <span
+                        aria-hidden="true"
+                        className="absolute inset-0 transition-opacity duration-300"
+                        style={{
+                          background:
+                            "linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0.2))",
+                        }}
+                      />
+                    )}
                   </button>
                   <button
                     type="button"
@@ -364,10 +382,8 @@ export function TrendingLookbook({
                     }
                     className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full transition-colors"
                     style={{
-                      backgroundColor: `${FASHION_DARK_COLORS.ink}b3`,
-                      color: isFavorite
-                        ? FASHION_DARK_COLORS.brass
-                        : FASHION_DARK_COLORS.bone,
+                      backgroundColor: `${colors.ink}b3`,
+                      color: isFavorite ? colors.brass : colors.bone,
                     }}
                   >
                     <Heart
@@ -379,16 +395,14 @@ export function TrendingLookbook({
                 <span
                   className="truncate text-center text-[11px] font-semibold"
                   style={{
-                    color: isActive
-                      ? FASHION_DARK_COLORS.bone
-                      : FASHION_DARK_COLORS.boneDim,
+                    color: isActive ? colors.bone : colors.boneDim,
                   }}
                 >
                   {look.name}
                 </span>
                 <span
                   className="text-center text-[10px] font-bold"
-                  style={{ color: FASHION_DARK_COLORS.brass }}
+                  style={{ color: colors.brass }}
                 >
                   ${lookTotal.toFixed(2)}
                 </span>
@@ -404,8 +418,8 @@ export function TrendingLookbook({
           <div
             className="relative mx-auto flex h-full w-full max-w-[320px] items-center justify-center overflow-hidden rounded-2xl border"
             style={{
-              backgroundColor: FASHION_DARK_COLORS.ink,
-              borderColor: FASHION_DARK_COLORS.hairline,
+              backgroundColor: colors.ink,
+              borderColor: colors.hairline,
             }}
           >
             <ImagePlaceholder
@@ -419,7 +433,7 @@ export function TrendingLookbook({
             <span
               className="absolute bottom-3 right-3 text-[10px] font-semibold uppercase tracking-[0.3em]"
               style={{
-                color: FASHION_DARK_COLORS.brassDim,
+                color: colors.brassDim,
                 writingMode: "vertical-rl",
               }}
             >
@@ -435,9 +449,9 @@ export function TrendingLookbook({
                 aria-label="Show previous look"
                 className="absolute left-0 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border transition-colors hover:border-current"
                 style={{
-                  backgroundColor: FASHION_DARK_COLORS.ink2,
-                  borderColor: FASHION_DARK_COLORS.hairline,
-                  color: FASHION_DARK_COLORS.bone,
+                  backgroundColor: colors.ink2,
+                  borderColor: colors.hairline,
+                  color: colors.bone,
                 }}
               >
                 <ChevronLeft className="h-5 w-5" />
@@ -448,9 +462,9 @@ export function TrendingLookbook({
                 aria-label="Show next look"
                 className="absolute right-0 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border transition-colors hover:border-current"
                 style={{
-                  backgroundColor: FASHION_DARK_COLORS.ink2,
-                  borderColor: FASHION_DARK_COLORS.hairline,
-                  color: FASHION_DARK_COLORS.bone,
+                  backgroundColor: colors.ink2,
+                  borderColor: colors.hairline,
+                  color: colors.bone,
                 }}
               >
                 <ChevronRight className="h-5 w-5" />
@@ -463,19 +477,19 @@ export function TrendingLookbook({
         <div className={`flex min-w-0 flex-col gap-4 ${PANEL_HEIGHT}`}>
           <h3
             className="text-xs font-bold uppercase tracking-[0.25em]"
-            style={{ color: FASHION_DARK_COLORS.brass }}
+            style={{ color: colors.brass }}
           >
             Complete the Look
           </h3>
           <div className="relative flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto pr-1 scrollbar-hide">
             <div
               className="pointer-events-none absolute bottom-2 left-1.5 top-2 border-l border-dashed"
-              style={{ borderColor: FASHION_DARK_COLORS.hairline }}
+              style={{ borderColor: colors.hairline }}
             />
             {baseItems.length > 0 && (
               <div
                 className="pl-3 text-[10px] font-bold uppercase tracking-[0.2em]"
-                style={{ color: FASHION_DARK_COLORS.boneDim }}
+                style={{ color: colors.boneDim }}
               >
                 Base Item
               </div>
@@ -485,13 +499,14 @@ export function TrendingLookbook({
                 key={item.id}
                 item={item}
                 onAdd={addItemToBag}
+                colors={colors}
               />
             ))}
 
             {accessoryItems.length > 0 && (
               <div
                 className="pl-3 pt-2 text-[10px] font-bold uppercase tracking-[0.2em]"
-                style={{ color: FASHION_DARK_COLORS.boneDim }}
+                style={{ color: colors.boneDim }}
               >
                 Accessory Items
               </div>
@@ -501,24 +516,25 @@ export function TrendingLookbook({
                 key={item.id}
                 item={item}
                 onAdd={addItemToBag}
+                colors={colors}
               />
             ))}
           </div>
 
           <div
             className="flex flex-none items-center justify-between gap-3 border-t pt-3"
-            style={{ borderColor: FASHION_DARK_COLORS.hairline }}
+            style={{ borderColor: colors.hairline }}
           >
             <div>
               <div
                 className="text-[10px] font-bold uppercase tracking-[0.2em]"
-                style={{ color: FASHION_DARK_COLORS.boneDim }}
+                style={{ color: colors.boneDim }}
               >
                 Edit Total
               </div>
               <span
                 className="text-lg font-bold"
-                style={{ color: FASHION_DARK_COLORS.brass }}
+                style={{ color: colors.brass }}
               >
                 ${total.toFixed(2)}
               </span>
@@ -528,8 +544,8 @@ export function TrendingLookbook({
               onClick={addAllToBag}
               className="flex-none whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-bold transition-opacity hover:opacity-90"
               style={{
-                backgroundColor: FASHION_DARK_COLORS.brass,
-                color: FASHION_DARK_COLORS.ink,
+                backgroundColor: colors.brass,
+                color: colors.ink,
               }}
             >
               Add all to bag
@@ -545,9 +561,11 @@ export function TrendingLookbook({
 function ShopTheLookItemRow({
   item,
   onAdd,
+  colors,
 }: {
   item: LookItem;
   onAdd: (item: LookItem) => void;
+  colors: FashionColors;
 }) {
   const itemContent = (
     <>
@@ -560,14 +578,11 @@ function ShopTheLookItemRow({
       <div className="min-w-0 flex-1">
         <div
           className="truncate text-sm font-semibold"
-          style={{ color: FASHION_DARK_COLORS.bone }}
+          style={{ color: colors.bone }}
         >
           {item.name}
         </div>
-        <div
-          className="text-xs font-bold"
-          style={{ color: FASHION_DARK_COLORS.brass }}
-        >
+        <div className="text-xs font-bold" style={{ color: colors.brass }}>
           ${item.price.toFixed(2)}
         </div>
       </div>
@@ -579,7 +594,7 @@ function ShopTheLookItemRow({
       <div className="flex w-3 flex-none items-center justify-center self-stretch">
         <span
           className="h-1.5 w-1.5 rounded-full"
-          style={{ backgroundColor: FASHION_DARK_COLORS.brassDim }}
+          style={{ backgroundColor: colors.brassDim }}
         />
       </div>
       {item.slug ? (
@@ -600,8 +615,8 @@ function ShopTheLookItemRow({
         aria-label={`Add ${item.name} to bag`}
         className="flex h-8 w-8 flex-none items-center justify-center rounded-full transition-opacity hover:opacity-90"
         style={{
-          backgroundColor: FASHION_DARK_COLORS.brass,
-          color: FASHION_DARK_COLORS.ink,
+          backgroundColor: colors.brass,
+          color: colors.ink,
         }}
       >
         <Plus className="h-4 w-4" />
