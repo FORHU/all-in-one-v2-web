@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   CreditCard,
-  Heart,
   Minus,
   Plus,
   RotateCcw,
@@ -21,23 +20,25 @@ import { useProductDetail } from "@/features/storefront/hooks/queries/useProduct
 import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
 import { useBuyNow } from "../hooks/useBuyNow";
 import { toProductCardProduct } from "../utils/toProductCardProduct";
-import { FASHION_DARK_COLORS, fashionFraunces, fashionInter } from "../theme";
-
-const eyebrowStyle: React.CSSProperties = {
-  color: FASHION_DARK_COLORS.boneDim,
-  letterSpacing: "1.2px",
-};
+import { useFashionColorMode } from "../stores/colorMode.store";
+import { getFashionColors, fashionFraunces, fashionInter } from "../theme";
 
 /**
- * Fashion — product detail page (PDP). Fixed dark palette (Ink/Bone/Brass),
- * matched exactly to a supplied mockup — same precedent as
- * CartContents.tsx/CheckoutPage.tsx. Backed by GET /v2/products/:slug
+ * Fashion — product detail page (PDP). Backed by GET /v2/products/:slug
  * (features/storefront/hooks/queries/useProductDetail.ts).
  *
  * The gallery adapts to however many real images the product actually has
  * (CatalogProductMedia) rather than assuming a fixed count — today's seed
  * data only populates a single thumbnailUrl per product, so the thumbnail
  * rail is hidden whenever there's nothing to switch between.
+ *
+ * No auth gate here — browsing a product doesn't require sign-in. The
+ * gate lives at checkout instead (see pages/CheckoutPage.tsx).
+ *
+ * Follows the site's light/dark toggle (unlike TrendingLookbook.tsx, which
+ * is deliberately always-dark) — see ../theme.ts's getFashionColors. Gated
+ * behind a mount flag since useFashionColorMode persists to localStorage,
+ * unavailable during SSR (same pattern as layouts/StorefrontLayout.tsx).
  */
 export function FashionProductDetailPage({
   tenantSlug,
@@ -50,12 +51,21 @@ export function FashionProductDetailPage({
   const { data: product, isLoading } = useProductDetail(tenantSlug, slug);
   const addItem = useLocalCartStore((s) => s.addItem);
   const buyNow = useBuyNow();
+  const colorMode = useFashionColorMode((s) => s.mode);
 
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedColor, setSelectedColor] = useState<string | undefined>();
   const [selectedSize, setSelectedSize] = useState<string | undefined>();
   const [quantity, setQuantity] = useState(1);
-  const [isWishlisted, setIsWishlisted] = useState(false);
+
+  const [hasMounted, setHasMounted] = useState(false);
+  useEffect(() => setHasMounted(true), []);
+  const mode = hasMounted ? colorMode : "dark";
+  const colors = getFashionColors(mode);
+  const eyebrowStyle: React.CSSProperties = {
+    color: colors.boneDim,
+    letterSpacing: "1.2px",
+  };
 
   useEffect(() => {
     if (!product) return;
@@ -83,10 +93,7 @@ export function FashionProductDetailPage({
   if (isLoading) {
     return (
       <FashionStorefrontLayout>
-        <div
-          className="min-h-screen"
-          style={{ backgroundColor: FASHION_DARK_COLORS.ink }}
-        />
+        <div className="min-h-screen" style={{ backgroundColor: colors.ink }} />
       </FashionStorefrontLayout>
     );
   }
@@ -96,11 +103,11 @@ export function FashionProductDetailPage({
       <FashionStorefrontLayout>
         <div
           className={fashionInter.className}
-          style={{ backgroundColor: FASHION_DARK_COLORS.ink }}
+          style={{ backgroundColor: colors.ink }}
         >
           <div
             className="mx-auto flex max-w-md flex-col items-center gap-4 px-6 py-24 text-center"
-            style={{ color: FASHION_DARK_COLORS.bone }}
+            style={{ color: colors.bone }}
           >
             <h1
               className={fashionFraunces.className}
@@ -110,12 +117,15 @@ export function FashionProductDetailPage({
             </h1>
             <Link
               href="/products"
-              className="rounded-2xl px-6 py-3 text-sm font-semibold uppercase transition-colors hover:bg-[#CBA470]"
-              style={{
-                backgroundColor: FASHION_DARK_COLORS.brass,
-                color: FASHION_DARK_COLORS.ink,
-                letterSpacing: "0.6px",
-              }}
+              className="rounded-2xl px-6 py-3 text-sm font-semibold uppercase transition-colors hover:bg-[var(--pdp-brass-hover)]"
+              style={
+                {
+                  backgroundColor: colors.brass,
+                  color: colors.ink,
+                  letterSpacing: "0.6px",
+                  "--pdp-brass-hover": colors.brassHover,
+                } as React.CSSProperties
+              }
             >
               Continue Shopping
             </Link>
@@ -167,6 +177,7 @@ export function FashionProductDetailPage({
       size: selectedSize,
       color: selectedColor,
       quantity,
+      stock: selectedVariantStock,
     });
     toast.success(`Added ${product.title} to bag`);
   };
@@ -176,6 +187,7 @@ export function FashionProductDetailPage({
       size: selectedSize,
       color: selectedColor,
       quantity,
+      stock: selectedVariantStock,
     });
   };
 
@@ -183,17 +195,22 @@ export function FashionProductDetailPage({
     <FashionStorefrontLayout>
       <div
         className={fashionInter.className}
-        style={{ backgroundColor: FASHION_DARK_COLORS.ink }}
+        style={{ backgroundColor: colors.ink }}
       >
         <div
           className="mx-auto max-w-6xl px-6 py-10"
-          style={{ color: FASHION_DARK_COLORS.bone }}
+          style={{ color: colors.bone }}
         >
           <button
             type="button"
             onClick={() => router.back()}
-            className="mb-4 flex items-center gap-1.5 text-xs font-semibold transition-colors hover:text-[#F6F1E7]"
-            style={{ color: FASHION_DARK_COLORS.boneDim }}
+            className="mb-4 flex items-center gap-1.5 text-xs font-semibold transition-colors hover:text-[var(--pdp-bone)]"
+            style={
+              {
+                color: colors.boneDim,
+                "--pdp-bone": colors.bone,
+              } as React.CSSProperties
+            }
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             Back
@@ -201,7 +218,7 @@ export function FashionProductDetailPage({
 
           <nav
             className="mb-6 flex items-center gap-2 text-xs"
-            style={{ color: FASHION_DARK_COLORS.boneDim }}
+            style={{ color: colors.boneDim }}
           >
             <Link
               href={
@@ -214,9 +231,7 @@ export function FashionProductDetailPage({
               {product.categoryName ?? "All Products"}
             </Link>
             <span>/</span>
-            <span style={{ color: FASHION_DARK_COLORS.bone }}>
-              {product.title}
-            </span>
+            <span style={{ color: colors.bone }}>{product.title}</span>
           </nav>
 
           <div className="grid grid-cols-1 gap-10 lg:grid-cols-[380px_1fr]">
@@ -232,9 +247,7 @@ export function FashionProductDetailPage({
                       className="overflow-hidden rounded-lg border-2 transition-colors"
                       style={{
                         borderColor:
-                          i === selectedImage
-                            ? FASHION_DARK_COLORS.brass
-                            : FASHION_DARK_COLORS.hairline,
+                          i === selectedImage ? colors.brass : colors.hairline,
                       }}
                     >
                       <ImagePlaceholder
@@ -252,8 +265,8 @@ export function FashionProductDetailPage({
                   <span
                     className="absolute left-3 top-3 z-10 rounded-md px-2.5 py-1 text-xs font-bold"
                     style={{
-                      backgroundColor: FASHION_DARK_COLORS.brick,
-                      color: FASHION_DARK_COLORS.bone,
+                      backgroundColor: colors.brick,
+                      color: colors.bone,
                     }}
                   >
                     -{discountPercent}%
@@ -271,20 +284,18 @@ export function FashionProductDetailPage({
             <div className="flex flex-col">
               <div
                 className="flex items-center gap-2 text-xs font-bold uppercase"
-                style={{ color: FASHION_DARK_COLORS.brassDim }}
+                style={{ color: colors.brassDim }}
               >
                 {product.brand}
                 <span
                   className="h-1 w-1 flex-none rounded-full"
-                  style={{ backgroundColor: FASHION_DARK_COLORS.hairline }}
+                  style={{ backgroundColor: colors.hairline }}
                 />
                 <span
                   className="normal-case"
                   style={{
                     fontWeight: 500,
-                    color: isSelectionInStock
-                      ? FASHION_DARK_COLORS.boneDim
-                      : FASHION_DARK_COLORS.brick,
+                    color: isSelectionInStock ? colors.boneDim : colors.brick,
                   }}
                 >
                   {!isSelectionInStock
@@ -306,7 +317,7 @@ export function FashionProductDetailPage({
                 <div
                   className="flex"
                   aria-hidden="true"
-                  style={{ color: FASHION_DARK_COLORS.boneDim }}
+                  style={{ color: colors.boneDim }}
                 >
                   {Array.from({ length: 5 }).map((_, i) => (
                     <Star
@@ -321,7 +332,7 @@ export function FashionProductDetailPage({
                 </div>
                 <span
                   className="text-xs underline"
-                  style={{ color: FASHION_DARK_COLORS.boneDim }}
+                  style={{ color: colors.boneDim }}
                 >
                   {product.reviewCount > 0
                     ? `(${product.reviewCount})`
@@ -340,30 +351,27 @@ export function FashionProductDetailPage({
                   <>
                     <span
                       className="text-base line-through"
-                      style={{ color: FASHION_DARK_COLORS.boneDim }}
+                      style={{ color: colors.boneDim }}
                     >
                       ${product.compareAtPrice!.toFixed(2)}
                     </span>
                     <span
                       className="text-sm font-semibold"
-                      style={{ color: FASHION_DARK_COLORS.brick }}
+                      style={{ color: colors.brick }}
                     >
                       You save ${savings.toFixed(2)}
                     </span>
                   </>
                 )}
               </div>
-              <p
-                className="mt-1 text-xs"
-                style={{ color: FASHION_DARK_COLORS.boneDim }}
-              >
+              <p className="mt-1 text-xs" style={{ color: colors.boneDim }}>
                 Tax included. Shipping calculated at checkout.
               </p>
 
               {product.description && (
                 <p
                   className="mt-5 text-sm leading-relaxed"
-                  style={{ color: FASHION_DARK_COLORS.boneDim }}
+                  style={{ color: colors.boneDim }}
                 >
                   {product.description}
                 </p>
@@ -378,10 +386,7 @@ export function FashionProductDetailPage({
                     >
                       Color
                     </span>
-                    <span
-                      className="text-xs"
-                      style={{ color: FASHION_DARK_COLORS.boneDim }}
-                    >
+                    <span className="text-xs" style={{ color: colors.boneDim }}>
                       {selectedColorLabel}
                     </span>
                   </div>
@@ -398,7 +403,7 @@ export function FashionProductDetailPage({
                           backgroundColor: color.swatchColor ?? "#999999",
                           borderColor:
                             selectedColor === color.value
-                              ? FASHION_DARK_COLORS.brass
+                              ? colors.brass
                               : "transparent",
                         }}
                       />
@@ -418,7 +423,7 @@ export function FashionProductDetailPage({
                     </span>
                     <span
                       className="text-xs underline"
-                      style={{ color: FASHION_DARK_COLORS.boneDim }}
+                      style={{ color: colors.boneDim }}
                     >
                       Size Guide
                     </span>
@@ -435,14 +440,12 @@ export function FashionProductDetailPage({
                           className="h-10 min-w-10 rounded-lg border px-3 text-sm font-semibold"
                           style={{
                             borderColor: active
-                              ? FASHION_DARK_COLORS.brass
-                              : FASHION_DARK_COLORS.hairline,
+                              ? colors.brass
+                              : colors.hairline,
                             backgroundColor: active
-                              ? FASHION_DARK_COLORS.brass
-                              : FASHION_DARK_COLORS.ink2,
-                            color: active
-                              ? FASHION_DARK_COLORS.ink
-                              : FASHION_DARK_COLORS.bone,
+                              ? colors.brass
+                              : colors.ink2,
+                            color: active ? colors.ink : colors.bone,
                           }}
                         >
                           {size.label}
@@ -457,7 +460,7 @@ export function FashionProductDetailPage({
                 <div className="flex items-center gap-3">
                   <div
                     className="flex flex-none items-center rounded-lg border"
-                    style={{ borderColor: FASHION_DARK_COLORS.hairline }}
+                    style={{ borderColor: colors.hairline }}
                   >
                     <button
                       type="button"
@@ -490,26 +493,6 @@ export function FashionProductDetailPage({
                       <Plus className="h-4 w-4" />
                     </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsWishlisted((w) => !w)}
-                    aria-label={
-                      isWishlisted ? "Remove from wishlist" : "Add to wishlist"
-                    }
-                    aria-pressed={isWishlisted}
-                    className="flex h-11 w-11 flex-none items-center justify-center rounded-lg border"
-                    style={{ borderColor: FASHION_DARK_COLORS.hairline }}
-                  >
-                    <Heart
-                      className="h-4 w-4"
-                      fill={isWishlisted ? FASHION_DARK_COLORS.brass : "none"}
-                      style={{
-                        color: isWishlisted
-                          ? FASHION_DARK_COLORS.brass
-                          : FASHION_DARK_COLORS.bone,
-                      }}
-                    />
-                  </button>
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -517,11 +500,14 @@ export function FashionProductDetailPage({
                     type="button"
                     onClick={handleAddToBag}
                     disabled={!isSelectionInStock}
-                    className="flex h-11 flex-1 items-center justify-center gap-2 rounded-lg text-sm font-bold transition-colors hover:bg-[#CBA470] disabled:opacity-40"
-                    style={{
-                      backgroundColor: FASHION_DARK_COLORS.brass,
-                      color: FASHION_DARK_COLORS.ink,
-                    }}
+                    className="flex h-11 flex-1 items-center justify-center gap-2 rounded-lg text-sm font-bold transition-colors hover:bg-[var(--pdp-brass-hover)] disabled:opacity-40"
+                    style={
+                      {
+                        backgroundColor: colors.brass,
+                        color: colors.ink,
+                        "--pdp-brass-hover": colors.brassHover,
+                      } as React.CSSProperties
+                    }
                   >
                     <ShoppingBag className="h-4 w-4" />
                     Add to Bag — ${(price * quantity).toFixed(2)}
@@ -530,11 +516,14 @@ export function FashionProductDetailPage({
                     type="button"
                     onClick={handleCheckout}
                     disabled={!isSelectionInStock}
-                    className="flex h-11 flex-1 items-center justify-center gap-2 rounded-lg border text-sm font-bold transition-colors hover:bg-[#1B1917] disabled:opacity-40"
-                    style={{
-                      borderColor: FASHION_DARK_COLORS.brass,
-                      color: FASHION_DARK_COLORS.brass,
-                    }}
+                    className="flex h-11 flex-1 items-center justify-center gap-2 rounded-lg border text-sm font-bold transition-colors hover:bg-[var(--pdp-ink2)] disabled:opacity-40"
+                    style={
+                      {
+                        borderColor: colors.brass,
+                        color: colors.brass,
+                        "--pdp-ink2": colors.ink2,
+                      } as React.CSSProperties
+                    }
                   >
                     <CreditCard className="h-4 w-4" />
                     Checkout
@@ -545,8 +534,8 @@ export function FashionProductDetailPage({
               <div
                 className="mt-6 flex items-center gap-6 border-t pt-5 text-xs"
                 style={{
-                  borderColor: FASHION_DARK_COLORS.hairline,
-                  color: FASHION_DARK_COLORS.boneDim,
+                  borderColor: colors.hairline,
+                  color: colors.boneDim,
                 }}
               >
                 <span className="flex items-center gap-2">
