@@ -1,18 +1,16 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { Minus, Plus, X } from "lucide-react";
 import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
+import { useBuyNowCartItem } from "../hooks/useBuyNow";
 import { COLOR_NAMES } from "./CategoryFilters";
 import { FASHION_DARK_COLORS, fashionFraunces, fashionInter } from "../theme";
 import { FREE_SHIPPING_THRESHOLD } from "../data/checkoutRules";
 
-const SHIPPING_TICK_COUNT = 21;
-
 /**
- * Fashion — cart header (title/count/close) + free-shipping "tape measure"
- * progress + line items + summary/checkout. Shared by CartDrawer
+ * Fashion — cart header (title/count/close) + line items + summary/checkout.
+ * Shared by CartDrawer
  * (slide-over, passes onClose) and pages/CartPage.tsx (full page, omits
  * onClose) so the header/pricing/item-list markup only exists in one
  * place and both hosts render identically. Matched exactly to a supplied
@@ -23,6 +21,12 @@ const SHIPPING_TICK_COUNT = 21;
  * codes and tax still apply at actual checkout (see CheckoutPage), just
  * not previewed here. Cart items live in useLocalCartStore, a client-only
  * stand-in for the real /v2/cart.
+ *
+ * There is no single "Checkout" CTA for the whole bag — each line item
+ * gets its own Checkout button, which routes that one item through the
+ * Buy Now flow (hooks/useBuyNow.ts's useBuyNowCartItem) independently of
+ * the rest of the cart. The subtotal/total block stays as a read-only
+ * summary of everything currently in the bag.
  */
 export function CartContents({
   onNavigate,
@@ -34,19 +38,12 @@ export function CartContents({
   const items = useLocalCartStore((s) => s.items);
   const removeItem = useLocalCartStore((s) => s.removeItem);
   const setQuantity = useLocalCartStore((s) => s.setQuantity);
+  const buyNowCartItem = useBuyNowCartItem();
 
   const itemCount = items.reduce((sum, i) => sum + i.quantity, 0);
   const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
   const total = subtotal;
   const isFreeShipping = subtotal >= FREE_SHIPPING_THRESHOLD;
-  const remainingForFreeShipping = Math.max(
-    0,
-    FREE_SHIPPING_THRESHOLD - subtotal,
-  );
-  const shippingProgress = Math.min(
-    100,
-    (subtotal / FREE_SHIPPING_THRESHOLD) * 100,
-  );
 
   return (
     <div
@@ -88,84 +85,6 @@ export function CartContents({
               <X className="h-4 w-4" />
             </button>
           )}
-        </div>
-
-        <div className="mt-[18px]">
-          <div className="mb-[9px] flex items-center justify-between">
-            <span
-              className="text-[11px] font-bold uppercase"
-              style={{
-                color: FASHION_DARK_COLORS.brass,
-                letterSpacing: "1.2px",
-              }}
-            >
-              Free shipping
-            </span>
-            <span
-              className="text-xs"
-              style={{
-                color: FASHION_DARK_COLORS.boneDim,
-                letterSpacing: "0.4px",
-              }}
-            >
-              {isFreeShipping
-                ? "Unlocked"
-                : `Add $${remainingForFreeShipping.toFixed(2)} more`}
-            </span>
-          </div>
-          <div className="relative h-[26px]">
-            <div
-              className="absolute left-0 right-0 top-1/2 h-px -translate-y-1/2"
-              style={{ backgroundColor: FASHION_DARK_COLORS.hairline }}
-            />
-            <div
-              className="absolute left-0 top-1/2 h-px -translate-y-1/2"
-              style={{
-                width: `${shippingProgress}%`,
-                backgroundColor: FASHION_DARK_COLORS.brass,
-                transition: "width .5s cubic-bezier(.4,0,.2,1)",
-              }}
-            />
-            <div className="absolute inset-0 flex items-center justify-between">
-              {Array.from({ length: SHIPPING_TICK_COUNT }).map((_, i) => (
-                <span
-                  key={i}
-                  style={{
-                    width: 1,
-                    height: i % 5 === 0 ? 14 : 8,
-                    backgroundColor:
-                      i % 5 === 0
-                        ? FASHION_DARK_COLORS.boneDim
-                        : FASHION_DARK_COLORS.hairlineSoft,
-                  }}
-                />
-              ))}
-            </div>
-            <div
-              className="absolute"
-              style={{
-                left: `${shippingProgress}%`,
-                top: 2,
-                width: 2,
-                height: 22,
-                backgroundColor: FASHION_DARK_COLORS.brick,
-                transform: "translateX(-1px)",
-                transition: "left .5s cubic-bezier(.4,0,.2,1)",
-              }}
-            >
-              <span
-                className="absolute rounded-full"
-                style={{
-                  top: -4,
-                  left: "50%",
-                  width: 6,
-                  height: 6,
-                  backgroundColor: FASHION_DARK_COLORS.brick,
-                  transform: "translateX(-50%)",
-                }}
-              />
-            </div>
-          </div>
         </div>
       </div>
 
@@ -334,6 +253,22 @@ export function CartContents({
                         </span>
                       </div>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        buyNowCartItem(item);
+                        onNavigate?.();
+                      }}
+                      className="mt-3 w-full py-2 text-[11.5px] font-semibold uppercase transition-colors hover:bg-[#B9945C] hover:text-[#121110]"
+                      style={{
+                        border: `1px solid ${FASHION_DARK_COLORS.brass}`,
+                        color: FASHION_DARK_COLORS.brass,
+                        letterSpacing: "0.6px",
+                        borderRadius: 2,
+                      }}
+                    >
+                      Checkout
+                    </button>
                   </div>
                 </li>
               ))}
@@ -374,21 +309,8 @@ export function CartContents({
                 ${total.toFixed(2)}
               </span>
             </div>
-            <Link
-              href="/checkout"
-              onClick={onNavigate}
-              className="mt-[18px] flex w-full items-center justify-center py-[15px] text-[13.5px] font-semibold uppercase transition-colors hover:bg-[#CBA470]"
-              style={{
-                backgroundColor: FASHION_DARK_COLORS.brass,
-                color: FASHION_DARK_COLORS.ink,
-                letterSpacing: "0.6px",
-                borderRadius: 2,
-              }}
-            >
-              Checkout
-            </Link>
             <p
-              className="mt-3 text-center text-[11.5px]"
+              className="mt-[18px] text-center text-[11.5px]"
               style={{
                 color: FASHION_DARK_COLORS.boneDim,
                 letterSpacing: "0.2px",

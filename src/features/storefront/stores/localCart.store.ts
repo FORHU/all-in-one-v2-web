@@ -24,7 +24,7 @@ type LocalCartState = {
   clear: () => void;
 };
 
-function makeLineId(item: NewCartItem) {
+export function makeLineId(item: NewCartItem) {
   return `${item.productId}-${item.size ?? "none"}-${item.color ?? "none"}`;
 }
 

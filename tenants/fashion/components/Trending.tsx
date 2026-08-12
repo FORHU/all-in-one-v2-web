@@ -5,6 +5,7 @@ import { ProductCard } from "@/shared/components/ProductCard";
 import { useProducts } from "@/features/storefront/hooks/queries/useProducts";
 import { quickAddToCart } from "../utils/quickAddToCart";
 import { toProductCardProduct } from "../utils/toProductCardProduct";
+import { useBuyNow } from "../hooks/useBuyNow";
 
 function shuffle<T>(items: T[]): T[] {
   const shuffled = [...items];
@@ -28,6 +29,7 @@ const DISPLAY_COUNT = 12;
  * render (the sampling is memoized on `data`).
  */
 export function Trending({ tenantSlug }: { tenantSlug: string }) {
+  const buyNow = useBuyNow();
   const { data, isLoading } = useProducts(tenantSlug, {
     sort: "newest",
     page: 1,
@@ -67,6 +69,7 @@ export function Trending({ tenantSlug }: { tenantSlug: string }) {
             key={product.id}
             product={toProductCardProduct(product)}
             onQuickAdd={quickAddToCart}
+            onBuyNow={buyNow}
           />
         ))}
       </div>

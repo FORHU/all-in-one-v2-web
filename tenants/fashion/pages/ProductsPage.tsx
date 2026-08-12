@@ -7,6 +7,7 @@ import { useProducts } from "@/features/storefront/hooks/queries/useProducts";
 import type { ProductListingParams } from "@/features/storefront/api/products.client";
 import { quickAddToCart } from "../utils/quickAddToCart";
 import { toProductCardProduct } from "../utils/toProductCardProduct";
+import { useBuyNow } from "../hooks/useBuyNow";
 
 /**
  * Fashion — full product listing page ("All Products"). No category/attribute
@@ -21,6 +22,7 @@ export function FashionProductsPage({ tenantSlug }: { tenantSlug: string }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const buyNow = useBuyNow();
 
   const page = Number(searchParams.get("page")) || 1;
 
@@ -81,6 +83,7 @@ export function FashionProductsPage({ tenantSlug }: { tenantSlug: string }) {
                     key={product.id}
                     product={toProductCardProduct(product)}
                     onQuickAdd={quickAddToCart}
+                    onBuyNow={buyNow}
                   />
                 ))}
           </div>

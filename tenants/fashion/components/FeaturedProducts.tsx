@@ -5,6 +5,7 @@ import { ProductCard } from "@/shared/components/ProductCard";
 import { useProducts } from "@/features/storefront/hooks/queries/useProducts";
 import { quickAddToCart } from "../utils/quickAddToCart";
 import { toProductCardProduct } from "../utils/toProductCardProduct";
+import { useBuyNow } from "../hooks/useBuyNow";
 
 /**
  * Fashion — homepage "New Arrivals" rail, shown below Trending. Real data
@@ -13,6 +14,7 @@ import { toProductCardProduct } from "../utils/toProductCardProduct";
  * contrast to Trending's randomized sample.
  */
 export function FeaturedProducts({ tenantSlug }: { tenantSlug: string }) {
+  const buyNow = useBuyNow();
   const { data, isLoading } = useProducts(tenantSlug, {
     sort: "newest",
     page: 1,
@@ -57,6 +59,7 @@ export function FeaturedProducts({ tenantSlug }: { tenantSlug: string }) {
             key={product.id}
             product={toProductCardProduct(product)}
             onQuickAdd={quickAddToCart}
+            onBuyNow={buyNow}
           />
         ))}
       </div>

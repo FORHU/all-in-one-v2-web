@@ -23,10 +23,15 @@ export function QuickViewModal({
   product,
   onClose,
   onAddToCart,
+  onBuyNow,
 }: {
   product: ProductCardProduct | null;
   onClose: () => void;
   onAddToCart?: (
+    product: ProductCardProduct,
+    selection: QuickViewSelection,
+  ) => void;
+  onBuyNow?: (
     product: ProductCardProduct,
     selection: QuickViewSelection,
   ) => void;
@@ -192,24 +197,46 @@ export function QuickViewModal({
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              onAddToCart?.(product, {
-                size: selectedSize,
-                color: selectedColor,
-                quantity,
-              });
-              onClose();
-            }}
-            className="mt-4 h-11 rounded-xl text-sm font-semibold"
-            style={{
-              backgroundColor: "var(--brand-primary)",
-              color: "var(--brand-secondary)",
-            }}
-          >
-            Add to Cart
-          </button>
+          <div className="mt-4 flex gap-2.5">
+            <button
+              type="button"
+              onClick={() => {
+                onAddToCart?.(product, {
+                  size: selectedSize,
+                  color: selectedColor,
+                  quantity,
+                });
+                onClose();
+              }}
+              className="h-11 flex-1 rounded-xl text-sm font-semibold"
+              style={{
+                backgroundColor: "var(--brand-primary)",
+                color: "var(--brand-secondary)",
+              }}
+            >
+              Add to Cart
+            </button>
+            {onBuyNow && (
+              <button
+                type="button"
+                onClick={() => {
+                  onBuyNow(product, {
+                    size: selectedSize,
+                    color: selectedColor,
+                    quantity,
+                  });
+                  onClose();
+                }}
+                className="h-11 flex-1 rounded-xl border text-sm font-semibold"
+                style={{
+                  borderColor: "var(--brand-primary)",
+                  color: "var(--brand-primary)",
+                }}
+              >
+                Buy Now
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

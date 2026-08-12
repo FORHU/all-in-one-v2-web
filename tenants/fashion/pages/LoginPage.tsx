@@ -3,11 +3,10 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { useLogin } from "@/features/auth/hooks";
 import { ApiError } from "@/shared/errors/api-error";
 import { fashionConfig } from "../tenant.config";
-import logo from "../assets/addictstyle-logo.svg";
+import { AddictStyleLogo } from "../assets/AddictStyleLogo";
 import { useFashionColorMode } from "../stores/colorMode.store";
 import { FASHION_COLOR_VARS } from "../utils/colorModeVars";
 import { fashionFraunces, fashionInter } from "../theme";
@@ -57,12 +56,19 @@ export function FashionLoginPage() {
       }}
     >
       <div className="w-full max-w-sm">
-        <Link href="/" className="mb-8 flex justify-center">
-          <Image
-            src={logo}
-            alt={fashionConfig.name}
+        <Link
+          href="/"
+          className={`mb-8 flex justify-center transition-colors ${
+            mode === "dark" ? "text-[#D4A876] hover:text-[#E5C296]" : ""
+          }`}
+          style={
+            mode === "dark" ? undefined : { color: "var(--brand-primary)" }
+          }
+        >
+          <AddictStyleLogo
+            role="img"
+            aria-label={fashionConfig.name}
             className="h-14 w-auto"
-            style={{ filter: mode === "light" ? "invert(1)" : "none" }}
           />
         </Link>
 
