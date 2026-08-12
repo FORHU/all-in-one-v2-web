@@ -12,6 +12,8 @@ export interface LocalCartItem {
   size?: string;
   color?: string;
   quantity: number;
+  /** Available stock for this exact size/color combo at the moment it was added — only known when added from the product detail page (see ProductDetailPage.tsx's real per-variant stock). Undefined for items added elsewhere (quick-add, quick-view), which don't have that number to give. */
+  stock?: number;
 }
 
 type NewCartItem = Omit<LocalCartItem, "id">;
@@ -49,7 +51,11 @@ export const useLocalCartStore = create<LocalCartState>()(
             return {
               items: state.items.map((i) =>
                 i.id === id
-                  ? { ...i, quantity: i.quantity + item.quantity }
+                  ? {
+                      ...i,
+                      quantity: i.quantity + item.quantity,
+                      stock: item.stock ?? i.stock,
+                    }
                   : i,
               ),
             };

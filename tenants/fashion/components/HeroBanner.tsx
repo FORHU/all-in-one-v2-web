@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { ImagePlaceholder } from "@/shared/components/ImagePlaceholder";
@@ -244,29 +245,48 @@ export function HeroBanner({ tenantSlug }: { tenantSlug: string }) {
                 <span className="text-sm font-semibold opacity-50">
                   {String(i + 1).padStart(2, "0")}
                 </span>
-                <ImagePlaceholder
-                  label={item.imageLabel}
-                  imageUrl={item.imageUrl}
-                  aspect="1/1"
-                  className="h-16 w-16 flex-none sm:h-20 sm:w-20"
-                />
-                <div className="min-w-0 flex-1">
-                  <span
-                    className="inline-block rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide"
-                    style={{
-                      backgroundColor:
-                        "color-mix(in srgb, var(--brand-primary) 12%, transparent)",
-                    }}
-                  >
-                    {item.tag}
-                  </span>
-                  <div className="mt-1.5 truncate text-base font-bold">
-                    {item.name}
-                  </div>
-                  <div className="text-sm opacity-60">
-                    Size {item.size} · ${item.price.toFixed(2)}
-                  </div>
-                </div>
+                {(() => {
+                  const itemContent = (
+                    <>
+                      <ImagePlaceholder
+                        label={item.imageLabel}
+                        imageUrl={item.imageUrl}
+                        aspect="1/1"
+                        className="h-16 w-16 flex-none sm:h-20 sm:w-20"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <span
+                          className="inline-block rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide"
+                          style={{
+                            backgroundColor:
+                              "color-mix(in srgb, var(--brand-primary) 12%, transparent)",
+                          }}
+                        >
+                          {item.tag}
+                        </span>
+                        <div className="mt-1.5 truncate text-base font-bold">
+                          {item.name}
+                        </div>
+                        <div className="text-sm opacity-60">
+                          Size {item.size} · ${item.price.toFixed(2)}
+                        </div>
+                      </div>
+                    </>
+                  );
+
+                  return item.slug ? (
+                    <Link
+                      href={`/products/${item.slug}`}
+                      className="flex min-w-0 flex-1 items-center gap-5"
+                    >
+                      {itemContent}
+                    </Link>
+                  ) : (
+                    <div className="flex min-w-0 flex-1 items-center gap-5">
+                      {itemContent}
+                    </div>
+                  );
+                })()}
                 <button
                   type="button"
                   onClick={() => addToBag(item)}

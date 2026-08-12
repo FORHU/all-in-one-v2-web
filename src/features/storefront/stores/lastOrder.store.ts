@@ -15,6 +15,7 @@ export interface LastOrderItem {
 export interface LastOrderShippingAddress {
   firstName: string;
   lastName: string;
+  phone?: string;
   address1: string;
   address2?: string;
   city: string;

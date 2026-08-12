@@ -22,7 +22,12 @@ export function useBuyNow() {
   return useCallback(
     (
       product: ProductCardProduct,
-      selection?: { size?: string; color?: string; quantity?: number },
+      selection?: {
+        size?: string;
+        color?: string;
+        quantity?: number;
+        stock?: number;
+      },
     ) => {
       const item = {
         productId: product.id,
@@ -34,6 +39,7 @@ export function useBuyNow() {
         size: selection?.size ?? product.sizes?.[0],
         color: selection?.color ?? product.colors?.[0],
         quantity: selection?.quantity ?? 1,
+        stock: selection?.stock,
       };
       setItem({ ...item, id: makeLineId(item) });
       router.push("/checkout?mode=buy-now");

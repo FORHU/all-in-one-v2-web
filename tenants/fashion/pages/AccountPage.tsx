@@ -2,20 +2,19 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   Package,
   MapPin,
   CreditCard,
   X,
-  Zap,
   LayoutGrid,
   Bell,
   User as UserIcon,
   Settings as SettingsIcon,
 } from "lucide-react";
 import { FashionStorefrontLayout } from "../layouts/StorefrontLayout";
-import { AuthForm } from "../components/AuthForm";
 import { ImagePlaceholder } from "@/shared/components/ImagePlaceholder";
 import { ProductCard } from "@/shared/components/ProductCard";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
@@ -124,8 +123,10 @@ function OrderCard({ order }: { order: DemoOrder }) {
 /**
  * Fashion — account dashboard.
  * Gated on real auth state (useAuthStore's token, set by a real POST
- * /v2/auth/login or /v2/auth/register via the inline AuthForm). A failed
- * login/register shows an error — there is no mock-session fallback.
+ * /v2/auth/login or /v2/auth/register via pages/LoginPage.tsx's AuthForm).
+ * Signed-out visitors are redirected to /login rather than shown an inline
+ * sign-in form here — that UI now lives solely at /login (see that page's
+ * doc comment), same pattern as pages/ProductDetailPage.tsx's auth gate.
  *
  * Orders mixes the one real order (useLastOrderStore, if the user just
  * checked out) with data/orderHistory.ts's fabricated past orders — there
@@ -136,6 +137,7 @@ function OrderCard({ order }: { order: DemoOrder }) {
  * persisted client state (see that store's doc comment).
  */
 export function FashionAccountPage() {
+  const router = useRouter();
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
   const logoutToken = useAuthStore((s) => s.setToken);
@@ -153,85 +155,14 @@ export function FashionAccountPage() {
   const [hasMounted, setHasMounted] = useState(false);
   useEffect(() => setHasMounted(true), []);
 
-  if (!hasMounted) {
+  useEffect(() => {
+    if (hasMounted && !token) router.push("/login");
+  }, [hasMounted, token, router]);
+
+  if (!hasMounted || !token) {
     return (
       <FashionStorefrontLayout hideSearch hideFooter>
         <div className="min-h-[calc(100vh-150px)]" />
-      </FashionStorefrontLayout>
-    );
-  }
-
-  if (!token) {
-    return (
-      <FashionStorefrontLayout hideSearch hideFooter>
-        <div className="grid min-h-[calc(100vh-150px)] grid-cols-1 lg:grid-cols-2">
-          <div
-            className="hidden flex-col justify-center gap-8 px-12 py-16 lg:flex xl:px-20"
-            style={{
-              backgroundColor: "var(--brand-primary)",
-              color: "var(--brand-secondary)",
-            }}
-          >
-            <div>
-              <div className="text-xs font-bold uppercase tracking-widest opacity-50">
-                Your Account
-              </div>
-              <h1
-                className="mt-3 text-5xl font-bold leading-[1.05] tracking-tight xl:text-6xl"
-                style={{ fontFamily: "var(--font-heading)" }}
-              >
-                Made for the way you shop.
-              </h1>
-              <p className="mt-4 max-w-sm text-base opacity-70">
-                Track orders, save your favorite pieces, and check out faster
-                next time.
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-4">
-              {(
-                [
-                  { icon: Package, label: "Track every order in one place" },
-                  { icon: Zap, label: "Faster checkout, every time" },
-                ] as const
-              ).map(({ icon: Icon, label }) => (
-                <div key={label} className="flex items-center gap-3.5">
-                  <div
-                    className="flex h-10 w-10 flex-none items-center justify-center rounded-full"
-                    style={{
-                      backgroundColor:
-                        "color-mix(in srgb, var(--brand-secondary) 10%, transparent)",
-                    }}
-                  >
-                    <Icon className="h-4 w-4" />
-                  </div>
-                  <span className="text-sm font-medium opacity-80">
-                    {label}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div
-            className="flex flex-col items-center justify-center gap-6 px-6 py-16"
-            style={{ color: "var(--brand-primary)" }}
-          >
-            <div className="text-center">
-              <h2
-                className="text-3xl font-bold tracking-tight sm:text-4xl"
-                style={{ fontFamily: "var(--font-heading)" }}
-              >
-                Welcome
-              </h2>
-              <p className="mt-2 max-w-xs text-sm opacity-60">
-                Sign in to view your orders, saved addresses, and account
-                details.
-              </p>
-            </div>
-            <AuthForm />
-          </div>
-        </div>
       </FashionStorefrontLayout>
     );
   }

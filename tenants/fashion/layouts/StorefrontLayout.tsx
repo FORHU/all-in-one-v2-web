@@ -237,7 +237,7 @@ export function FashionStorefrontLayout({
           <Link
             href="/"
             className={`justify-self-center transition-colors ${
-              mode === "dark" ? "text-[#EFE3A2] hover:text-[#E8DA97]" : ""
+              mode === "dark" ? "text-[#f2e3c6] hover:text-[#E8DA97]" : ""
             }`}
             style={
               mode === "dark" ? undefined : { color: "var(--brand-primary)" }

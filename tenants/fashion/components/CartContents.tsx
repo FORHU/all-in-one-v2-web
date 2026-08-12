@@ -1,11 +1,13 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Minus, Plus, X } from "lucide-react";
 import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
 import { useBuyNowCartItem } from "../hooks/useBuyNow";
 import { COLOR_NAMES } from "./CategoryFilters";
-import { FASHION_DARK_COLORS, fashionFraunces, fashionInter } from "../theme";
+import { useFashionColorMode } from "../stores/colorMode.store";
+import { getFashionColors, fashionFraunces, fashionInter } from "../theme";
 import { FREE_SHIPPING_THRESHOLD } from "../data/checkoutRules";
 
 /**
@@ -27,6 +29,11 @@ import { FREE_SHIPPING_THRESHOLD } from "../data/checkoutRules";
  * Buy Now flow (hooks/useBuyNow.ts's useBuyNowCartItem) independently of
  * the rest of the cart. The subtotal/total block stays as a read-only
  * summary of everything currently in the bag.
+ *
+ * Follows the site's light/dark toggle (unlike TrendingLookbook.tsx, which
+ * is deliberately always-dark) — see ../theme.ts's getFashionColors. Gated
+ * behind a mount flag since useFashionColorMode persists to localStorage,
+ * unavailable during SSR (same pattern as layouts/StorefrontLayout.tsx).
  */
 export function CartContents({
   onNavigate,
@@ -39,6 +46,12 @@ export function CartContents({
   const removeItem = useLocalCartStore((s) => s.removeItem);
   const setQuantity = useLocalCartStore((s) => s.setQuantity);
   const buyNowCartItem = useBuyNowCartItem();
+  const colorMode = useFashionColorMode((s) => s.mode);
+
+  const [hasMounted, setHasMounted] = useState(false);
+  useEffect(() => setHasMounted(true), []);
+  const mode = hasMounted ? colorMode : "dark";
+  const colors = getFashionColors(mode);
 
   const itemCount = items.reduce((sum, i) => sum + i.quantity, 0);
   const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
@@ -49,13 +62,13 @@ export function CartContents({
     <div
       className={`flex min-h-0 flex-1 flex-col ${fashionInter.className}`}
       style={{
-        backgroundColor: FASHION_DARK_COLORS.ink,
-        color: FASHION_DARK_COLORS.bone,
+        backgroundColor: colors.ink,
+        color: colors.bone,
       }}
     >
       <div
         className="px-6 pb-[18px] pt-6"
-        style={{ borderBottom: `1px solid ${FASHION_DARK_COLORS.hairline}` }}
+        style={{ borderBottom: `1px solid ${colors.hairline}` }}
       >
         <div className="flex items-center justify-between">
           <div
@@ -65,7 +78,7 @@ export function CartContents({
             Your bag
             <span
               style={{
-                color: FASHION_DARK_COLORS.boneDim,
+                color: colors.boneDim,
                 fontWeight: 400,
                 fontSize: 16,
                 marginLeft: 6,
@@ -80,7 +93,7 @@ export function CartContents({
               onClick={onClose}
               aria-label="Close cart"
               className="flex h-8 w-8 flex-none items-center justify-center rounded-full border transition-colors hover:border-[#B9945C]"
-              style={{ borderColor: FASHION_DARK_COLORS.hairline }}
+              style={{ borderColor: colors.hairline }}
             >
               <X className="h-4 w-4" />
             </button>
@@ -91,13 +104,13 @@ export function CartContents({
       {items.length === 0 ? (
         <div
           className="px-6 py-[60px] text-center"
-          style={{ color: FASHION_DARK_COLORS.boneDim }}
+          style={{ color: colors.boneDim }}
         >
           <div
             className={fashionFraunces.className}
             style={{
               fontSize: 19,
-              color: FASHION_DARK_COLORS.bone,
+              color: colors.bone,
               marginBottom: 8,
             }}
           >
@@ -120,7 +133,7 @@ export function CartContents({
                   style={{
                     borderBottom:
                       index < items.length - 1
-                        ? `1px solid ${FASHION_DARK_COLORS.hairlineSoft}`
+                        ? `1px solid ${colors.hairlineSoft}`
                         : undefined,
                   }}
                 >
@@ -128,8 +141,8 @@ export function CartContents({
                     className="relative h-16 w-16 flex-none overflow-hidden"
                     style={{
                       borderRadius: 2,
-                      border: `1px solid ${FASHION_DARK_COLORS.hairline}`,
-                      backgroundColor: FASHION_DARK_COLORS.ink2,
+                      border: `1px solid ${colors.hairline}`,
+                      backgroundColor: colors.ink2,
                     }}
                   >
                     {item.imageUrl && (
@@ -148,7 +161,7 @@ export function CartContents({
                         <div
                           className="text-[10px] font-bold uppercase"
                           style={{
-                            color: FASHION_DARK_COLORS.brassDim,
+                            color: colors.brassDim,
                             letterSpacing: "1px",
                             marginBottom: 3,
                           }}
@@ -168,7 +181,7 @@ export function CartContents({
                         {(item.size || item.color) && (
                           <div
                             className="mt-1 text-[12.5px]"
-                            style={{ color: FASHION_DARK_COLORS.boneDim }}
+                            style={{ color: colors.boneDim }}
                           >
                             {item.size && <span>Size {item.size}</span>}
                             {item.size && item.color && <span> · </span>}
@@ -185,7 +198,7 @@ export function CartContents({
                         onClick={() => removeItem(item.id)}
                         aria-label={`Remove ${item.name}`}
                         className="flex-none transition-colors hover:text-[#8C3B2E]"
-                        style={{ color: FASHION_DARK_COLORS.boneDim }}
+                        style={{ color: colors.boneDim }}
                       >
                         <X className="h-4 w-4" />
                       </button>
@@ -194,7 +207,7 @@ export function CartContents({
                       <div
                         className="flex items-center border"
                         style={{
-                          borderColor: FASHION_DARK_COLORS.hairline,
+                          borderColor: colors.hairline,
                           borderRadius: 2,
                         }}
                       >
@@ -210,8 +223,8 @@ export function CartContents({
                           style={{
                             color:
                               item.quantity <= 1
-                                ? FASHION_DARK_COLORS.hairline
-                                : FASHION_DARK_COLORS.bone,
+                                ? colors.hairline
+                                : colors.bone,
                           }}
                         >
                           <Minus className="h-3 w-3" />
@@ -226,7 +239,7 @@ export function CartContents({
                           }
                           aria-label="Increase quantity"
                           className="flex h-[26px] w-[26px] items-center justify-center transition-colors hover:text-[#B9945C]"
-                          style={{ color: FASHION_DARK_COLORS.bone }}
+                          style={{ color: colors.bone }}
                         >
                           <Plus className="h-3 w-3" />
                         </button>
@@ -244,7 +257,7 @@ export function CartContents({
                           className={`block ${fashionInter.className}`}
                           style={{
                             fontSize: 11,
-                            color: FASHION_DARK_COLORS.boneDim,
+                            color: colors.boneDim,
                             fontWeight: 400,
                             marginTop: 2,
                           }}
@@ -261,8 +274,8 @@ export function CartContents({
                       }}
                       className="mt-3 w-full py-2 text-[11.5px] font-semibold uppercase transition-colors hover:bg-[#B9945C] hover:text-[#121110]"
                       style={{
-                        border: `1px solid ${FASHION_DARK_COLORS.brass}`,
-                        color: FASHION_DARK_COLORS.brass,
+                        border: `1px solid ${colors.brass}`,
+                        color: colors.brass,
                         letterSpacing: "0.6px",
                         borderRadius: 2,
                       }}
@@ -277,11 +290,11 @@ export function CartContents({
 
           <div
             className="px-6 pb-6 pt-5"
-            style={{ borderTop: `1px solid ${FASHION_DARK_COLORS.hairline}` }}
+            style={{ borderTop: `1px solid ${colors.hairline}` }}
           >
             <div
               className="flex flex-col text-[13.5px]"
-              style={{ color: FASHION_DARK_COLORS.boneDim }}
+              style={{ color: colors.boneDim }}
             >
               <div className="mb-2 flex items-baseline justify-between">
                 <span>Subtotal</span>
@@ -297,8 +310,8 @@ export function CartContents({
             <div
               className="mt-[14px] flex items-baseline justify-between pt-[14px] text-base"
               style={{
-                color: FASHION_DARK_COLORS.bone,
-                borderTop: `1px solid ${FASHION_DARK_COLORS.hairlineSoft}`,
+                color: colors.bone,
+                borderTop: `1px solid ${colors.hairlineSoft}`,
               }}
             >
               <span>Total</span>
@@ -312,7 +325,7 @@ export function CartContents({
             <p
               className="mt-[18px] text-center text-[11.5px]"
               style={{
-                color: FASHION_DARK_COLORS.boneDim,
+                color: colors.boneDim,
                 letterSpacing: "0.2px",
               }}
             >
