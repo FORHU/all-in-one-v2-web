@@ -16,7 +16,7 @@ export function useLogin() {
     // auth:unauthorized redirect so it only shows as an inline form error.
     meta: { suppressErrorToast: true, suppressAuthRedirect: true },
     onSuccess: (response) => {
-      setToken(response.data.accessToken);
+      setToken(response.data.accessToken, response.data.refreshToken);
       setUser({
         id: response.data.user.id,
         email: response.data.user.email,

@@ -19,5 +19,5 @@ export default async function AccountPage() {
 
   if (!tenant || !TenantAccountPage) return null;
 
-  return <TenantAccountPage />;
+  return <TenantAccountPage tenantSlug={slug} />;
 }

@@ -1,6 +1,12 @@
 import { ApiError } from "@/shared/errors/api-error";
 import { env } from "@/shared/lib/env";
-import { getToken } from "@/shared/lib/token";
+import {
+  getToken,
+  getRefreshToken,
+  setToken,
+  setRefreshToken,
+  clearToken,
+} from "@/shared/lib/token";
 
 function classify(
   status: number,
@@ -20,9 +26,47 @@ function classify(
   return "UNKNOWN";
 }
 
+// The access token lives 15 minutes (see the API's JWT_EXPIRY) — sessions
+// otherwise "expire" mid-use, which is what dedupes this: a page that fires
+// several authenticated requests at once must trigger exactly one refresh
+// call, not one per request (the refresh token is single-use server-side —
+// see auth.service.ts — so a second concurrent call would just fail).
+let refreshPromise: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return null;
+
+  if (!refreshPromise) {
+    refreshPromise = fetch(
+      `${env.NEXT_PUBLIC_API_URL}/api/v2/auth/refresh-token`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken }),
+      },
+    )
+      .then(async (res) => {
+        if (!res.ok) return null;
+        const data = await res.json().catch(() => null);
+        if (!data?.accessToken || !data?.refreshToken) return null;
+        setToken(data.accessToken);
+        setRefreshToken(data.refreshToken);
+        return data.accessToken as string;
+      })
+      .catch(() => null)
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+
+  return refreshPromise;
+}
+
 export async function fetcher<T>(
   url: string,
   options?: RequestInit,
+  _retriedAfterRefresh = false,
 ): Promise<T> {
   try {
     const token = getToken();
@@ -36,6 +80,18 @@ export async function fetcher<T>(
     });
 
     if (!res.ok) {
+      // A 401 on an authenticated request usually just means the access
+      // token expired, not that the session is actually gone — try a
+      // silent refresh and replay the request once before giving up and
+      // surfacing "Session expired" (see AuthListener.tsx).
+      if (res.status === 401 && !_retriedAfterRefresh && getRefreshToken()) {
+        const newAccessToken = await refreshAccessToken();
+        if (newAccessToken) {
+          return fetcher<T>(url, options, true);
+        }
+        clearToken();
+      }
+
       let payload: any = null;
 
       try {
