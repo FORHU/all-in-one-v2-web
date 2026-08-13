@@ -164,6 +164,7 @@ export function FashionOrderSuccessPage() {
                 <li key={item.id} className="flex gap-3">
                   <ImagePlaceholder
                     label={item.imageLabel}
+                    imageUrl={item.imageUrl}
                     aspect="3/4"
                     className="h-20 w-16 flex-none"
                   />
