@@ -14,6 +14,7 @@ import { useBuyNowStore } from "@/features/storefront/stores/buyNow.store";
 import { useLastOrderStore } from "@/features/storefront/stores/lastOrder.store";
 import { useLatestAddress } from "@/features/storefront/hooks/queries/useLatestAddress";
 import { useSaveAddress } from "@/features/storefront/hooks/mutations/useSaveAddress";
+import { useCheckoutDirect } from "@/features/storefront/hooks/mutations/useCheckoutDirect";
 import type { SaveAddressInput } from "@/features/storefront/contracts/address.contract";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
 import { FASHION_DARK_COLORS, fashionFraunces, fashionInter } from "../theme";
@@ -69,10 +70,23 @@ function formatEtaRange(minDays: number, maxDays: number): string {
  * exactly to a supplied mockup — replaces the previous 4-step
  * Contact/Address/Shipping/Payment wizard entirely (per explicit direction:
  * "replace the whole flow"). There is no real payment backend yet
- * (/v2/payments is unimplemented), so there's no payment step at all —
- * "Place Order" is a UI-only demo: it snapshots the order into
- * useLastOrderStore, clears the relevant item source, and navigates to
- * /order-success.
+ * (/v2/payments is unimplemented), so there's no payment step at all.
+ *
+ * "Place Order" IS real, though: it calls POST /v2/orders/checkout-direct
+ * (see hooks/mutations/useCheckoutDirect.ts), which resolves each local
+ * cart line to a real CatalogProductVariant server-side and creates a real
+ * CommerceOrder — there's no persisted backend cart to check out from (the
+ * cart itself is still client-only/localStorage), hence "direct". The
+ * resulting order shows up for real in pages/AccountPage.tsx's Orders tab.
+ * A snapshot combining the real order number/totals with the richer local
+ * item display data (name/brand/imageUrl/size/color — not stored on
+ * CommerceOrderItem) is still written to useLastOrderStore purely as the
+ * hand-off to /order-success. Known gap: the discount-code UI below is
+ * cosmetic only — checkoutDirect doesn't accept a coupon code yet, so a
+ * locally "applied" code won't reduce the real order's total, and
+ * tax/shipping are hardcoded to 0 on the backend (see OrderService's doc
+ * comment), so the real order total won't exactly match this page's
+ * client-estimated total.
  *
  * The delivery address IS real, though: GET /v2/addresses/latest and
  * POST /v2/addresses (see hooks/queries/useLatestAddress.ts and
@@ -125,6 +139,8 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
   );
   const { mutateAsync: saveAddressMutation, isPending: isSavingAddress } =
     useSaveAddress(tenantSlug);
+  const { mutateAsync: checkoutDirectMutation, isPending: isPlacingOrder } =
+    useCheckoutDirect(tenantSlug);
   const setLastOrder = useLastOrderStore((s) => s.setOrder);
 
   const [isEditingAddress, setIsEditingAddress] = useState(false);
@@ -199,12 +215,29 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
     setIsEditingAddress(false);
   };
 
-  const placeOrder = () => {
+  const placeOrder = async () => {
     if (!latestAddress) return;
-    const orderNumber = `ADD-${Math.floor(10000 + Math.random() * 90000)}`;
+
+    let order;
+    try {
+      order = await checkoutDirectMutation({
+        items: items.map((item) => ({
+          productId: item.productId,
+          size: item.size,
+          color: item.color,
+          quantity: item.quantity,
+        })),
+        shippingAddressId: latestAddress.id,
+      });
+    } catch {
+      // useSafeMutation's global MutationCache.onError already surfaced a
+      // toast — nothing left to do but bail without clearing the cart.
+      return;
+    }
+
     setLastOrder({
-      orderNumber,
-      placedAt: new Date().toISOString(),
+      orderNumber: order.orderNumber,
+      placedAt: order.createdAt.toISOString(),
       items: items.map((item) => ({
         id: item.id,
         name: item.name,
@@ -228,11 +261,11 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
         country: latestAddress.country,
       },
       shippingMethodKey: shippingMethod,
-      subtotal,
-      discount,
-      shipping: shippingPrice,
-      tax,
-      total,
+      subtotal: order.subtotal,
+      discount: order.discountAmount,
+      shipping: order.shippingAmount,
+      tax: order.taxAmount,
+      total: order.totalAmount,
     });
     if (isBuyNow) {
       clearBuyNow();
@@ -874,7 +907,7 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
               <button
                 type="button"
                 onClick={placeOrder}
-                disabled={!latestAddress}
+                disabled={!latestAddress || isPlacingOrder}
                 className="mt-4 h-12 w-full rounded-xl text-sm font-bold uppercase transition-colors hover:bg-[#CBA470] disabled:opacity-40"
                 style={{
                   backgroundColor: FASHION_DARK_COLORS.brass,
@@ -882,7 +915,7 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
                   letterSpacing: "0.6px",
                 }}
               >
-                Place Order
+                {isPlacingOrder ? "Placing Order..." : "Place Order"}
               </button>
               {!latestAddress && (
                 <p

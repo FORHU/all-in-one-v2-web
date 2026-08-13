@@ -1,9 +1,12 @@
 import { fetcher } from "@/shared/lib/http";
+import { getRefreshToken } from "@/shared/lib/token";
 import {
   LoginResponseSchema,
+  CurrentUserApiEnvelopeSchema,
   type LoginCredentials,
   type LoginResponse,
   type RegisterCredentials,
+  type CurrentUser,
 } from "../contracts/auth.contract";
 
 export const login = async (
@@ -26,8 +29,18 @@ export const register = async (
   return LoginResponseSchema.parse(raw);
 };
 
+/** GET /v2/users/me — see CurrentUserSchema's doc comment. */
+export const getCurrentUser = async (): Promise<CurrentUser> => {
+  const raw = await fetcher<unknown>("/api/v2/users/me");
+  return CurrentUserApiEnvelopeSchema.parse(raw).data;
+};
+
 export const logout = async () => {
+  // Sends the refresh token so the backend deletes that session outright
+  // (see auth.service.ts's logout) instead of leaving it valid server-side
+  // for up to 7 more days after the user has already signed out locally.
   return fetcher("/api/v2/auth/logout", {
     method: "POST",
+    body: JSON.stringify({ refreshToken: getRefreshToken() }),
   });
 };

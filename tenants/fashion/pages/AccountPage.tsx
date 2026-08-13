@@ -17,14 +17,17 @@ import {
 import { FashionStorefrontLayout } from "../layouts/StorefrontLayout";
 import { ImagePlaceholder } from "@/shared/components/ImagePlaceholder";
 import { ProductCard } from "@/shared/components/ProductCard";
+import { OrderTrackingModal } from "../components/OrderTrackingModal";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
 import { useLastOrderStore } from "@/features/storefront/stores/lastOrder.store";
+import { useMyOrders } from "@/features/storefront/hooks/queries/useMyOrders";
+import { useNotifications } from "@/features/storefront/hooks/queries/useNotifications";
+import { useMarkNotificationRead } from "@/features/storefront/hooks/mutations/useMarkNotificationRead";
+import type {
+  Order,
+  OrderStatus,
+} from "@/features/storefront/contracts/order.contract";
 import { fashionProducts } from "../data/products";
-import {
-  demoOrderHistory,
-  type DemoOrder,
-  type OrderStatus,
-} from "../data/orderHistory";
 import { quickAddToCart } from "../utils/quickAddToCart";
 import { useBuyNow } from "../hooks/useBuyNow";
 
@@ -51,26 +54,45 @@ const SIDEBAR_NAV: {
   { key: "settings", label: "Settings", icon: SettingsIcon },
 ];
 
-// Placeholder loyalty numbers — no rewards/coupons backend exists.
-const REWARD_POINTS = 2480;
-const REWARD_POINTS_TO_NEXT_TIER = 520;
-const ACTIVE_COUPONS_COUNT = 3;
-
 const STATUS_CLASSES: Record<OrderStatus, string> = {
-  Delivered: "bg-green-100 text-green-800",
-  "In Transit": "bg-blue-100 text-blue-800",
-  Processing: "bg-slate-100 text-slate-700",
+  PENDING: "bg-slate-100 text-slate-700",
+  PROCESSING: "bg-blue-100 text-blue-800",
+  PARTIALLY_FULFILLED: "bg-amber-100 text-amber-800",
+  FULFILLED: "bg-green-100 text-green-800",
+  CANCELLED: "bg-red-100 text-red-800",
+  REFUNDED: "bg-slate-100 text-slate-500",
 };
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-US", {
+const STATUS_LABELS: Record<OrderStatus, string> = {
+  PENDING: "Pending",
+  PROCESSING: "Processing",
+  PARTIALLY_FULFILLED: "Partially Fulfilled",
+  FULFILLED: "Fulfilled",
+  CANCELLED: "Cancelled",
+  REFUNDED: "Refunded",
+};
+
+function formatDate(date: Date | string) {
+  return new Date(date).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
   });
 }
 
-function OrderCard({ order }: { order: DemoOrder }) {
+function OrderCard({
+  order,
+  onTrack,
+}: {
+  order: Order;
+  onTrack: (order: Order) => void;
+}) {
+  const itemCount = order.items.reduce((n, i) => n + i.quantity, 0);
+  const itemSummary =
+    order.items.length > 1
+      ? `${order.items[0]?.productTitle} + ${order.items.length - 1} more`
+      : (order.items[0]?.productTitle ?? "");
+
   return (
     <div className="flex flex-col gap-4 rounded-2xl border border-current/10 p-5 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-start gap-4">
@@ -89,25 +111,21 @@ function OrderCard({ order }: { order: DemoOrder }) {
             <span
               className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${STATUS_CLASSES[order.status]}`}
             >
-              {order.status}
+              {STATUS_LABELS[order.status]}
             </span>
           </div>
           <div className="mt-1 text-xs opacity-60">
-            {formatDate(order.placedAt)} · {order.itemSummary} ·{" "}
-            {order.itemCount} item{order.itemCount === 1 ? "" : "s"}
+            {formatDate(order.createdAt)} · {itemSummary} · {itemCount} item
+            {itemCount === 1 ? "" : "s"}
           </div>
           <div className="mt-1 text-sm font-bold">
-            ${order.total.toFixed(2)}
+            ${order.totalAmount.toFixed(2)}
           </div>
         </div>
       </div>
       <button
         type="button"
-        onClick={() =>
-          toast(
-            "Tracking isn't connected to a real carrier yet — this is a UI-only demo.",
-          )
-        }
+        onClick={() => onTrack(order)}
         className="self-start rounded-xl border px-4 py-2.5 text-xs font-semibold sm:self-center"
         style={{
           borderColor:
@@ -128,20 +146,21 @@ function OrderCard({ order }: { order: DemoOrder }) {
  * sign-in form here — that UI now lives solely at /login (see that page's
  * doc comment), same pattern as pages/ProductDetailPage.tsx's auth gate.
  *
- * Orders mixes the one real order (useLastOrderStore, if the user just
- * checked out) with data/orderHistory.ts's fabricated past orders — there
- * is no GET /v2/orders list endpoint wired up. Reward points/coupons on
- * the Dashboard, Addresses, Payment Methods, Notifications, Profile, and
- * Settings are all static demo content — none of that has a backend.
- * Wishlist is the one fully real section — useWishlistStore is genuine
- * persisted client state (see that store's doc comment).
+ * Orders is real: GET /v2/orders/my-orders (see
+ * hooks/queries/useMyOrders.ts), populated by pages/CheckoutPage.tsx's
+ * "Place Order" calling POST /v2/orders/checkout-direct. Reward
+ * points/coupons on the Dashboard, Addresses, Payment Methods,
+ * Notifications, Profile, and Settings are all still static demo
+ * content — none of those have a backend yet.
  */
-export function FashionAccountPage() {
+export function FashionAccountPage({ tenantSlug }: { tenantSlug: string }) {
   const router = useRouter();
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
   const logoutToken = useAuthStore((s) => s.setToken);
   const [activeSection, setActiveSection] = useState<SectionKey>("dashboard");
+  const [trackingOrder, setTrackingOrder] = useState<Order | null>(null);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
   const buyNow = useBuyNow();
 
   const lastOrder = useLastOrderStore((s) => s.order);
@@ -159,6 +178,20 @@ export function FashionAccountPage() {
     if (hasMounted && !token) router.push("/login");
   }, [hasMounted, token, router]);
 
+  // Same `enabled` gating as useLatestAddress in CheckoutPage.tsx — without
+  // it, a stale/expired token still fires this query and feeds the
+  // "Session expired" toast-spam loop.
+  const { data: ordersData, isLoading: isLoadingOrders } = useMyOrders(
+    tenantSlug,
+    { page: 1, limit: 20 },
+    hasMounted && !!token,
+  );
+
+  const { data: notificationsData, isLoading: isLoadingNotifications } =
+    useNotifications(tenantSlug, hasMounted && !!token);
+  const { mutate: markNotificationRead, isPending: isMarkingNotificationRead } =
+    useMarkNotificationRead(tenantSlug);
+
   if (!hasMounted || !token) {
     return (
       <FashionStorefrontLayout hideSearch hideFooter>
@@ -167,25 +200,8 @@ export function FashionAccountPage() {
     );
   }
 
-  const lastOrderDisplay: DemoOrder | null = lastOrder
-    ? {
-        orderNumber: lastOrder.orderNumber,
-        placedAt: lastOrder.placedAt,
-        status: "Processing",
-        itemSummary:
-          lastOrder.items.length > 1
-            ? `${lastOrder.items[0]?.name} + ${lastOrder.items.length - 1} more`
-            : (lastOrder.items[0]?.name ?? ""),
-        itemCount: lastOrder.items.reduce((n, i) => n + i.quantity, 0),
-        total: lastOrder.total,
-      }
-    : null;
-
-  const orders: DemoOrder[] = [
-    ...(lastOrderDisplay ? [lastOrderDisplay] : []),
-    ...demoOrderHistory,
-  ];
-  const openOrdersCount = orders.filter((o) => o.status !== "Delivered").length;
+  const orders: Order[] = ordersData?.items ?? [];
+  const notifications = notificationsData ?? [];
 
   const displayName = user?.name || user?.username || "there";
 
@@ -302,62 +318,6 @@ export function FashionAccountPage() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <div
-                  className="rounded-2xl p-6"
-                  style={{
-                    backgroundColor: "var(--brand-primary)",
-                    color: "var(--brand-secondary)",
-                  }}
-                >
-                  <div className="text-xs font-bold uppercase tracking-wide opacity-60">
-                    Reward Points
-                  </div>
-                  <div className="mt-3 text-3xl font-bold">
-                    {REWARD_POINTS.toLocaleString()}
-                  </div>
-                  <div className="mt-1 text-xs opacity-60">
-                    {REWARD_POINTS_TO_NEXT_TIER} pts to next tier
-                  </div>
-                </div>
-                <div
-                  className="rounded-2xl border p-6"
-                  style={{
-                    borderColor:
-                      "color-mix(in srgb, var(--brand-primary) 12%, transparent)",
-                  }}
-                >
-                  <div className="text-xs font-bold uppercase tracking-wide opacity-60">
-                    Active Coupons
-                  </div>
-                  <div className="mt-3 text-3xl font-bold">
-                    {ACTIVE_COUPONS_COUNT}
-                  </div>
-                  <div className="mt-1 text-xs opacity-60">
-                    Up to 25% off available
-                  </div>
-                </div>
-                <div
-                  className="rounded-2xl border p-6"
-                  style={{
-                    borderColor:
-                      "color-mix(in srgb, var(--brand-primary) 12%, transparent)",
-                  }}
-                >
-                  <div className="text-xs font-bold uppercase tracking-wide opacity-60">
-                    Open Orders
-                  </div>
-                  <div className="mt-3 text-3xl font-bold">
-                    {openOrdersCount}
-                  </div>
-                  <div className="mt-1 text-xs opacity-60">
-                    {openOrdersCount > 0
-                      ? "In transit — arriving soon"
-                      : "Nothing in progress"}
-                  </div>
-                </div>
-              </div>
-
               <div>
                 <div className="mb-4 flex items-center justify-between">
                   <h2 className="text-lg font-bold tracking-tight">
@@ -372,9 +332,23 @@ export function FashionAccountPage() {
                   </button>
                 </div>
                 <div className="flex flex-col gap-4">
-                  {orders.slice(0, 2).map((order) => (
-                    <OrderCard key={order.orderNumber} order={order} />
-                  ))}
+                  {isLoadingOrders ? (
+                    <p className="text-sm opacity-60">Loading orders...</p>
+                  ) : orders.length === 0 ? (
+                    <p className="text-sm opacity-60">
+                      No orders yet — your recent orders will show up here.
+                    </p>
+                  ) : (
+                    orders
+                      .slice(0, 2)
+                      .map((order) => (
+                        <OrderCard
+                          key={order.id}
+                          order={order}
+                          onTrack={setTrackingOrder}
+                        />
+                      ))
+                  )}
                 </div>
               </div>
 
@@ -405,9 +379,24 @@ export function FashionAccountPage() {
                 Orders
               </h1>
               <div className="flex flex-col gap-4">
-                {orders.map((order) => (
-                  <OrderCard key={order.orderNumber} order={order} />
-                ))}
+                {isLoadingOrders ? (
+                  <p className="text-sm opacity-60">Loading orders...</p>
+                ) : orders.length === 0 ? (
+                  <div className="flex flex-col items-center gap-3 rounded-2xl border border-current/10 py-16 text-center">
+                    <Package className="h-6 w-6 opacity-40" />
+                    <p className="text-sm opacity-60">
+                      You haven&rsquo;t placed any orders yet.
+                    </p>
+                  </div>
+                ) : (
+                  orders.map((order) => (
+                    <OrderCard
+                      key={order.id}
+                      order={order}
+                      onTrack={setTrackingOrder}
+                    />
+                  ))
+                )}
               </div>
             </div>
           )}
@@ -553,6 +542,64 @@ export function FashionAccountPage() {
               >
                 Notifications
               </h1>
+
+              <div className="mb-8 flex flex-col gap-3">
+                {isLoadingNotifications ? (
+                  <p className="text-sm opacity-60">Loading notifications...</p>
+                ) : notifications.length === 0 ? (
+                  <div className="flex flex-col items-center gap-3 rounded-2xl border border-current/10 py-16 text-center">
+                    <Bell className="h-6 w-6 opacity-40" />
+                    <p className="text-sm opacity-60">
+                      You&rsquo;re all caught up — no notifications yet.
+                    </p>
+                  </div>
+                ) : (
+                  notifications.map((n) => (
+                    <div
+                      key={n.id}
+                      className="flex items-start justify-between gap-4 rounded-2xl border p-5"
+                      style={{
+                        borderColor: n.isRead
+                          ? "color-mix(in srgb, var(--brand-primary) 10%, transparent)"
+                          : "var(--brand-primary)",
+                      }}
+                    >
+                      <div className="flex items-start gap-3">
+                        {!n.isRead && (
+                          <span
+                            aria-hidden="true"
+                            className="mt-1.5 h-2 w-2 flex-none rounded-full"
+                            style={{ backgroundColor: "var(--brand-primary)" }}
+                          />
+                        )}
+                        <div>
+                          <div className="text-sm font-bold">{n.title}</div>
+                          <div className="mt-0.5 text-sm opacity-70">
+                            {n.message}
+                          </div>
+                          <div className="mt-1 text-xs opacity-50">
+                            {formatDate(n.createdAt)}
+                          </div>
+                        </div>
+                      </div>
+                      {!n.isRead && (
+                        <button
+                          type="button"
+                          onClick={() => markNotificationRead(n.id)}
+                          disabled={isMarkingNotificationRead}
+                          className="flex-none text-xs font-semibold underline disabled:opacity-40"
+                        >
+                          Mark as read
+                        </button>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <h2 className="mb-4 text-lg font-bold tracking-tight">
+                Preferences
+              </h2>
               <div className="flex flex-col gap-3">
                 {[
                   {
@@ -602,43 +649,95 @@ export function FashionAccountPage() {
               >
                 Profile
               </h1>
-              <div className="flex max-w-lg flex-col gap-4 rounded-2xl border border-current/10 p-6">
-                <label className="flex flex-col gap-1.5 text-xs font-semibold opacity-70">
-                  Name
-                  <input
-                    defaultValue={user?.name ?? ""}
-                    className="h-11 rounded-lg border border-current/15 px-3 text-sm font-normal outline-none focus:border-current/40"
-                  />
-                </label>
-                <label className="flex flex-col gap-1.5 text-xs font-semibold opacity-70">
-                  Username
-                  <input
-                    defaultValue={user?.username ?? ""}
-                    className="h-11 rounded-lg border border-current/15 px-3 text-sm font-normal outline-none focus:border-current/40"
-                  />
-                </label>
-                <label className="flex flex-col gap-1.5 text-xs font-semibold opacity-70">
-                  Email
-                  <input
-                    defaultValue={user?.email ?? ""}
-                    className="h-11 rounded-lg border border-current/15 px-3 text-sm font-normal outline-none focus:border-current/40"
-                  />
-                </label>
-                <button
-                  type="button"
-                  onClick={() =>
-                    toast(
-                      "Profile editing isn't wired up yet — this is a UI-only demo.",
-                    )
-                  }
-                  className="self-start rounded-xl px-6 py-2.5 text-sm font-semibold"
-                  style={{
-                    backgroundColor: "var(--brand-primary)",
-                    color: "var(--brand-secondary)",
-                  }}
-                >
-                  Save Changes
-                </button>
+              <div className="max-w-lg rounded-2xl border border-current/10 p-6">
+                {isEditingProfile ? (
+                  <div className="flex flex-col gap-4">
+                    <label className="flex flex-col gap-1.5 text-xs font-semibold opacity-70">
+                      Name
+                      <input
+                        defaultValue={user?.name ?? ""}
+                        className="h-11 rounded-lg border border-current/15 bg-transparent px-3 text-sm font-normal outline-none focus:border-current/40"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1.5 text-xs font-semibold opacity-70">
+                      Username
+                      <input
+                        defaultValue={user?.username ?? ""}
+                        className="h-11 rounded-lg border border-current/15 bg-transparent px-3 text-sm font-normal outline-none focus:border-current/40"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1.5 text-xs font-semibold opacity-70">
+                      Email
+                      <input
+                        defaultValue={user?.email ?? ""}
+                        className="h-11 rounded-lg border border-current/15 bg-transparent px-3 text-sm font-normal outline-none focus:border-current/40"
+                      />
+                    </label>
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          toast(
+                            "Profile editing isn't wired up yet — this is a UI-only demo.",
+                          );
+                          setIsEditingProfile(false);
+                        }}
+                        className="rounded-xl px-6 py-2.5 text-sm font-semibold"
+                        style={{
+                          backgroundColor: "var(--brand-primary)",
+                          color: "var(--brand-secondary)",
+                        }}
+                      >
+                        Save Changes
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingProfile(false)}
+                        className="text-sm font-semibold underline opacity-70"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-4">
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-wide opacity-60">
+                        Name
+                      </div>
+                      <div className="mt-1 text-sm font-semibold">
+                        {user?.name || "—"}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-wide opacity-60">
+                        Username
+                      </div>
+                      <div className="mt-1 text-sm font-semibold">
+                        {user?.username || "—"}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-wide opacity-60">
+                        Email
+                      </div>
+                      <div className="mt-1 text-sm font-semibold">
+                        {user?.email || "—"}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingProfile(true)}
+                      className="mt-2 self-start rounded-xl px-6 py-2.5 text-sm font-semibold"
+                      style={{
+                        backgroundColor: "var(--brand-primary)",
+                        color: "var(--brand-secondary)",
+                      }}
+                    >
+                      Edit
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -676,6 +775,11 @@ export function FashionAccountPage() {
           )}
         </div>
       </div>
+
+      <OrderTrackingModal
+        order={trackingOrder}
+        onClose={() => setTrackingOrder(null)}
+      />
     </FashionStorefrontLayout>
   );
 }

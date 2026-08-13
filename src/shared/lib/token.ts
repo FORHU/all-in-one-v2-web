@@ -14,6 +14,7 @@
  */
 
 const TOKEN_KEY = "auth_token";
+const REFRESH_TOKEN_KEY = "auth_refresh_token";
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -25,7 +26,25 @@ export function setToken(token: string): void {
   localStorage.setItem(TOKEN_KEY, token);
 }
 
+/**
+ * The refresh token (see auth.service.ts's refreshToken) — used by
+ * shared/lib/http.ts's fetcher() to silently renew an expired access token
+ * instead of forcing a sign-in every ACCESS_TOKEN_EXPIRY (15m in this repo's
+ * .env). Single-use server-side: the value here goes stale the moment it's
+ * exchanged, so it's always overwritten with the new one from that response.
+ */
+export function getRefreshToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(REFRESH_TOKEN_KEY);
+}
+
+export function setRefreshToken(token: string): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(REFRESH_TOKEN_KEY, token);
+}
+
 export function clearToken(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
 }

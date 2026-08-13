@@ -1,0 +1,47 @@
+import { fetcher } from "@/shared/lib/http";
+import {
+  MyOrdersApiEnvelopeSchema,
+  CheckoutDirectApiEnvelopeSchema,
+  type MyOrdersResponse,
+  type CheckoutDirectInput,
+  type Order,
+} from "../contracts/order.contract";
+
+/**
+ * Storefront — Orders API client. Tenant-scoped via `x-tenant-slug`, same
+ * convention as address.client.ts; both endpoints are signed-in-only, so a
+ * signed-out caller gets a 401 (see hooks/queries/useMyOrders.ts's
+ * `enabled` gating, mirroring useLatestAddress.ts).
+ */
+export const getMyOrders = async (
+  tenantSlug: string,
+  params?: { page?: number; limit?: number },
+): Promise<MyOrdersResponse> => {
+  const search = new URLSearchParams();
+  if (params?.page) search.set("page", String(params.page));
+  if (params?.limit) search.set("limit", String(params.limit));
+  const qs = search.toString();
+
+  const raw = await fetcher<unknown>(
+    `/api/v2/orders/my-orders${qs ? `?${qs}` : ""}`,
+    { headers: { "x-tenant-slug": tenantSlug } },
+  );
+  return MyOrdersApiEnvelopeSchema.parse(raw).data;
+};
+
+/**
+ * Checkout without a persisted backend cart — see the API's
+ * OrderService.checkoutDirect doc comment for why this exists (the
+ * storefront cart is currently client-only/localStorage).
+ */
+export const checkoutDirect = async (
+  tenantSlug: string,
+  input: CheckoutDirectInput,
+): Promise<Order> => {
+  const raw = await fetcher<unknown>("/api/v2/orders/checkout-direct", {
+    method: "POST",
+    headers: { "x-tenant-slug": tenantSlug },
+    body: JSON.stringify(input),
+  });
+  return CheckoutDirectApiEnvelopeSchema.parse(raw).data;
+};
