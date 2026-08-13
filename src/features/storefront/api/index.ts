@@ -7,3 +7,5 @@ export * from "./collections.keys";
 export * from "./cart.client";
 export * from "./cart.keys";
 export * from "./checkout.client";
+export * from "./address.client";
+export * from "./address.keys";

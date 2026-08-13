@@ -7,6 +7,7 @@ export interface LastOrderItem {
   brand: string;
   price: number;
   imageLabel: string;
+  imageUrl?: string | null;
   size?: string;
   color?: string;
   quantity: number;

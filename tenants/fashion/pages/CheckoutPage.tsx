@@ -12,10 +12,9 @@ import {
 } from "@/features/storefront/stores/localCart.store";
 import { useBuyNowStore } from "@/features/storefront/stores/buyNow.store";
 import { useLastOrderStore } from "@/features/storefront/stores/lastOrder.store";
-import {
-  useSavedAddressStore,
-  type SavedAddress,
-} from "@/features/storefront/stores/savedAddress.store";
+import { useLatestAddress } from "@/features/storefront/hooks/queries/useLatestAddress";
+import { useSaveAddress } from "@/features/storefront/hooks/mutations/useSaveAddress";
+import type { SaveAddressInput } from "@/features/storefront/contracts/address.contract";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
 import { FASHION_DARK_COLORS, fashionFraunces, fashionInter } from "../theme";
 import {
@@ -44,15 +43,14 @@ const linkButtonStyle: React.CSSProperties = {
   color: FASHION_DARK_COLORS.brass,
 };
 
-const initialAddressForm: SavedAddress = {
-  firstName: "",
-  lastName: "",
+const initialAddressForm: SaveAddressInput = {
+  fullName: "",
   phone: "",
-  address1: "",
-  address2: "",
+  addressLine1: "",
+  addressLine2: "",
   city: "",
   state: "",
-  zip: "",
+  postalCode: "",
   country: "United States",
 };
 
@@ -70,11 +68,18 @@ function formatEtaRange(minDays: number, maxDays: number): string {
  * Fashion — checkout page ("Review Order"). Single-page review, matched
  * exactly to a supplied mockup — replaces the previous 4-step
  * Contact/Address/Shipping/Payment wizard entirely (per explicit direction:
- * "replace the whole flow"). There is no real payment/order backend yet
- * (/v2/orders and /v2/payments are unimplemented), so there's no payment
- * step at all — "Place Order" is a UI-only demo: it snapshots the order
- * into useLastOrderStore, clears the relevant item source, and navigates to
+ * "replace the whole flow"). There is no real payment backend yet
+ * (/v2/payments is unimplemented), so there's no payment step at all —
+ * "Place Order" is a UI-only demo: it snapshots the order into
+ * useLastOrderStore, clears the relevant item source, and navigates to
  * /order-success.
+ *
+ * The delivery address IS real, though: GET /v2/addresses/latest and
+ * POST /v2/addresses (see hooks/queries/useLatestAddress.ts and
+ * hooks/mutations/useSaveAddress.ts) — every "Save Address" persists a new
+ * row for the signed-in customer, and a returning customer's checkout
+ * pre-fills with whichever address they saved most recently, instead of
+ * asking again every time.
  *
  * Also serves the "Buy Now" flow via ?mode=buy-now: instead of reading the
  * shared multi-item cart, it reads the single item stashed in
@@ -93,7 +98,7 @@ function formatEtaRange(minDays: number, maxDays: number): string {
  * an SSR/client hydration mismatch (the token lives in localStorage,
  * unavailable on the server).
  */
-export function FashionCheckoutPage() {
+export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isBuyNow = searchParams.get("mode") === "buy-now";
@@ -114,13 +119,17 @@ export function FashionCheckoutPage() {
   const setBuyNowItem = useBuyNowStore((s) => s.setItem);
   const items = isBuyNow ? (buyNowItem ? [buyNowItem] : []) : cartItems;
 
-  const savedAddress = useSavedAddressStore((s) => s.address);
-  const setSavedAddress = useSavedAddressStore((s) => s.setAddress);
+  const { data: latestAddress, isLoading: isLoadingAddress } = useLatestAddress(
+    tenantSlug,
+    hasMounted && !!token,
+  );
+  const { mutateAsync: saveAddressMutation, isPending: isSavingAddress } =
+    useSaveAddress(tenantSlug);
   const setLastOrder = useLastOrderStore((s) => s.setOrder);
 
   const [isEditingAddress, setIsEditingAddress] = useState(false);
   const [addressForm, setAddressForm] =
-    useState<SavedAddress>(initialAddressForm);
+    useState<SaveAddressInput>(initialAddressForm);
   const [shippingMethod, setShippingMethod] =
     useState<ShippingMethodKey>("standard");
   const [isEditingShipping, setIsEditingShipping] = useState(false);
@@ -131,8 +140,19 @@ export function FashionCheckoutPage() {
   const [discountError, setDiscountError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (savedAddress) setAddressForm(savedAddress);
-  }, [savedAddress]);
+    if (latestAddress) {
+      setAddressForm({
+        fullName: latestAddress.fullName,
+        phone: latestAddress.phone ?? "",
+        addressLine1: latestAddress.addressLine1,
+        addressLine2: latestAddress.addressLine2 ?? "",
+        city: latestAddress.city,
+        state: latestAddress.state ?? "",
+        postalCode: latestAddress.postalCode,
+        country: latestAddress.country,
+      });
+    }
+  }, [latestAddress]);
 
   const setQuantity = (item: LocalCartItem, quantity: number) => {
     if (quantity <= 0) return;
@@ -166,23 +186,21 @@ export function FashionCheckoutPage() {
   };
 
   const isAddressFormValid =
-    addressForm.firstName.trim() &&
-    addressForm.lastName.trim() &&
-    addressForm.phone.trim() &&
-    addressForm.address1.trim() &&
+    addressForm.fullName.trim() &&
+    addressForm.phone?.trim() &&
+    addressForm.addressLine1.trim() &&
     addressForm.city.trim() &&
-    addressForm.state.trim() &&
-    addressForm.zip.trim() &&
+    addressForm.postalCode.trim() &&
     addressForm.country.trim();
 
-  const saveAddress = () => {
+  const handleSaveAddress = async () => {
     if (!isAddressFormValid) return;
-    setSavedAddress(addressForm);
+    await saveAddressMutation(addressForm);
     setIsEditingAddress(false);
   };
 
   const placeOrder = () => {
-    if (!savedAddress) return;
+    if (!latestAddress) return;
     const orderNumber = `ADD-${Math.floor(10000 + Math.random() * 90000)}`;
     setLastOrder({
       orderNumber,
@@ -193,20 +211,21 @@ export function FashionCheckoutPage() {
         brand: item.brand,
         price: item.price,
         imageLabel: item.imageLabel,
+        imageUrl: item.imageUrl,
         size: item.size,
         color: item.color,
         quantity: item.quantity,
       })),
       shippingAddress: {
-        firstName: savedAddress.firstName,
-        lastName: savedAddress.lastName,
-        phone: savedAddress.phone,
-        address1: savedAddress.address1,
-        address2: savedAddress.address2 || undefined,
-        city: savedAddress.city,
-        state: savedAddress.state,
-        zip: savedAddress.zip,
-        country: savedAddress.country,
+        firstName: latestAddress.fullName,
+        lastName: "",
+        phone: latestAddress.phone ?? undefined,
+        address1: latestAddress.addressLine1,
+        address2: latestAddress.addressLine2 ?? undefined,
+        city: latestAddress.city,
+        state: latestAddress.state ?? "",
+        zip: latestAddress.postalCode,
+        country: latestAddress.country,
       },
       shippingMethodKey: shippingMethod,
       subtotal,
@@ -320,33 +339,16 @@ export function FashionCheckoutPage() {
                 <div className="mt-4 flex flex-col gap-3">
                   <div className="grid grid-cols-2 gap-3">
                     <label
-                      className="flex flex-col gap-1.5 text-xs font-semibold"
+                      className="col-span-2 flex flex-col gap-1.5 text-xs font-semibold"
                       style={fieldLabelStyle}
                     >
-                      First name
+                      Full name
                       <input
-                        value={addressForm.firstName}
+                        value={addressForm.fullName}
                         onChange={(e) =>
                           setAddressForm((a) => ({
                             ...a,
-                            firstName: e.target.value,
-                          }))
-                        }
-                        className="h-10 rounded-lg px-3 text-sm outline-none"
-                        style={inputStyle}
-                      />
-                    </label>
-                    <label
-                      className="flex flex-col gap-1.5 text-xs font-semibold"
-                      style={fieldLabelStyle}
-                    >
-                      Last name
-                      <input
-                        value={addressForm.lastName}
-                        onChange={(e) =>
-                          setAddressForm((a) => ({
-                            ...a,
-                            lastName: e.target.value,
+                            fullName: e.target.value,
                           }))
                         }
                         className="h-10 rounded-lg px-3 text-sm outline-none"
@@ -376,11 +378,11 @@ export function FashionCheckoutPage() {
                     >
                       Address line 1
                       <input
-                        value={addressForm.address1}
+                        value={addressForm.addressLine1}
                         onChange={(e) =>
                           setAddressForm((a) => ({
                             ...a,
-                            address1: e.target.value,
+                            addressLine1: e.target.value,
                           }))
                         }
                         className="h-10 rounded-lg px-3 text-sm outline-none"
@@ -393,11 +395,11 @@ export function FashionCheckoutPage() {
                     >
                       Address line 2 (optional)
                       <input
-                        value={addressForm.address2}
+                        value={addressForm.addressLine2}
                         onChange={(e) =>
                           setAddressForm((a) => ({
                             ...a,
-                            address2: e.target.value,
+                            addressLine2: e.target.value,
                           }))
                         }
                         className="h-10 rounded-lg px-3 text-sm outline-none"
@@ -444,9 +446,12 @@ export function FashionCheckoutPage() {
                     >
                       ZIP / Postal code
                       <input
-                        value={addressForm.zip}
+                        value={addressForm.postalCode}
                         onChange={(e) =>
-                          setAddressForm((a) => ({ ...a, zip: e.target.value }))
+                          setAddressForm((a) => ({
+                            ...a,
+                            postalCode: e.target.value,
+                          }))
                         }
                         className="h-10 rounded-lg px-3 text-sm outline-none"
                         style={inputStyle}
@@ -473,23 +478,20 @@ export function FashionCheckoutPage() {
                   <div className="flex gap-3">
                     <button
                       type="button"
-                      onClick={saveAddress}
-                      disabled={!isAddressFormValid}
+                      onClick={handleSaveAddress}
+                      disabled={!isAddressFormValid || isSavingAddress}
                       className="rounded-xl px-5 py-2.5 text-sm font-semibold uppercase disabled:opacity-40"
                       style={{
                         backgroundColor: FASHION_DARK_COLORS.brass,
                         color: FASHION_DARK_COLORS.ink,
                       }}
                     >
-                      Save Address
+                      {isSavingAddress ? "Saving..." : "Save Address"}
                     </button>
-                    {savedAddress && (
+                    {latestAddress && (
                       <button
                         type="button"
-                        onClick={() => {
-                          setAddressForm(savedAddress);
-                          setIsEditingAddress(false);
-                        }}
+                        onClick={() => setIsEditingAddress(false)}
                         className="text-sm font-semibold underline"
                         style={{ color: FASHION_DARK_COLORS.boneDim }}
                       >
@@ -498,28 +500,36 @@ export function FashionCheckoutPage() {
                     )}
                   </div>
                 </div>
-              ) : savedAddress ? (
+              ) : isLoadingAddress ? (
+                <div
+                  className="mt-3 text-sm"
+                  style={{ color: FASHION_DARK_COLORS.boneDim }}
+                >
+                  Loading your saved address...
+                </div>
+              ) : latestAddress ? (
                 <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <span className="font-bold">
-                      {savedAddress.firstName} {savedAddress.lastName}
-                    </span>
+                    <span className="font-bold">{latestAddress.fullName}</span>
                     <span
                       className="ml-2 text-sm"
                       style={{ color: FASHION_DARK_COLORS.boneDim }}
                     >
-                      {savedAddress.phone}
+                      {latestAddress.phone}
                     </span>
                     <p
                       className="mt-1 text-sm"
                       style={{ color: FASHION_DARK_COLORS.boneDim }}
                     >
-                      {savedAddress.address1}
-                      {savedAddress.address2
-                        ? `, ${savedAddress.address2}`
+                      {latestAddress.addressLine1}
+                      {latestAddress.addressLine2
+                        ? `, ${latestAddress.addressLine2}`
                         : ""}
-                      , {savedAddress.city}, {savedAddress.state}{" "}
-                      {savedAddress.zip}
+                      , {latestAddress.city}
+                      {latestAddress.state
+                        ? `, ${latestAddress.state}`
+                        : ""}{" "}
+                      {latestAddress.postalCode}
                     </p>
                   </div>
                   <button
@@ -864,7 +874,7 @@ export function FashionCheckoutPage() {
               <button
                 type="button"
                 onClick={placeOrder}
-                disabled={!savedAddress}
+                disabled={!latestAddress}
                 className="mt-4 h-12 w-full rounded-xl text-sm font-bold uppercase transition-colors hover:bg-[#CBA470] disabled:opacity-40"
                 style={{
                   backgroundColor: FASHION_DARK_COLORS.brass,
@@ -874,7 +884,7 @@ export function FashionCheckoutPage() {
               >
                 Place Order
               </button>
-              {!savedAddress && (
+              {!latestAddress && (
                 <p
                   className="mt-2 text-center text-xs"
                   style={{ color: FASHION_DARK_COLORS.boneDim }}

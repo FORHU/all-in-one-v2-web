@@ -19,5 +19,5 @@ export default async function CheckoutPage() {
 
   if (!tenant || !TenantCheckoutPage) return null;
 
-  return <TenantCheckoutPage />;
+  return <TenantCheckoutPage tenantSlug={slug} />;
 }
