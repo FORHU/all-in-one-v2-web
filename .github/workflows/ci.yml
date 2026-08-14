@@ -60,6 +60,7 @@ jobs:
         env:
           NEXT_PUBLIC_API_URL: http://localhost:3001
           NEXT_PUBLIC_APP_ENV: development
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_test_mock
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
@@ -76,3 +77,4 @@ jobs:
           NEXT_PUBLIC_API_URL: http://localhost:3001
           NEXT_PUBLIC_SITE_URL: https://boilerplate-2026.vercel.app
           NEXT_PUBLIC_APP_ENV: production
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_test_mock
