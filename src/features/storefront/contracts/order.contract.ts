@@ -52,6 +52,10 @@ export const MyOrdersApiEnvelopeSchema = z.object({
   data: MyOrdersResponseSchema,
 });
 
+export const OrderApiEnvelopeSchema = z.object({
+  data: OrderSchema,
+});
+
 export const CheckoutDirectItemInputSchema = z.object({
   productId: z.string(),
   size: z.string().optional(),
