@@ -6,4 +6,4 @@
 export type { Product, ProductVariant } from "../contracts/products.contract";
 export type { Category } from "../contracts/categories.contract";
 export type { CartItem, Cart } from "../contracts/cart.contract";
-export type { CheckoutSession } from "../contracts/checkout.contract";
+export type { PaymentIntent } from "../contracts/payment.contract";

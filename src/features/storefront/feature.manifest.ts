@@ -16,7 +16,8 @@ export const featureManifest = {
     "useProductDetail",
     "useCategories",
     "useCart",
-    "useCheckout",
+    "useCheckoutDirect",
+    "useCreatePaymentIntent",
   ] as const,
 } as const;
 

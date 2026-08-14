@@ -1,0 +1,132 @@
+"use client";
+
+import { useState, type FormEvent } from "react";
+import {
+  Elements,
+  PaymentElement,
+  useElements,
+  useStripe,
+} from "@stripe/react-stripe-js";
+import type { StripePaymentElementOptions } from "@stripe/stripe-js";
+import { getStripe } from "@/shared/lib/stripe";
+import { FASHION_DARK_COLORS, fashionInter } from "../theme";
+
+const paymentElementOptions: StripePaymentElementOptions = {
+  layout: "tabs",
+};
+
+interface PaymentFormProps {
+  returnUrl: string;
+  onSuccess: () => void;
+}
+
+/**
+ * Presentation + Stripe confirmation only — order creation, the payment
+ * intent API call, cart clearing, and post-success navigation all live in
+ * CheckoutPage.tsx. This component renders the card fields and confirms
+ * payment with Stripe, nothing else.
+ *
+ * `redirect: "if_required"` keeps the shopper on this page for cards that
+ * don't need extra authentication (resolves here with paymentIntent.status);
+ * a card that needs 3-D Secure redirects the browser away on its own —
+ * there's no code path for that here, see /checkout/payment-return.
+ */
+function PaymentForm({ returnUrl, onSuccess }: PaymentFormProps) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+
+    setIsConfirming(true);
+    setErrorMessage(null);
+
+    const { error, paymentIntent } = await stripe.confirmPayment({
+      elements,
+      confirmParams: { return_url: returnUrl },
+      redirect: "if_required",
+    });
+
+    if (error) {
+      setErrorMessage(
+        error.message ??
+          "Payment failed. Please check your card details and try again.",
+      );
+      setIsConfirming(false);
+      return;
+    }
+
+    if (
+      paymentIntent &&
+      (paymentIntent.status === "succeeded" ||
+        paymentIntent.status === "processing")
+    ) {
+      onSuccess();
+      return;
+    }
+
+    // Any other outcome (e.g. requires_payment_method after a decline)
+    // means Stripe neither redirected nor succeeded — let them retry.
+    setIsConfirming(false);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className={fashionInter.className}>
+      <PaymentElement options={paymentElementOptions} />
+      {errorMessage && (
+        <p
+          className="mt-3 text-sm"
+          style={{ color: FASHION_DARK_COLORS.brick }}
+        >
+          {errorMessage}
+        </p>
+      )}
+      <button
+        type="submit"
+        disabled={!stripe || !elements || isConfirming}
+        className="mt-4 h-12 w-full rounded-xl text-sm font-bold uppercase transition-colors hover:bg-[#CBA470] disabled:opacity-40"
+        style={{
+          backgroundColor: FASHION_DARK_COLORS.brass,
+          color: FASHION_DARK_COLORS.ink,
+          letterSpacing: "0.6px",
+        }}
+      >
+        {isConfirming ? "Confirming Payment..." : "Pay Now"}
+      </button>
+    </form>
+  );
+}
+
+export interface StripePaymentFormProps {
+  clientSecret: string;
+  returnUrl: string;
+  onSuccess: () => void;
+}
+
+export function StripePaymentForm({
+  clientSecret,
+  returnUrl,
+  onSuccess,
+}: StripePaymentFormProps) {
+  return (
+    <Elements
+      stripe={getStripe()}
+      options={{
+        clientSecret,
+        appearance: {
+          theme: "night",
+          variables: {
+            colorPrimary: FASHION_DARK_COLORS.brass,
+            colorBackground: FASHION_DARK_COLORS.ink,
+            colorText: FASHION_DARK_COLORS.bone,
+          },
+        },
+      }}
+    >
+      <PaymentForm returnUrl={returnUrl} onSuccess={onSuccess} />
+    </Elements>
+  );
+}

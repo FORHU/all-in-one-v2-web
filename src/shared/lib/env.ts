@@ -34,6 +34,12 @@ const envSchema = z.object({
         "NEXT_PUBLIC_APP_ENV must be one of: development, staging, production.",
     })
     .default("development"),
+
+  // ── Payments ─────────────────────────────────────────────────────────────
+  /** Stripe publishable key — safe to expose client-side, used to load Stripe.js. */
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string({
+    error: "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY is required.",
+  }),
 });
 
 /**
@@ -45,6 +51,8 @@ function createEnv() {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
     NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
     NEXT_PUBLIC_APP_ENV: process.env.NEXT_PUBLIC_APP_ENV,
+    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:
+      process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
   });
 
   if (!result.success) {

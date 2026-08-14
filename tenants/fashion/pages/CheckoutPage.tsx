@@ -15,8 +15,11 @@ import { useLastOrderStore } from "@/features/storefront/stores/lastOrder.store"
 import { useLatestAddress } from "@/features/storefront/hooks/queries/useLatestAddress";
 import { useSaveAddress } from "@/features/storefront/hooks/mutations/useSaveAddress";
 import { useCheckoutDirect } from "@/features/storefront/hooks/mutations/useCheckoutDirect";
+import { useCreatePaymentIntent } from "@/features/storefront/hooks/mutations/useCreatePaymentIntent";
 import type { SaveAddressInput } from "@/features/storefront/contracts/address.contract";
+import type { Order } from "@/features/storefront/contracts/order.contract";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
+import { StripePaymentForm } from "../components/StripePaymentForm";
 import { FASHION_DARK_COLORS, fashionFraunces, fashionInter } from "../theme";
 import {
   SHIPPING_METHODS,
@@ -69,24 +72,43 @@ function formatEtaRange(minDays: number, maxDays: number): string {
  * Fashion — checkout page ("Review Order"). Single-page review, matched
  * exactly to a supplied mockup — replaces the previous 4-step
  * Contact/Address/Shipping/Payment wizard entirely (per explicit direction:
- * "replace the whole flow"). There is no real payment backend yet
- * (/v2/payments is unimplemented), so there's no payment step at all.
+ * "replace the whole flow").
  *
- * "Place Order" IS real, though: it calls POST /v2/orders/checkout-direct
- * (see hooks/mutations/useCheckoutDirect.ts), which resolves each local
- * cart line to a real CatalogProductVariant server-side and creates a real
- * CommerceOrder — there's no persisted backend cart to check out from (the
- * cart itself is still client-only/localStorage), hence "direct". The
- * resulting order shows up for real in pages/AccountPage.tsx's Orders tab.
+ * "Place Order" IS real: it calls POST /v2/orders/checkout-direct (see
+ * hooks/mutations/useCheckoutDirect.ts), which resolves each local cart
+ * line to a real CatalogProductVariant server-side and creates a real
+ * CommerceOrder at status PENDING — there's no persisted backend cart to
+ * check out from (the cart itself is still client-only/localStorage), hence
+ * "direct". The resulting order shows up for real in pages/AccountPage.tsx's
+ * Orders tab.
+ *
+ * Placing the order is only step one, though — it does not collect payment.
+ * Once the order exists, `createPaymentIntentMutation` (POST
+ * /v2/payments/intents) creates a Stripe PaymentIntent scoped to that order
+ * (amount always derived server-side from order.totalAmount, never trusted
+ * from here), and the "Place Order" button is replaced with
+ * `<StripePaymentForm>` to actually collect card details. `order` is kept in
+ * component state specifically so a retry (e.g. the PaymentIntent call
+ * failed, or the first card attempt was declined) resumes from the payment
+ * step instead of placing a second real order for the same cart.
+ *
+ * Stripe's `payment_intent.succeeded` webhook (see the API's
+ * PaymentService.handleWebhook) is the actual source of truth that flips the
+ * order to PROCESSING — `handlePaymentSuccess` below is UX only, it never
+ * marks anything paid itself. Before rendering the payment form, the order +
+ * shipping snapshot is written to useLastOrderStore, because a 3-D Secure
+ * card can redirect the browser away entirely; the return trip is handled
+ * by /checkout/payment-return, which polls the backend for the order to
+ * actually flip to PROCESSING before calling the checkout "done".
+ *
  * A snapshot combining the real order number/totals with the richer local
  * item display data (name/brand/imageUrl/size/color — not stored on
- * CommerceOrderItem) is still written to useLastOrderStore purely as the
- * hand-off to /order-success. Known gap: the discount-code UI below is
- * cosmetic only — checkoutDirect doesn't accept a coupon code yet, so a
- * locally "applied" code won't reduce the real order's total, and
- * tax/shipping are hardcoded to 0 on the backend (see OrderService's doc
- * comment), so the real order total won't exactly match this page's
- * client-estimated total.
+ * CommerceOrderItem) is written to useLastOrderStore purely as the hand-off
+ * to /order-success. Known gap: the discount-code UI below is cosmetic
+ * only — checkoutDirect doesn't accept a coupon code yet, so a locally
+ * "applied" code won't reduce the real order's total, and tax/shipping are
+ * hardcoded to 0 on the backend (see OrderService's doc comment), so the
+ * real order total won't exactly match this page's client-estimated total.
  *
  * The delivery address IS real, though: GET /v2/addresses/latest and
  * POST /v2/addresses (see hooks/queries/useLatestAddress.ts and
@@ -141,7 +163,18 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
     useSaveAddress(tenantSlug);
   const { mutateAsync: checkoutDirectMutation, isPending: isPlacingOrder } =
     useCheckoutDirect(tenantSlug);
+  const {
+    mutateAsync: createPaymentIntentMutation,
+    isPending: isCreatingIntent,
+  } = useCreatePaymentIntent(tenantSlug);
   const setLastOrder = useLastOrderStore((s) => s.setOrder);
+
+  // The order created by "Place Order" — kept here (not just read from the
+  // mutation) so a retry after a failed/declined payment attempt reuses it
+  // instead of calling checkoutDirect again and placing a second order.
+  const [order, setOrder] = useState<Order | null>(null);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<"card" | "cod">("card");
 
   const [isEditingAddress, setIsEditingAddress] = useState(false);
   const [addressForm, setAddressForm] =
@@ -215,29 +248,58 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
     setIsEditingAddress(false);
   };
 
-  const placeOrder = async () => {
+  /**
+   * Takes `method` explicitly rather than reading `paymentMethod` state —
+   * called right from the "Card" tile's onClick (see selectCard below),
+   * which sets that state in the same handler; reading it back from state
+   * in the same tick would risk the pre-update, stale value.
+   */
+  const placeOrder = async (method: "card" | "cod") => {
     if (!latestAddress) return;
 
-    let order;
+    // Reuse the order already placed on a retry — never call checkoutDirect
+    // twice for the same checkout attempt, or a failed/declined payment
+    // would leave behind two real orders for the same cart.
+    let placedOrder = order;
+    if (!placedOrder) {
+      try {
+        placedOrder = await checkoutDirectMutation({
+          items: items.map((item) => ({
+            productId: item.productId,
+            size: item.size,
+            color: item.color,
+            quantity: item.quantity,
+          })),
+          shippingAddressId: latestAddress.id,
+        });
+      } catch {
+        // useSafeMutation's global MutationCache.onError already surfaced a
+        // toast — nothing left to do but bail without clearing the cart.
+        return;
+      }
+      setOrder(placedOrder);
+    }
+
+    let intent;
     try {
-      order = await checkoutDirectMutation({
-        items: items.map((item) => ({
-          productId: item.productId,
-          size: item.size,
-          color: item.color,
-          quantity: item.quantity,
-        })),
-        shippingAddressId: latestAddress.id,
+      intent = await createPaymentIntentMutation({
+        orderId: placedOrder.id,
+        channel: method === "card" ? "CARD" : "CASH_ON_DELIVERY",
       });
     } catch {
-      // useSafeMutation's global MutationCache.onError already surfaced a
-      // toast — nothing left to do but bail without clearing the cart.
+      // Order stays in state above, so pressing the button again retries
+      // payment-intent creation only — it won't re-place the order.
       return;
     }
 
+    // Written now, before the shopper can even submit a card, because a
+    // 3-D Secure confirmation redirects the browser away from this page
+    // entirely — /checkout/payment-return reads this back on return. Also
+    // doubles as the hand-off to /order-success for Cash on Delivery, which
+    // has no confirmation step of its own.
     setLastOrder({
-      orderNumber: order.orderNumber,
-      placedAt: order.createdAt.toISOString(),
+      orderNumber: placedOrder.orderNumber,
+      placedAt: placedOrder.createdAt.toISOString(),
       items: items.map((item) => ({
         id: item.id,
         name: item.name,
@@ -261,12 +323,61 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
         country: latestAddress.country,
       },
       shippingMethodKey: shippingMethod,
-      subtotal: order.subtotal,
-      discount: order.discountAmount,
-      shipping: order.shippingAmount,
-      tax: order.taxAmount,
-      total: order.totalAmount,
+      subtotal: placedOrder.subtotal,
+      discount: placedOrder.discountAmount,
+      shipping: placedOrder.shippingAmount,
+      tax: placedOrder.taxAmount,
+      total: placedOrder.totalAmount,
     });
+
+    if (!intent.clientSecret) {
+      // Cash on Delivery — the order is already PROCESSING server-side
+      // (see PaymentService.createPaymentIntent's COD branch), there's
+      // nothing left to confirm online.
+      handlePaymentSuccess();
+      return;
+    }
+
+    setClientSecret(intent.clientSecret);
+  };
+
+  /**
+   * Card's confirmation step IS the card form itself, so selecting the
+   * "Card" tile fires the order+intent flow immediately instead of waiting
+   * for a separate "Place Order" click — Cash on Delivery has no such
+   * further step, so its tile only updates `paymentMethod` and still waits
+   * for an explicit "Place Order" press (see the button below).
+   */
+  const selectCard = () => {
+    setPaymentMethod("card");
+    // Already showing the form for this order (e.g. switched to COD and
+    // back) — no need to hit the API again, PaymentService.createPaymentIntent
+    // would just hand back the same still-unconfirmed intent anyway.
+    if (clientSecret) return;
+    void placeOrder("card");
+  };
+
+  /**
+   * Switching away from Card before ever confirming it is fine — the order
+   * (if one was already placed) stays PENDING since nothing was confirmed,
+   * so it's still payable via COD. Clearing clientSecret just hides the
+   * card form again; the abandoned Stripe PaymentIntent is harmless and
+   * gets reused if the shopper switches back to Card (see selectCard).
+   */
+  const selectCod = () => {
+    setPaymentMethod("cod");
+    setClientSecret(null);
+  };
+
+  /**
+   * Fires only for the in-page confirmation path (no 3-D Secure redirect
+   * needed) — see StripePaymentForm's onSuccess. This is UX only: the order
+   * isn't actually PROCESSING until Stripe's webhook lands server-side (see
+   * this file's doc comment). The 3DS/redirect path never runs this — it's
+   * handled by /checkout/payment-return instead, using the useLastOrderStore
+   * snapshot written above.
+   */
+  const handlePaymentSuccess = () => {
     if (isBuyNow) {
       clearBuyNow();
     } else {
@@ -847,6 +958,74 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
               )}
             </div>
 
+            {/* Payment method */}
+            <div className="rounded-2xl p-6" style={cardStyle}>
+              <h2 className="text-sm font-bold">Payment Method</h2>
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={selectCard}
+                  disabled={isPlacingOrder || isCreatingIntent}
+                  className="rounded-lg border px-4 py-3 text-left text-sm disabled:opacity-60"
+                  style={{
+                    borderColor:
+                      paymentMethod === "card"
+                        ? FASHION_DARK_COLORS.brass
+                        : FASHION_DARK_COLORS.hairline,
+                  }}
+                >
+                  <span className="font-semibold">Card</span>
+                  <p
+                    className="mt-0.5 text-xs"
+                    style={{ color: FASHION_DARK_COLORS.boneDim }}
+                  >
+                    Pay now with credit or debit card
+                  </p>
+                </button>
+                <button
+                  type="button"
+                  onClick={selectCod}
+                  disabled={isPlacingOrder || isCreatingIntent}
+                  className="rounded-lg border px-4 py-3 text-left text-sm disabled:opacity-60"
+                  style={{
+                    borderColor:
+                      paymentMethod === "cod"
+                        ? FASHION_DARK_COLORS.brass
+                        : FASHION_DARK_COLORS.hairline,
+                  }}
+                >
+                  <span className="font-semibold">Cash on Delivery</span>
+                  <p
+                    className="mt-0.5 text-xs"
+                    style={{ color: FASHION_DARK_COLORS.boneDim }}
+                  >
+                    Pay in cash when your order arrives
+                  </p>
+                </button>
+              </div>
+
+              {paymentMethod === "card" &&
+                !clientSecret &&
+                isCreatingIntent && (
+                  <p
+                    className="mt-4 text-sm"
+                    style={{ color: FASHION_DARK_COLORS.boneDim }}
+                  >
+                    Preparing payment form...
+                  </p>
+                )}
+
+              {clientSecret && order && (
+                <div className="mt-4">
+                  <StripePaymentForm
+                    clientSecret={clientSecret}
+                    returnUrl={`${window.location.origin}/checkout/payment-return?orderId=${order.id}`}
+                    onSuccess={handlePaymentSuccess}
+                  />
+                </div>
+              )}
+            </div>
+
             {/* Totals + place order */}
             <div className="rounded-2xl p-6" style={cardStyle}>
               <div
@@ -904,26 +1083,38 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
                 </span>
               </div>
 
-              <button
-                type="button"
-                onClick={placeOrder}
-                disabled={!latestAddress || isPlacingOrder}
-                className="mt-4 h-12 w-full rounded-xl text-sm font-bold uppercase transition-colors hover:bg-[#CBA470] disabled:opacity-40"
-                style={{
-                  backgroundColor: FASHION_DARK_COLORS.brass,
-                  color: FASHION_DARK_COLORS.ink,
-                  letterSpacing: "0.6px",
-                }}
-              >
-                {isPlacingOrder ? "Placing Order..." : "Place Order"}
-              </button>
-              {!latestAddress && (
-                <p
-                  className="mt-2 text-center text-xs"
-                  style={{ color: FASHION_DARK_COLORS.boneDim }}
-                >
-                  Add a delivery address to place your order.
-                </p>
+              {!clientSecret && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => placeOrder(paymentMethod)}
+                    disabled={
+                      !latestAddress || isPlacingOrder || isCreatingIntent
+                    }
+                    className="mt-4 h-12 w-full rounded-xl text-sm font-bold uppercase transition-colors hover:bg-[#CBA470] disabled:opacity-40"
+                    style={{
+                      backgroundColor: FASHION_DARK_COLORS.brass,
+                      color: FASHION_DARK_COLORS.ink,
+                      letterSpacing: "0.6px",
+                    }}
+                  >
+                    {isPlacingOrder
+                      ? "Placing Order..."
+                      : isCreatingIntent
+                        ? "Please wait..."
+                        : order && paymentMethod === "card"
+                          ? "Continue to Payment"
+                          : "Place Order"}
+                  </button>
+                  {!latestAddress && (
+                    <p
+                      className="mt-2 text-center text-xs"
+                      style={{ color: FASHION_DARK_COLORS.boneDim }}
+                    >
+                      Add a delivery address to place your order.
+                    </p>
+                  )}
+                </>
               )}
             </div>
           </div>

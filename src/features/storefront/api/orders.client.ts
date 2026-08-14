@@ -2,6 +2,7 @@ import { fetcher } from "@/shared/lib/http";
 import {
   MyOrdersApiEnvelopeSchema,
   CheckoutDirectApiEnvelopeSchema,
+  OrderApiEnvelopeSchema,
   type MyOrdersResponse,
   type CheckoutDirectInput,
   type Order,
@@ -27,6 +28,21 @@ export const getMyOrders = async (
     { headers: { "x-tenant-slug": tenantSlug } },
   );
   return MyOrdersApiEnvelopeSchema.parse(raw).data;
+};
+
+/**
+ * A single order by id — used by /checkout/payment-return to poll for the
+ * webhook-driven flip to PROCESSING after a 3-D Secure redirect (see
+ * PaymentReturnPage.tsx). Ownership is verified server-side.
+ */
+export const getOrderById = async (
+  tenantSlug: string,
+  orderId: string,
+): Promise<Order> => {
+  const raw = await fetcher<unknown>(`/api/v2/orders/${orderId}`, {
+    headers: { "x-tenant-slug": tenantSlug },
+  });
+  return OrderApiEnvelopeSchema.parse(raw).data;
 };
 
 /**
