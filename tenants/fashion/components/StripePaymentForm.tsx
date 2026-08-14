@@ -9,7 +9,8 @@ import {
 } from "@stripe/react-stripe-js";
 import type { StripePaymentElementOptions } from "@stripe/stripe-js";
 import { getStripe } from "@/shared/lib/stripe";
-import { FASHION_DARK_COLORS, fashionInter } from "../theme";
+import type { FashionColorMode } from "../stores/colorMode.store";
+import { getFashionColors, fashionInter } from "../theme";
 
 const paymentElementOptions: StripePaymentElementOptions = {
   layout: "tabs",
@@ -18,6 +19,7 @@ const paymentElementOptions: StripePaymentElementOptions = {
 interface PaymentFormProps {
   returnUrl: string;
   onSuccess: () => void;
+  colors: ReturnType<typeof getFashionColors>;
 }
 
 /**
@@ -31,7 +33,7 @@ interface PaymentFormProps {
  * a card that needs 3-D Secure redirects the browser away on its own —
  * there's no code path for that here, see /checkout/payment-return.
  */
-function PaymentForm({ returnUrl, onSuccess }: PaymentFormProps) {
+function PaymentForm({ returnUrl, onSuccess, colors }: PaymentFormProps) {
   const stripe = useStripe();
   const elements = useElements();
   const [isConfirming, setIsConfirming] = useState(false);
@@ -77,22 +79,22 @@ function PaymentForm({ returnUrl, onSuccess }: PaymentFormProps) {
     <form onSubmit={handleSubmit} className={fashionInter.className}>
       <PaymentElement options={paymentElementOptions} />
       {errorMessage && (
-        <p
-          className="mt-3 text-sm"
-          style={{ color: FASHION_DARK_COLORS.brick }}
-        >
+        <p className="mt-3 text-sm" style={{ color: colors.brick }}>
           {errorMessage}
         </p>
       )}
       <button
         type="submit"
         disabled={!stripe || !elements || isConfirming}
-        className="mt-4 h-12 w-full rounded-xl text-sm font-bold uppercase transition-colors hover:bg-[#CBA470] disabled:opacity-40"
-        style={{
-          backgroundColor: FASHION_DARK_COLORS.brass,
-          color: FASHION_DARK_COLORS.ink,
-          letterSpacing: "0.6px",
-        }}
+        className="mt-4 h-12 w-full rounded-xl text-sm font-bold uppercase transition-colors hover:bg-[var(--pay-brass-hover)] disabled:opacity-40"
+        style={
+          {
+            backgroundColor: colors.brass,
+            color: colors.ink,
+            letterSpacing: "0.6px",
+            "--pay-brass-hover": colors.brassHover,
+          } as React.CSSProperties
+        }
       >
         {isConfirming ? "Confirming Payment..." : "Pay Now"}
       </button>
@@ -104,29 +106,40 @@ export interface StripePaymentFormProps {
   clientSecret: string;
   returnUrl: string;
   onSuccess: () => void;
+  mode: FashionColorMode;
 }
 
 export function StripePaymentForm({
   clientSecret,
   returnUrl,
   onSuccess,
+  mode,
 }: StripePaymentFormProps) {
+  const colors = getFashionColors(mode);
+
   return (
     <Elements
       stripe={getStripe()}
       options={{
         clientSecret,
+        // Stripe's own base preset — "night" only covers the dark half;
+        // "stripe" is its light default. The variables below then layer the
+        // tenant's brass/ink/bone accents on top of whichever base is active.
         appearance: {
-          theme: "night",
+          theme: mode === "dark" ? "night" : "stripe",
           variables: {
-            colorPrimary: FASHION_DARK_COLORS.brass,
-            colorBackground: FASHION_DARK_COLORS.ink,
-            colorText: FASHION_DARK_COLORS.bone,
+            colorPrimary: colors.brass,
+            colorBackground: colors.ink,
+            colorText: colors.bone,
           },
         },
       }}
     >
-      <PaymentForm returnUrl={returnUrl} onSuccess={onSuccess} />
+      <PaymentForm
+        returnUrl={returnUrl}
+        onSuccess={onSuccess}
+        colors={colors}
+      />
     </Elements>
   );
 }

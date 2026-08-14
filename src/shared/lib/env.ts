@@ -40,6 +40,12 @@ const envSchema = z.object({
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string({
     error: "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY is required.",
   }),
+
+  // ── Auth ─────────────────────────────────────────────────────────────────
+  /** Google OAuth client ID — safe to expose client-side, used to init Google Identity Services. */
+  NEXT_PUBLIC_GOOGLE_CLIENT_ID: z.string({
+    error: "NEXT_PUBLIC_GOOGLE_CLIENT_ID is required.",
+  }),
 });
 
 /**
@@ -53,6 +59,7 @@ function createEnv() {
     NEXT_PUBLIC_APP_ENV: process.env.NEXT_PUBLIC_APP_ENV,
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:
       process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+    NEXT_PUBLIC_GOOGLE_CLIENT_ID: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
   });
 
   if (!result.success) {

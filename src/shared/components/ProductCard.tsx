@@ -1,7 +1,9 @@
 "use client";
 
+import { useRef, useState } from "react";
 import Link from "next/link";
-import { Eye } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Check, Eye } from "lucide-react";
 import { ImagePlaceholder } from "./ImagePlaceholder";
 import { StarRating } from "./StarRating";
 
@@ -43,6 +45,25 @@ export function ProductCard({
   onQuickAdd?: (product: ProductCardProduct) => void;
   onBuyNow?: (product: ProductCardProduct) => void;
 }) {
+  const router = useRouter();
+
+  // Brief "Added" confirmation + bounce on the quick-add button — purely
+  // visual feedback, doesn't affect the actual add-to-cart call. `addPulse`
+  // is used as a React `key` on the button so the CSS animation restarts on
+  // every click, even a second click before the first bounce finishes.
+  const [justAdded, setJustAdded] = useState(false);
+  const [addPulse, setAddPulse] = useState(0);
+  const addedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleQuickAdd = () => {
+    if (!onQuickAdd) return;
+    onQuickAdd(product);
+    setJustAdded(true);
+    setAddPulse((n) => n + 1);
+    if (addedTimeoutRef.current) clearTimeout(addedTimeoutRef.current);
+    addedTimeoutRef.current = setTimeout(() => setJustAdded(false), 1400);
+  };
+
   const image = (
     <ImagePlaceholder
       label={product.imageLabel}
@@ -150,21 +171,40 @@ export function ProductCard({
           <div className="absolute inset-x-2.5 bottom-2.5 flex gap-1.5 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
             {onQuickAdd && (
               <button
+                key={addPulse}
                 type="button"
-                onClick={() => onQuickAdd(product)}
-                className="flex-1 rounded-lg py-2.5 text-[12px] font-semibold"
+                onClick={handleQuickAdd}
+                className={`flex-1 rounded-lg py-2.5 text-[12px] font-semibold ${
+                  justAdded ? "animate-add-bounce" : ""
+                }`}
                 style={{
                   backgroundColor: "var(--brand-primary)",
                   color: "var(--brand-secondary)",
                 }}
               >
-                Add to Cart
+                {justAdded ? (
+                  <span className="flex items-center justify-center gap-1">
+                    <Check className="h-3.5 w-3.5" />
+                    Added
+                  </span>
+                ) : (
+                  "Add to Cart"
+                )}
               </button>
             )}
             {onBuyNow && (
               <button
                 type="button"
                 onClick={() => onBuyNow(product)}
+                // /checkout reads headers() (tenant resolution), which
+                // forces it to be a dynamic route — every navigation there
+                // needs a fresh server round-trip, showing the root
+                // loading.tsx fallback while it fetches. Prefetching on
+                // hover (which almost always precedes the actual click)
+                // gets that round-trip out of the way beforehand, so the
+                // click itself lands on an already-warm route instead of
+                // showing that loading flash.
+                onMouseEnter={() => router.prefetch("/checkout")}
                 className="flex-1 rounded-lg border py-2.5 text-[12px] font-semibold"
                 style={{
                   borderColor: "var(--brand-primary)",

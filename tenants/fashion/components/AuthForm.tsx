@@ -1,9 +1,16 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
-import { useLogin, useRegister } from "@/features/auth/hooks";
+import {
+  GoogleLogin,
+  GoogleOAuthProvider,
+  type CredentialResponse,
+} from "@react-oauth/google";
+import { useLogin, useRegister, useGoogleAuth } from "@/features/auth/hooks";
 import { ApiError } from "@/shared/errors/api-error";
+import { env } from "@/shared/lib/env";
+import { useFashionColorMode } from "../stores/colorMode.store";
 
 type Mode = "login" | "register";
 
@@ -32,12 +39,18 @@ const inputStyle = {
  * re-renders into the signed-in view on its own.
  * Email/password forms are wired to the real POST /v2/auth/login and
  * /v2/auth/register endpoints (see features/auth/hooks/mutations/useLogin.ts
- * and useRegister.ts). Google/Apple are presentational only — no OAuth
- * client is configured anywhere in this codebase.
+ * and useRegister.ts). Google is wired to the real POST /v2/auth/google
+ * (see useGoogleAuth.ts and the API's AuthService.loginWithGoogle) —
+ * Google's Identity Services requires rendering its own branded button for
+ * this flow, so it can't be pixel-matched to Apple's still-placeholder
+ * button below; `theme` is picked from the site's own light/dark toggle to
+ * blend in as closely as Google's rules allow. Apple remains
+ * presentational only — no OAuth client configured for it.
  */
 export function AuthForm() {
   const { mutateAsync: login, isPending: isLoggingIn } = useLogin();
   const { mutateAsync: register, isPending: isRegistering } = useRegister();
+  const { mutateAsync: googleAuth } = useGoogleAuth();
   const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -46,6 +59,14 @@ export function AuthForm() {
   const [name, setName] = useState("");
 
   const isSubmitting = isLoggingIn || isRegistering;
+
+  // Google's button theme follows the site's light/dark toggle — gated
+  // behind a mount flag since useFashionColorMode persists to localStorage,
+  // unavailable during SSR (same pattern used throughout this tenant).
+  const colorMode = useFashionColorMode((s) => s.mode);
+  const [hasMounted, setHasMounted] = useState(false);
+  useEffect(() => setHasMounted(true), []);
+  const resolvedColorMode = hasMounted ? colorMode : "dark";
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -82,6 +103,29 @@ export function AuthForm() {
 
   const handleSocialClick = (provider: string) => {
     toast(`${provider} sign-in isn't connected yet — this is a UI-only demo.`);
+  };
+
+  const handleGoogleSuccess = async (
+    credentialResponse: CredentialResponse,
+  ) => {
+    if (!credentialResponse.credential) {
+      toast.error("Google didn't return a token. Please try again.");
+      return;
+    }
+    try {
+      await googleAuth(credentialResponse.credential);
+      toast.success("Signed in successfully.");
+    } catch (err) {
+      toast.error(
+        err instanceof ApiError
+          ? err.message
+          : "Unable to sign in with Google right now.",
+      );
+    }
+  };
+
+  const handleGoogleError = () => {
+    toast.error("Google sign-in failed. Please try again.");
   };
 
   return (
@@ -221,18 +265,20 @@ export function AuthForm() {
         />
       </div>
 
-      <div className="flex flex-col gap-2.5">
-        <button
-          type="button"
-          onClick={() => handleSocialClick("Google")}
-          className="flex h-11 items-center justify-center gap-2 rounded-xl border text-sm font-semibold"
-          style={{
-            borderColor:
-              "color-mix(in srgb, var(--brand-primary) 15%, transparent)",
-          }}
-        >
-          Continue with Google
-        </button>
+      <div className="flex flex-col items-stretch gap-2.5">
+        <div className="flex justify-center">
+          <GoogleOAuthProvider clientId={env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}>
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={handleGoogleError}
+              theme={resolvedColorMode === "dark" ? "filled_black" : "outline"}
+              shape="pill"
+              size="large"
+              width={336}
+              text="continue_with"
+            />
+          </GoogleOAuthProvider>
+        </div>
         <button
           type="button"
           onClick={() => handleSocialClick("Apple")}

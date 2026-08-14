@@ -6,6 +6,7 @@ import QueryProvider from "@/shared/lib/providers/query-provider";
 import { Toaster } from "sonner";
 import { AuthListener } from "@/features/auth/components/AuthListener";
 import { getTenantConfig } from "@/tenants/registry";
+import { FashionToaster } from "@/tenants/fashion/components/FashionToaster";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -54,7 +55,11 @@ export default async function RootLayout({
       >
         <QueryProvider>
           {children}
-          <Toaster position="bottom-right" theme="system" richColors />
+          {slug === "fashion" ? (
+            <FashionToaster />
+          ) : (
+            <Toaster position="bottom-right" theme="system" richColors />
+          )}
           <AuthListener />
         </QueryProvider>
       </body>

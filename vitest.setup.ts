@@ -10,6 +10,8 @@ process.env.NEXT_PUBLIC_API_URL = "http://localhost:3001";
 process.env.NEXT_PUBLIC_APP_ENV = "development";
 process.env.NEXT_PUBLIC_SITE_URL = "http://localhost:3000";
 process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = "pk_test_mock";
+process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID =
+  "mock-google-client-id.apps.googleusercontent.com";
 
 // ── Browser API mocks ──────────────────────────────────────────────────────
 // localStorage
