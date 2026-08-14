@@ -29,6 +29,21 @@ export const register = async (
   return LoginResponseSchema.parse(raw);
 };
 
+/**
+ * Signs in (or registers, on first use) with a Google ID token — see the
+ * API's AuthService.loginWithGoogle, which verifies the token server-side
+ * and returns the same session shape as login()/register() above.
+ */
+export const loginWithGoogle = async (
+  idToken: string,
+): Promise<LoginResponse> => {
+  const raw = await fetcher<unknown>("/api/v2/auth/google", {
+    method: "POST",
+    body: JSON.stringify({ idToken }),
+  });
+  return LoginResponseSchema.parse(raw);
+};
+
 /** GET /v2/users/me — see CurrentUserSchema's doc comment. */
 export const getCurrentUser = async (): Promise<CurrentUser> => {
   const raw = await fetcher<unknown>("/api/v2/users/me");
