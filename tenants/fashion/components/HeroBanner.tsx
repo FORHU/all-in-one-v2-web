@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { ImagePlaceholder } from "@/shared/components/ImagePlaceholder";
 import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
@@ -50,6 +50,24 @@ export function HeroBanner({ tenantSlug }: { tenantSlug: string }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const addCartItem = useLocalCartStore((s) => s.addItem);
 
+  // Per-item "Added" confirmation + bounce on each row's "Add to Bag"
+  // button — same pattern as ProductCard's quick-add. Keyed by item id
+  // since each look renders several of these buttons independently.
+  // `pulseByItemId` is used as a React `key` so the CSS animation restarts
+  // even if the same item is clicked again before the previous bounce ends.
+  const [addedItemIds, setAddedItemIds] = useState<Set<string>>(new Set());
+  const [pulseByItemId, setPulseByItemId] = useState<Record<string, number>>(
+    {},
+  );
+  const addedTimeoutsRef = useRef<
+    Record<string, ReturnType<typeof setTimeout>>
+  >({});
+
+  // Same bounce/"Added" treatment for the single "Add All to Bag" button.
+  const [justAddedAll, setJustAddedAll] = useState(false);
+  const [addAllPulse, setAddAllPulse] = useState(0);
+  const addAllTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const looks: Look[] = [
     womensLooks?.[0],
     mensLooks?.[0],
@@ -94,6 +112,22 @@ export function HeroBanner({ tenantSlug }: { tenantSlug: string }) {
       quantity: 1,
     });
     toast.success(`Added ${item.name} to your bag`);
+
+    setAddedItemIds((prev) => new Set(prev).add(item.id));
+    setPulseByItemId((prev) => ({
+      ...prev,
+      [item.id]: (prev[item.id] ?? 0) + 1,
+    }));
+    if (addedTimeoutsRef.current[item.id]) {
+      clearTimeout(addedTimeoutsRef.current[item.id]);
+    }
+    addedTimeoutsRef.current[item.id] = setTimeout(() => {
+      setAddedItemIds((prev) => {
+        const next = new Set(prev);
+        next.delete(item.id);
+        return next;
+      });
+    }, 1400);
   };
 
   const addAllToBag = () => {
@@ -110,6 +144,11 @@ export function HeroBanner({ tenantSlug }: { tenantSlug: string }) {
       }),
     );
     toast.success(`Added ${activeLook.items.length} items to your bag`);
+
+    setJustAddedAll(true);
+    setAddAllPulse((n) => n + 1);
+    if (addAllTimeoutRef.current) clearTimeout(addAllTimeoutRef.current);
+    addAllTimeoutRef.current = setTimeout(() => setJustAddedAll(false), 1400);
   };
 
   return (
@@ -288,15 +327,25 @@ export function HeroBanner({ tenantSlug }: { tenantSlug: string }) {
                   );
                 })()}
                 <button
+                  key={pulseByItemId[item.id] ?? 0}
                   type="button"
                   onClick={() => addToBag(item)}
-                  className="flex-none rounded-lg border px-5 py-2.5 text-sm font-semibold"
+                  className={`flex-none rounded-lg border px-5 py-2.5 text-sm font-semibold ${
+                    addedItemIds.has(item.id) ? "animate-add-bounce" : ""
+                  }`}
                   style={{
                     borderColor:
                       "color-mix(in srgb, var(--brand-primary) 25%, transparent)",
                   }}
                 >
-                  Add to Bag
+                  {addedItemIds.has(item.id) ? (
+                    <span className="flex items-center justify-center gap-1.5">
+                      <Check className="h-4 w-4" />
+                      Added
+                    </span>
+                  ) : (
+                    "Add to Bag"
+                  )}
                 </button>
               </div>
             ))}
@@ -314,15 +363,25 @@ export function HeroBanner({ tenantSlug }: { tenantSlug: string }) {
               <div className="text-3xl font-bold">${total.toFixed(2)}</div>
             </div>
             <button
+              key={addAllPulse}
               type="button"
               onClick={addAllToBag}
-              className="rounded-xl px-8 py-3.5 text-base font-bold"
+              className={`rounded-xl px-8 py-3.5 text-base font-bold ${
+                justAddedAll ? "animate-add-bounce" : ""
+              }`}
               style={{
                 backgroundColor: "var(--brand-primary)",
                 color: "var(--brand-secondary)",
               }}
             >
-              Add All to Bag
+              {justAddedAll ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Check className="h-5 w-5" />
+                  Added
+                </span>
+              ) : (
+                "Add All to Bag"
+              )}
             </button>
           </div>
         </div>

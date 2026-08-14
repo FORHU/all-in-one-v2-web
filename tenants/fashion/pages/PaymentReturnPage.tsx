@@ -6,7 +6,8 @@ import { toast } from "sonner";
 import { getStripe } from "@/shared/lib/stripe";
 import { getOrderById } from "@/features/storefront/api/orders.client";
 import { FashionStorefrontLayout } from "../layouts/StorefrontLayout";
-import { FASHION_DARK_COLORS, fashionFraunces, fashionInter } from "../theme";
+import { useFashionColorMode } from "../stores/colorMode.store";
+import { getFashionColors, fashionFraunces, fashionInter } from "../theme";
 
 const POLL_INTERVAL_MS = 2000;
 const MAX_POLL_ATTEMPTS = 8; // ~16s — generous for a local `stripe listen` forward
@@ -37,9 +38,15 @@ export function FashionPaymentReturnPage({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const colorMode = useFashionColorMode((s) => s.mode);
   const [status, setStatus] = useState<"confirming" | "finalizing">(
     "confirming",
   );
+
+  const [hasMounted, setHasMounted] = useState(false);
+  useEffect(() => setHasMounted(true), []);
+  const mode = hasMounted ? colorMode : "dark";
+  const colors = getFashionColors(mode);
 
   useEffect(() => {
     let cancelled = false;
@@ -108,11 +115,11 @@ export function FashionPaymentReturnPage({
     <FashionStorefrontLayout>
       <div
         className={fashionInter.className}
-        style={{ backgroundColor: FASHION_DARK_COLORS.ink }}
+        style={{ backgroundColor: colors.ink }}
       >
         <div
           className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-4 px-6 text-center"
-          style={{ color: FASHION_DARK_COLORS.bone }}
+          style={{ color: colors.bone }}
         >
           <h1
             className={fashionFraunces.className}
@@ -122,7 +129,7 @@ export function FashionPaymentReturnPage({
               ? "Finalizing your order..."
               : "Confirming payment..."}
           </h1>
-          <p className="text-sm" style={{ color: FASHION_DARK_COLORS.boneDim }}>
+          <p className="text-sm" style={{ color: colors.boneDim }}>
             This only takes a moment. Please don&apos;t close this page.
           </p>
         </div>

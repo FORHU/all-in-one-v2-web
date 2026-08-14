@@ -78,7 +78,7 @@ export function FashionOrderSuccessPage() {
             nothing to display yet.
           </p>
           <Link
-            href="/categories/women"
+            href="/categories/tops"
             className="rounded-2xl px-6 py-3 text-sm font-semibold"
             style={{
               backgroundColor: "var(--brand-primary)",
@@ -274,7 +274,7 @@ export function FashionOrderSuccessPage() {
         </div>
 
         <Link
-          href="/categories/women"
+          href="/categories/tops"
           className="self-center rounded-2xl border px-8 py-3.5 text-sm font-semibold"
           style={{
             borderColor:

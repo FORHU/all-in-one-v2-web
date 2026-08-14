@@ -94,7 +94,6 @@ export function FashionCategoryDetailPage({
   const sort = (searchParams.get("sort") as SortOption) || "newest";
   const sizes = parseCsv(searchParams.get("sizes"));
   const colors = parseCsv(searchParams.get("colors"));
-  const brands = parseCsv(searchParams.get("brands"));
   const urlPriceMin = searchParams.get("priceMin");
   const urlPriceMax = searchParams.get("priceMax");
 
@@ -115,7 +114,7 @@ export function FashionCategoryDetailPage({
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
-  // Not memoized: sizes/colors/brands come from parseCsv() on searchParams,
+  // Not memoized: sizes/colors come from parseCsv() on searchParams,
   // a new array reference every render regardless, so a useMemo here would
   // recompute every time anyway — no real memoization to be had. TanStack
   // Query dedupes by the query key's serialized content (see
@@ -131,7 +130,6 @@ export function FashionCategoryDetailPage({
           : "newest",
     sizes: sizes.length ? sizes : undefined,
     colors: colors.length ? colors : undefined,
-    brands: brands.length ? brands : undefined,
     priceMin: urlPriceMin ? Number(urlPriceMin) : undefined,
     priceMax: urlPriceMax ? Number(urlPriceMax) : undefined,
     page,
@@ -151,7 +149,7 @@ export function FashionCategoryDetailPage({
     urlPriceMax ? Number(urlPriceMax) : priceBounds[1],
   ];
 
-  const filters: CategoryFilterState = { sizes, colors, brands, priceRange };
+  const filters: CategoryFilterState = { sizes, colors, priceRange };
 
   const handleAddToCart = (
     product: ProductCardProduct,
@@ -190,12 +188,6 @@ export function FashionCategoryDetailPage({
       onRemove: () =>
         updateParams({ colors: toggleValue(colors, color).join(",") || null }),
     })),
-    ...brands.map((brand) => ({
-      key: `brand-${brand}`,
-      label: brand,
-      onRemove: () =>
-        updateParams({ brands: toggleValue(brands, brand).join(",") || null }),
-    })),
     ...(isPriceFiltered
       ? [
           {
@@ -211,7 +203,6 @@ export function FashionCategoryDetailPage({
     updateParams({
       sizes: null,
       colors: null,
-      brands: null,
       priceMin: null,
       priceMax: null,
     });
@@ -219,15 +210,12 @@ export function FashionCategoryDetailPage({
   const filterSidebarProps = {
     availableSizes: facets?.sizes ?? [],
     availableColors: facets?.colors ?? [],
-    availableBrands: facets?.brands ?? [],
     priceBounds,
     filters,
     onToggleSize: (size: string) =>
       updateParams({ sizes: toggleValue(sizes, size).join(",") || null }),
     onToggleColor: (color: string) =>
       updateParams({ colors: toggleValue(colors, color).join(",") || null }),
-    onToggleBrand: (brand: string) =>
-      updateParams({ brands: toggleValue(brands, brand).join(",") || null }),
     onPriceChange: (range: [number, number]) =>
       updateParams({ priceMin: String(range[0]), priceMax: String(range[1]) }),
   };

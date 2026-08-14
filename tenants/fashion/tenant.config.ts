@@ -16,12 +16,11 @@ export const fashionConfig: TenantConfig = {
   },
   logoUrl: "/tenants/fashion/logo.svg",
   nav: [
-    { label: "Women", href: "/categories/women" },
-    { label: "Men", href: "/categories/men" },
-    { label: "Kids", href: "/categories/kids" },
-    { label: "Accessories", href: "/categories/accessories" },
+    { label: "Tops", href: "/categories/tops" },
+    { label: "Dress", href: "/categories/dresses" },
+    { label: "Bottoms", href: "/categories/bottoms" },
+    { label: "Outer wear", href: "/categories/outerwear" },
     { label: "Shoes", href: "/categories/shoes" },
-    { label: "Sale", href: "/categories/sale" },
   ],
   seo: {
     title: "addictstyle",

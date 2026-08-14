@@ -7,25 +7,18 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Heart, Plus } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Heart, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { ImagePlaceholder } from "@/shared/components/ImagePlaceholder";
 import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
 import { useWishlistStore } from "@/features/storefront/stores/wishlist.store";
 import { useCollections } from "@/features/storefront/hooks/queries/useCollections";
-import {
-  LOOK_CATEGORIES,
-  type Look,
-  type LookCategory,
-  type LookItem,
-} from "../data/looks";
+import { type Look, type LookItem } from "../data/looks";
 import { toLook } from "../utils/toLook";
 import { useFashionColorMode } from "../stores/colorMode.store";
 import { getFashionColors, fashionFraunces } from "../theme";
 
 const PANEL_HEIGHT = "lg:h-[520px]";
-const ALL_CATEGORIES = "All" as const;
-type CategoryFilter = LookCategory | typeof ALL_CATEGORIES;
 type FashionColors = ReturnType<typeof getFashionColors>;
 
 /**
@@ -65,9 +58,10 @@ export function TrendingLookbook({
   );
   const looks: Look[] = (collections ?? []).map(toLook);
 
-  const [categoryFilter, setCategoryFilter] =
-    useState<CategoryFilter>(ALL_CATEGORIES);
   const [activeLookId, setActiveLookId] = useState<string | null>(null);
+  const [justAddedAll, setJustAddedAll] = useState(false);
+  const [addAllPulse, setAddAllPulse] = useState(0);
+  const addAllTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const addCartItem = useLocalCartStore((s) => s.addItem);
   const wishlistIds = useWishlistStore((s) => s.ids);
   const toggleFavorite = useWishlistStore((s) => s.toggle);
@@ -129,10 +123,7 @@ export function TrendingLookbook({
   // whole widget rather than render an empty shell.
   if (isLoading || looks.length === 0) return null;
 
-  const filteredLooks =
-    categoryFilter === ALL_CATEGORIES
-      ? looks
-      : looks.filter((look) => look.category === categoryFilter);
+  const filteredLooks = looks;
   const activeLook = looks.find((look) => look.id === activeLookId) ?? looks[0];
   if (!activeLook) return null;
   const displayedLook =
@@ -212,17 +203,6 @@ export function TrendingLookbook({
     }
   };
 
-  // Switching category jumps the active look to the first match in the new
-  // filter — the previously active look may not even be in the new list.
-  const handleCategoryChange = (category: CategoryFilter) => {
-    setCategoryFilter(category);
-    const nextLooks =
-      category === ALL_CATEGORIES
-        ? looks
-        : looks.filter((look) => look.category === category);
-    if (nextLooks.length > 0) setActiveLookId(nextLooks[0].id);
-  };
-
   const addAllToBag = () => {
     activeLook.items.forEach((item) =>
       addCartItem({
@@ -237,6 +217,11 @@ export function TrendingLookbook({
       }),
     );
     toast.success(`Added ${activeLook.items.length} items to your bag`);
+
+    setJustAddedAll(true);
+    setAddAllPulse((n) => n + 1);
+    if (addAllTimeoutRef.current) clearTimeout(addAllTimeoutRef.current);
+    addAllTimeoutRef.current = setTimeout(() => setJustAddedAll(false), 1400);
   };
 
   const addItemToBag = (item: LookItem) => {
@@ -284,32 +269,6 @@ export function TrendingLookbook({
           >
             {activeLook.name}
           </h2>
-        </div>
-
-        <div className="scrollbar-hide flex max-w-full flex-wrap items-center gap-x-6 gap-y-2 overflow-x-auto pt-2">
-          {[ALL_CATEGORIES, ...LOOK_CATEGORIES].map((category) => {
-            const isActive = categoryFilter === category;
-            return (
-              <button
-                key={category}
-                type="button"
-                onClick={() => handleCategoryChange(category)}
-                aria-pressed={isActive}
-                className="relative flex-none pb-1.5 text-xs font-semibold uppercase tracking-wider transition-colors"
-                style={{
-                  color: isActive ? colors.bone : colors.boneDim,
-                }}
-              >
-                {category}
-                {isActive && (
-                  <span
-                    className="absolute bottom-0 left-0 right-0 h-[2px]"
-                    style={{ backgroundColor: colors.brass }}
-                  />
-                )}
-              </button>
-            );
-          })}
         </div>
       </div>
 
@@ -540,15 +499,25 @@ export function TrendingLookbook({
               </span>
             </div>
             <button
+              key={addAllPulse}
               type="button"
               onClick={addAllToBag}
-              className="flex-none whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-bold transition-opacity hover:opacity-90"
+              className={`flex-none whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-bold transition-opacity hover:opacity-90 ${
+                justAddedAll ? "animate-add-bounce" : ""
+              }`}
               style={{
                 backgroundColor: colors.brass,
                 color: colors.ink,
               }}
             >
-              Add all to bag
+              {justAddedAll ? (
+                <span className="flex items-center justify-center gap-1.5">
+                  <Check className="h-4 w-4" />
+                  Added
+                </span>
+              ) : (
+                "Add all to bag"
+              )}
             </button>
           </div>
         </div>
@@ -567,6 +536,20 @@ function ShopTheLookItemRow({
   onAdd: (item: LookItem) => void;
   colors: FashionColors;
 }) {
+  // Same bounce/checkmark-swap confirmation as the other add-to-bag
+  // buttons — no text label here, so "added" just swaps Plus for Check.
+  const [justAdded, setJustAdded] = useState(false);
+  const [pulse, setPulse] = useState(0);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleAdd = () => {
+    onAdd(item);
+    setJustAdded(true);
+    setPulse((n) => n + 1);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => setJustAdded(false), 1400);
+  };
+
   const itemContent = (
     <>
       <ImagePlaceholder
@@ -610,16 +593,23 @@ function ShopTheLookItemRow({
         </div>
       )}
       <button
+        key={pulse}
         type="button"
-        onClick={() => onAdd(item)}
+        onClick={handleAdd}
         aria-label={`Add ${item.name} to bag`}
-        className="flex h-8 w-8 flex-none items-center justify-center rounded-full transition-opacity hover:opacity-90"
+        className={`flex h-8 w-8 flex-none items-center justify-center rounded-full transition-opacity hover:opacity-90 ${
+          justAdded ? "animate-add-bounce" : ""
+        }`}
         style={{
           backgroundColor: colors.brass,
           color: colors.ink,
         }}
       >
-        <Plus className="h-4 w-4" />
+        {justAdded ? (
+          <Check className="h-4 w-4" />
+        ) : (
+          <Plus className="h-4 w-4" />
+        )}
       </button>
     </div>
   );

@@ -13,7 +13,7 @@ const collections = [
     title: "The Tailored Line",
     copy: "Structured silhouettes reimagined in fluid, breathable fabrics — built for a wardrobe that moves through every season without compromise.",
     imageLabel: "Editorial: The Tailored Line",
-    href: "/categories/women",
+    href: "/categories/tops",
     imageFirst: true,
   },
   {

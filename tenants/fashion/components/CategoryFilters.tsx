@@ -6,7 +6,6 @@ import type { ProductAttributeOption } from "@/features/storefront/contracts/pro
 export interface CategoryFilterState {
   sizes: string[];
   colors: string[];
-  brands: string[];
   priceRange: [number, number];
 }
 
@@ -37,7 +36,7 @@ export const COLOR_NAMES: Record<string, string> = {
 };
 
 /**
- * Fashion — category page filter sidebar (Size / Color / Price / Brand).
+ * Fashion — category page filter sidebar (Size / Color / Price).
  * Facet options and callbacks are all supplied by the parent page, sourced
  * from the API's `facets` payload (see CategoryDetailPage) — this component
  * holds no product data of its own. `filters.sizes`/`filters.colors` hold
@@ -46,22 +45,18 @@ export const COLOR_NAMES: Record<string, string> = {
 export function CategoryFilters({
   availableSizes,
   availableColors,
-  availableBrands,
   priceBounds,
   filters,
   onToggleSize,
   onToggleColor,
-  onToggleBrand,
   onPriceChange,
 }: {
   availableSizes: ProductAttributeOption[];
   availableColors: ProductAttributeOption[];
-  availableBrands: string[];
   priceBounds: [number, number];
   filters: CategoryFilterState;
   onToggleSize: (size: string) => void;
   onToggleColor: (color: string) => void;
-  onToggleBrand: (brand: string) => void;
   onPriceChange: (range: [number, number]) => void;
 }) {
   return (
@@ -120,7 +115,7 @@ export function CategoryFilters({
         </div>
       </Accordion>
 
-      <Accordion title="Price Range">
+      <Accordion title="Price Range" className="border-b-0">
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between text-xs font-semibold opacity-70">
             <span>${filters.priceRange[0].toFixed(2)}</span>
@@ -162,28 +157,6 @@ export function CategoryFilters({
               />
             </label>
           </div>
-        </div>
-      </Accordion>
-
-      <Accordion title="Brand" className="border-b-0">
-        <div className="flex flex-col gap-2.5">
-          {availableBrands.map((brand) => {
-            const active = filters.brands.includes(brand);
-            return (
-              <label
-                key={brand}
-                className="flex cursor-pointer items-center gap-2.5 text-sm"
-              >
-                <input
-                  type="checkbox"
-                  checked={active}
-                  onChange={() => onToggleBrand(brand)}
-                  className="h-4 w-4"
-                />
-                {brand}
-              </label>
-            );
-          })}
         </div>
       </Accordion>
     </div>

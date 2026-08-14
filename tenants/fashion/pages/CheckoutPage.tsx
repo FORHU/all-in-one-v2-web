@@ -20,32 +20,14 @@ import type { SaveAddressInput } from "@/features/storefront/contracts/address.c
 import type { Order } from "@/features/storefront/contracts/order.contract";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
 import { StripePaymentForm } from "../components/StripePaymentForm";
-import { FASHION_DARK_COLORS, fashionFraunces, fashionInter } from "../theme";
+import { useFashionColorMode } from "../stores/colorMode.store";
+import { getFashionColors, fashionFraunces, fashionInter } from "../theme";
 import {
   SHIPPING_METHODS,
   TAX_RATE,
   PROMO_CODES,
   type ShippingMethodKey,
 } from "../data/checkoutRules";
-
-const cardStyle: React.CSSProperties = {
-  backgroundColor: FASHION_DARK_COLORS.ink2,
-  border: `1px solid ${FASHION_DARK_COLORS.hairline}`,
-};
-
-const inputStyle: React.CSSProperties = {
-  backgroundColor: FASHION_DARK_COLORS.ink,
-  border: `1px solid ${FASHION_DARK_COLORS.hairline}`,
-  color: FASHION_DARK_COLORS.bone,
-};
-
-const fieldLabelStyle: React.CSSProperties = {
-  color: FASHION_DARK_COLORS.boneDim,
-};
-
-const linkButtonStyle: React.CSSProperties = {
-  color: FASHION_DARK_COLORS.brass,
-};
 
 const initialAddressForm: SaveAddressInput = {
   fullName: "",
@@ -123,9 +105,11 @@ function formatEtaRange(minDays: number, maxDays: number): string {
  * independent — placing a Buy Now order never touches or clears the real
  * cart, and vice versa.
  *
- * Fixed dark palette (Ink/Bone/Brass) regardless of the site's light/dark
- * toggle — matched exactly to a supplied mockup, same precedent as
- * CartContents.tsx.
+ * Ink/Bone/Brass palette, but — unlike its original build — now follows the
+ * site's light/dark toggle via getFashionColors(mode), same pattern as
+ * CartContents.tsx. StripePaymentForm and /checkout/payment-return receive
+ * the resolved mode/colors from here too, so the whole checkout flow stays
+ * in sync with the toggle instead of being stuck on one palette.
  *
  * Gated on real auth state (useAuthStore's token) — signed-out visitors
  * are redirected to /login before checkout content ever renders (browsing
@@ -139,9 +123,27 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
   const searchParams = useSearchParams();
   const isBuyNow = searchParams.get("mode") === "buy-now";
   const token = useAuthStore((s) => s.token);
+  const colorMode = useFashionColorMode((s) => s.mode);
 
   const [hasMounted, setHasMounted] = useState(false);
   useEffect(() => setHasMounted(true), []);
+  const mode = hasMounted ? colorMode : "dark";
+  const colors = getFashionColors(mode);
+  const cardStyle: React.CSSProperties = {
+    backgroundColor: colors.ink2,
+    border: `1px solid ${colors.hairline}`,
+  };
+  const inputStyle: React.CSSProperties = {
+    backgroundColor: colors.ink,
+    border: `1px solid ${colors.hairline}`,
+    color: colors.bone,
+  };
+  const fieldLabelStyle: React.CSSProperties = {
+    color: colors.boneDim,
+  };
+  const linkButtonStyle: React.CSSProperties = {
+    color: colors.brass,
+  };
 
   useEffect(() => {
     if (hasMounted && !token) router.push("/login");
@@ -389,10 +391,7 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
   if (!hasMounted || !token) {
     return (
       <FashionStorefrontLayout>
-        <div
-          className="min-h-screen"
-          style={{ backgroundColor: FASHION_DARK_COLORS.ink }}
-        />
+        <div className="min-h-screen" style={{ backgroundColor: colors.ink }} />
       </FashionStorefrontLayout>
     );
   }
@@ -402,11 +401,11 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
       <FashionStorefrontLayout>
         <div
           className={fashionInter.className}
-          style={{ backgroundColor: FASHION_DARK_COLORS.ink }}
+          style={{ backgroundColor: colors.ink }}
         >
           <div
             className="mx-auto flex max-w-md flex-col items-center gap-4 px-6 py-24 text-center"
-            style={{ color: FASHION_DARK_COLORS.bone }}
+            style={{ color: colors.bone }}
           >
             <h1
               className={fashionFraunces.className}
@@ -414,10 +413,7 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
             >
               {isBuyNow ? "No item selected" : "Your cart is empty"}
             </h1>
-            <p
-              className="text-sm"
-              style={{ color: FASHION_DARK_COLORS.boneDim }}
-            >
+            <p className="text-sm" style={{ color: colors.boneDim }}>
               {isBuyNow
                 ? "Choose Buy Now on a product to check out here."
                 : "Add something to your cart before checking out."}
@@ -426,8 +422,8 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
               href="/products"
               className="rounded-2xl px-6 py-3 text-sm font-semibold uppercase transition-colors hover:bg-[#CBA470]"
               style={{
-                backgroundColor: FASHION_DARK_COLORS.brass,
-                color: FASHION_DARK_COLORS.ink,
+                backgroundColor: colors.brass,
+                color: colors.ink,
                 letterSpacing: "0.6px",
               }}
             >
@@ -452,11 +448,11 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
     <FashionStorefrontLayout>
       <div
         className={fashionInter.className}
-        style={{ backgroundColor: FASHION_DARK_COLORS.ink }}
+        style={{ backgroundColor: colors.ink }}
       >
         <div
           className="mx-auto max-w-4xl px-6 py-10"
-          style={{ color: FASHION_DARK_COLORS.bone }}
+          style={{ color: colors.bone }}
         >
           <h1
             className={fashionFraunces.className}
@@ -471,7 +467,7 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
               <div
                 className="flex items-center gap-2 text-xs font-bold uppercase"
                 style={{
-                  color: FASHION_DARK_COLORS.brass,
+                  color: colors.brass,
                   letterSpacing: "1px",
                 }}
               >
@@ -626,8 +622,8 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
                       disabled={!isAddressFormValid || isSavingAddress}
                       className="rounded-xl px-5 py-2.5 text-sm font-semibold uppercase disabled:opacity-40"
                       style={{
-                        backgroundColor: FASHION_DARK_COLORS.brass,
-                        color: FASHION_DARK_COLORS.ink,
+                        backgroundColor: colors.brass,
+                        color: colors.ink,
                       }}
                     >
                       {isSavingAddress ? "Saving..." : "Save Address"}
@@ -637,7 +633,7 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
                         type="button"
                         onClick={() => setIsEditingAddress(false)}
                         className="text-sm font-semibold underline"
-                        style={{ color: FASHION_DARK_COLORS.boneDim }}
+                        style={{ color: colors.boneDim }}
                       >
                         Cancel
                       </button>
@@ -645,10 +641,7 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
                   </div>
                 </div>
               ) : isLoadingAddress ? (
-                <div
-                  className="mt-3 text-sm"
-                  style={{ color: FASHION_DARK_COLORS.boneDim }}
-                >
+                <div className="mt-3 text-sm" style={{ color: colors.boneDim }}>
                   Loading your saved address...
                 </div>
               ) : latestAddress ? (
@@ -657,13 +650,13 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
                     <span className="font-bold">{latestAddress.fullName}</span>
                     <span
                       className="ml-2 text-sm"
-                      style={{ color: FASHION_DARK_COLORS.boneDim }}
+                      style={{ color: colors.boneDim }}
                     >
                       {latestAddress.phone}
                     </span>
                     <p
                       className="mt-1 text-sm"
-                      style={{ color: FASHION_DARK_COLORS.boneDim }}
+                      style={{ color: colors.boneDim }}
                     >
                       {latestAddress.addressLine1}
                       {latestAddress.addressLine2
@@ -704,15 +697,15 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
                 <div key={brand} className="mt-5 first:mt-4">
                   <div
                     className="mb-2 text-sm font-bold"
-                    style={{ color: FASHION_DARK_COLORS.bone }}
+                    style={{ color: colors.bone }}
                   >
                     {brand}
                   </div>
                   <div
                     className="hidden grid-cols-[1fr_auto_auto_auto] gap-4 border-b pb-2 text-[11px] font-bold uppercase sm:grid"
                     style={{
-                      borderColor: FASHION_DARK_COLORS.hairline,
-                      color: FASHION_DARK_COLORS.boneDim,
+                      borderColor: colors.hairline,
+                      color: colors.boneDim,
                     }}
                   >
                     <span>Product</span>
@@ -724,7 +717,7 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
                     <div
                       key={item.id}
                       className="grid grid-cols-1 items-center gap-3 border-b py-3 sm:grid-cols-[1fr_auto_auto_auto] sm:gap-4"
-                      style={{ borderColor: FASHION_DARK_COLORS.hairlineSoft }}
+                      style={{ borderColor: colors.hairlineSoft }}
                     >
                       <div className="flex items-center gap-3">
                         <ImagePlaceholder
@@ -740,7 +733,7 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
                           {(item.size || item.color) && (
                             <div
                               className="text-xs"
-                              style={{ color: FASHION_DARK_COLORS.boneDim }}
+                              style={{ color: colors.boneDim }}
                             >
                               Variation:{" "}
                               {[item.size && `Size ${item.size}`, item.color]
@@ -754,8 +747,8 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
                               style={{
                                 color:
                                   item.stock - item.quantity <= 0
-                                    ? FASHION_DARK_COLORS.brick
-                                    : FASHION_DARK_COLORS.boneDim,
+                                    ? colors.brick
+                                    : colors.boneDim,
                               }}
                             >
                               {Math.max(item.stock - item.quantity, 0)} in stock
@@ -766,7 +759,7 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
                       <span className="text-sm">${item.price.toFixed(2)}</span>
                       <div
                         className="flex flex-none items-center self-start rounded-lg border sm:self-center"
-                        style={{ borderColor: FASHION_DARK_COLORS.hairline }}
+                        style={{ borderColor: colors.hairline }}
                       >
                         <button
                           type="button"
@@ -818,14 +811,11 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
               <div className="rounded-2xl p-6" style={cardStyle}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div
-                      className="text-xs"
-                      style={{ color: FASHION_DARK_COLORS.boneDim }}
-                    >
+                    <div className="text-xs" style={{ color: colors.boneDim }}>
                       Shipping option:{" "}
                       <span
                         className="font-bold"
-                        style={{ color: FASHION_DARK_COLORS.bone }}
+                        style={{ color: colors.bone }}
                       >
                         {formatEtaRange(
                           SHIPPING_METHODS[shippingMethod].minDays,
@@ -848,7 +838,7 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
                     </button>
                     <div
                       className="mt-1 text-sm font-bold"
-                      style={{ color: FASHION_DARK_COLORS.brass }}
+                      style={{ color: colors.brass }}
                     >
                       ${shippingPrice.toFixed(2)}
                     </div>
@@ -871,8 +861,8 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
                             className="flex items-center justify-between rounded-lg border px-3 py-2.5 text-left text-sm"
                             style={{
                               borderColor: active
-                                ? FASHION_DARK_COLORS.brass
-                                : FASHION_DARK_COLORS.hairline,
+                                ? colors.brass
+                                : colors.hairline,
                             }}
                           >
                             <span>
@@ -897,7 +887,7 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
                   <div className="flex items-center gap-3">
                     <span
                       className="text-sm font-semibold"
-                      style={{ color: FASHION_DARK_COLORS.brass }}
+                      style={{ color: colors.brass }}
                     >
                       {PROMO_CODES[appliedDiscount].label}
                     </span>
@@ -908,7 +898,7 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
                         setDiscountInput("");
                       }}
                       className="text-sm font-semibold underline"
-                      style={{ color: FASHION_DARK_COLORS.boneDim }}
+                      style={{ color: colors.boneDim }}
                     >
                       Remove
                     </button>
@@ -939,18 +929,15 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
                       onClick={applyDiscount}
                       className="rounded-lg px-4 text-sm font-semibold uppercase"
                       style={{
-                        border: `1px solid ${FASHION_DARK_COLORS.brass}`,
-                        color: FASHION_DARK_COLORS.brass,
+                        border: `1px solid ${colors.brass}`,
+                        color: colors.brass,
                       }}
                     >
                       Apply
                     </button>
                   </div>
                   {discountError && (
-                    <p
-                      className="text-xs"
-                      style={{ color: FASHION_DARK_COLORS.brick }}
-                    >
+                    <p className="text-xs" style={{ color: colors.brick }}>
                       {discountError}
                     </p>
                   )}
@@ -969,15 +956,13 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
                   className="rounded-lg border px-4 py-3 text-left text-sm disabled:opacity-60"
                   style={{
                     borderColor:
-                      paymentMethod === "card"
-                        ? FASHION_DARK_COLORS.brass
-                        : FASHION_DARK_COLORS.hairline,
+                      paymentMethod === "card" ? colors.brass : colors.hairline,
                   }}
                 >
                   <span className="font-semibold">Card</span>
                   <p
                     className="mt-0.5 text-xs"
-                    style={{ color: FASHION_DARK_COLORS.boneDim }}
+                    style={{ color: colors.boneDim }}
                   >
                     Pay now with credit or debit card
                   </p>
@@ -989,15 +974,13 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
                   className="rounded-lg border px-4 py-3 text-left text-sm disabled:opacity-60"
                   style={{
                     borderColor:
-                      paymentMethod === "cod"
-                        ? FASHION_DARK_COLORS.brass
-                        : FASHION_DARK_COLORS.hairline,
+                      paymentMethod === "cod" ? colors.brass : colors.hairline,
                   }}
                 >
                   <span className="font-semibold">Cash on Delivery</span>
                   <p
                     className="mt-0.5 text-xs"
-                    style={{ color: FASHION_DARK_COLORS.boneDim }}
+                    style={{ color: colors.boneDim }}
                   >
                     Pay in cash when your order arrives
                   </p>
@@ -1007,10 +990,7 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
               {paymentMethod === "card" &&
                 !clientSecret &&
                 isCreatingIntent && (
-                  <p
-                    className="mt-4 text-sm"
-                    style={{ color: FASHION_DARK_COLORS.boneDim }}
-                  >
+                  <p className="mt-4 text-sm" style={{ color: colors.boneDim }}>
                     Preparing payment form...
                   </p>
                 )}
@@ -1021,6 +1001,7 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
                     clientSecret={clientSecret}
                     returnUrl={`${window.location.origin}/checkout/payment-return?orderId=${order.id}`}
                     onSuccess={handlePaymentSuccess}
+                    mode={mode}
                   />
                 </div>
               )}
@@ -1030,24 +1011,24 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
             <div className="rounded-2xl p-6" style={cardStyle}>
               <div
                 className="flex flex-col gap-1.5 text-sm"
-                style={{ color: FASHION_DARK_COLORS.boneDim }}
+                style={{ color: colors.boneDim }}
               >
                 <div className="flex justify-between">
                   <span>Subtotal</span>
-                  <span style={{ color: FASHION_DARK_COLORS.bone }}>
+                  <span style={{ color: colors.bone }}>
                     ${subtotal.toFixed(2)}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span>Shipping</span>
-                  <span style={{ color: FASHION_DARK_COLORS.bone }}>
+                  <span style={{ color: colors.bone }}>
                     ${shippingPrice.toFixed(2)}
                   </span>
                 </div>
                 {discount > 0 && (
                   <div
                     className="flex justify-between"
-                    style={{ color: FASHION_DARK_COLORS.brass }}
+                    style={{ color: colors.brass }}
                   >
                     <span>Discount</span>
                     <span>-${discount.toFixed(2)}</span>
@@ -1055,20 +1036,15 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
                 )}
                 <div className="flex justify-between">
                   <span>Estimated Tax</span>
-                  <span style={{ color: FASHION_DARK_COLORS.bone }}>
-                    ${tax.toFixed(2)}
-                  </span>
+                  <span style={{ color: colors.bone }}>${tax.toFixed(2)}</span>
                 </div>
               </div>
 
               <div
                 className="mt-4 flex items-center justify-between border-t pt-4"
-                style={{ borderColor: FASHION_DARK_COLORS.hairline }}
+                style={{ borderColor: colors.hairline }}
               >
-                <span
-                  className="text-sm"
-                  style={{ color: FASHION_DARK_COLORS.boneDim }}
-                >
+                <span className="text-sm" style={{ color: colors.boneDim }}>
                   Order total ({itemCount} item{itemCount !== 1 ? "s" : ""}):
                 </span>
                 <span
@@ -1076,7 +1052,7 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
                   style={{
                     fontSize: 26,
                     fontWeight: 600,
-                    color: FASHION_DARK_COLORS.brass,
+                    color: colors.brass,
                   }}
                 >
                   ${total.toFixed(2)}
@@ -1093,8 +1069,8 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
                     }
                     className="mt-4 h-12 w-full rounded-xl text-sm font-bold uppercase transition-colors hover:bg-[#CBA470] disabled:opacity-40"
                     style={{
-                      backgroundColor: FASHION_DARK_COLORS.brass,
-                      color: FASHION_DARK_COLORS.ink,
+                      backgroundColor: colors.brass,
+                      color: colors.ink,
                       letterSpacing: "0.6px",
                     }}
                   >
@@ -1109,7 +1085,7 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
                   {!latestAddress && (
                     <p
                       className="mt-2 text-center text-xs"
-                      style={{ color: FASHION_DARK_COLORS.boneDim }}
+                      style={{ color: colors.boneDim }}
                     >
                       Add a delivery address to place your order.
                     </p>
