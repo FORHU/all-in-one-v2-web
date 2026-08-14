@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Eye } from "lucide-react";
 import { ImagePlaceholder } from "./ImagePlaceholder";
 import { StarRating } from "./StarRating";
@@ -43,6 +44,7 @@ export function ProductCard({
   onQuickAdd?: (product: ProductCardProduct) => void;
   onBuyNow?: (product: ProductCardProduct) => void;
 }) {
+  const router = useRouter();
   const image = (
     <ImagePlaceholder
       label={product.imageLabel}
@@ -165,6 +167,15 @@ export function ProductCard({
               <button
                 type="button"
                 onClick={() => onBuyNow(product)}
+                // /checkout reads headers() (tenant resolution), which
+                // forces it to be a dynamic route — every navigation there
+                // needs a fresh server round-trip, showing the root
+                // loading.tsx fallback while it fetches. Prefetching on
+                // hover (which almost always precedes the actual click)
+                // gets that round-trip out of the way beforehand, so the
+                // click itself lands on an already-warm route instead of
+                // showing that loading flash.
+                onMouseEnter={() => router.prefetch("/checkout")}
                 className="flex-1 rounded-lg border py-2.5 text-[12px] font-semibold"
                 style={{
                   borderColor: "var(--brand-primary)",

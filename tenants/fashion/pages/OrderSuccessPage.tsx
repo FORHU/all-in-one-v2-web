@@ -1,10 +1,13 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
 import { FashionStorefrontLayout } from "../layouts/StorefrontLayout";
 import { ImagePlaceholder } from "@/shared/components/ImagePlaceholder";
 import { useLastOrderStore } from "@/features/storefront/stores/lastOrder.store";
+import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
+import { useBuyNowStore } from "@/features/storefront/stores/buyNow.store";
 import { SHIPPING_METHODS } from "../data/checkoutRules";
 import { COLOR_NAMES } from "../components/CategoryFilters";
 
@@ -33,9 +36,29 @@ function addDays(date: Date, days: number) {
  * selected shipping method, not sourced from a real carrier — only the
  * first tracking stage ("Order Placed") is ever marked complete, since the
  * order was, by definition, just placed on this same page load.
+ *
+ * Clears the local cart / buy-now item here, once mounted — not from
+ * CheckoutPage.tsx before navigating here. Clearing there raced the actual
+ * page swap (router.push doesn't block on the navigation completing), so
+ * the still-mounted checkout page would briefly re-render into its own
+ * empty state first. Clearing both unconditionally is safe: only one of
+ * them ever has real data for a given checkout, and clearing an
+ * already-empty store is a no-op. Also covers the 3-D Secure redirect path
+ * (/checkout/payment-return), which lands here without ever going through
+ * CheckoutPage.tsx's old clearing logic at all.
  */
 export function FashionOrderSuccessPage() {
   const order = useLastOrderStore((s) => s.order);
+  const clearCart = useLocalCartStore((s) => s.clear);
+  const clearBuyNow = useBuyNowStore((s) => s.clear);
+
+  useEffect(() => {
+    clearCart();
+    clearBuyNow();
+    // Intentionally run once on mount only — clearCart/clearBuyNow are
+    // stable Zustand action references, not reactive dependencies.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!order) {
     return (
@@ -55,7 +78,7 @@ export function FashionOrderSuccessPage() {
             nothing to display yet.
           </p>
           <Link
-            href="/products"
+            href="/categories/women"
             className="rounded-2xl px-6 py-3 text-sm font-semibold"
             style={{
               backgroundColor: "var(--brand-primary)",
@@ -251,7 +274,7 @@ export function FashionOrderSuccessPage() {
         </div>
 
         <Link
-          href="/products"
+          href="/categories/women"
           className="self-center rounded-2xl border px-8 py-3.5 text-sm font-semibold"
           style={{
             borderColor:

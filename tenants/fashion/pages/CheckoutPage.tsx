@@ -148,10 +148,8 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
   }, [hasMounted, token, router]);
 
   const cartItems = useLocalCartStore((s) => s.items);
-  const clearCart = useLocalCartStore((s) => s.clear);
   const setCartQuantity = useLocalCartStore((s) => s.setQuantity);
   const buyNowItem = useBuyNowStore((s) => s.item);
-  const clearBuyNow = useBuyNowStore((s) => s.clear);
   const setBuyNowItem = useBuyNowStore((s) => s.setItem);
   const items = isBuyNow ? (buyNowItem ? [buyNowItem] : []) : cartItems;
 
@@ -378,11 +376,13 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
    * snapshot written above.
    */
   const handlePaymentSuccess = () => {
-    if (isBuyNow) {
-      clearBuyNow();
-    } else {
-      clearCart();
-    }
+    // Clearing buyNowItem/cartItems here (before navigating away) would
+    // re-render *this* still-mounted page into its own "No item selected"/
+    // "cart is empty" state while /order-success is still loading — visible
+    // for however long that navigation takes. OrderSuccessPage.tsx clears
+    // both itself once mounted instead, which also covers the 3-D Secure
+    // redirect path (/checkout/payment-return), which never ran this
+    // function at all.
     router.push("/order-success");
   };
 
