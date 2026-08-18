@@ -10,42 +10,24 @@ import { useCollections } from "@/features/storefront/hooks/queries/useCollectio
 import type { Look, LookItem } from "../data/looks";
 import { toLook } from "../utils/toLook";
 
+/** Carousel shows at most this many looks — an editorial pick, not a full browse. */
+const MAX_LOOKS = 5;
+
 /**
- * Fashion — homepage hero: "Get the Look" curated outfit carousel. Shows
- * exactly one look per Women/Men/Kids/Accessories/Shoes category — the
- * first CatalogCollection returned for each via
- * GET /v2/collections?categorySlug= (same endpoint/mapper TrendingLookbook
- * uses). This is a fixed 5-look editorial pick, one per category, not a
- * full browse. Left: a fanned card stack of outfit photos, navigated by
- * explicit prev/next arrows + dot indicators (not by clicking the stack
- * itself — that was ambiguous, easy to miss). Right: that look's shoppable
- * items, individually addable or all at once, both wired to the real
- * useLocalCartStore (see that store's doc comment — client-only stand-in
- * for /v2/cart).
+ * Fashion — homepage hero: "Get the Look" curated outfit carousel. Pulls
+ * every CatalogCollection for the tenant via GET /v2/collections (same
+ * endpoint/mapper TrendingLookbook uses, but unscoped by categorySlug —
+ * real collections here are frequently uncategorized, e.g. seeded OUTFIT
+ * rows with no categoryId, so filtering by category would silently hide
+ * them), and shows up to MAX_LOOKS. Left: a fanned card stack of outfit
+ * photos, navigated by explicit prev/next arrows + dot indicators (not by
+ * clicking the stack itself — that was ambiguous, easy to miss). Right:
+ * that look's shoppable items, individually addable or all at once, both
+ * wired to the real useLocalCartStore (see that store's doc comment —
+ * client-only stand-in for /v2/cart).
  */
 export function HeroBanner({ tenantSlug }: { tenantSlug: string }) {
-  const { data: womensLooks, isLoading: loadingWomens } = useCollections(
-    tenantSlug,
-    undefined,
-    "womens-fashion",
-  );
-  const { data: mensLooks, isLoading: loadingMens } = useCollections(
-    tenantSlug,
-    undefined,
-    "mens-fashion",
-  );
-  const { data: kidsLooks, isLoading: loadingKids } = useCollections(
-    tenantSlug,
-    undefined,
-    "kids",
-  );
-  const { data: accessoriesLooks, isLoading: loadingAccessories } =
-    useCollections(tenantSlug, undefined, "accessories");
-  const { data: shoesLooks, isLoading: loadingShoes } = useCollections(
-    tenantSlug,
-    undefined,
-    "shoes",
-  );
+  const { data: collections, isLoading } = useCollections(tenantSlug);
 
   const [activeIndex, setActiveIndex] = useState(0);
   const addCartItem = useLocalCartStore((s) => s.addItem);
@@ -68,33 +50,20 @@ export function HeroBanner({ tenantSlug }: { tenantSlug: string }) {
   const [addAllPulse, setAddAllPulse] = useState(0);
   const addAllTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const looks: Look[] = [
-    womensLooks?.[0],
-    mensLooks?.[0],
-    kidsLooks?.[0],
-    accessoriesLooks?.[0],
-    shoesLooks?.[0],
-  ]
-    .filter((collection): collection is NonNullable<typeof collection> =>
-      Boolean(collection),
-    )
+  const looks: Look[] = (collections ?? [])
+    .filter((collection) => collection.items.length > 0)
+    .slice(0, MAX_LOOKS)
     .map(toLook);
 
   // Still loading — nothing to show yet either way, so stay hidden rather
   // than flash an empty state before the real data (or lack of it) arrives.
-  const isLoading =
-    loadingWomens ||
-    loadingMens ||
-    loadingKids ||
-    loadingAccessories ||
-    loadingShoes;
   if (isLoading) {
     return null;
   }
 
-  // Loaded, but none of the five categories have a look yet — render the
-  // hero with an explicit empty state instead of disappearing, so the
-  // homepage doesn't look broken/incomplete when nothing's curated yet.
+  // Loaded, but no collection has any items yet — render the hero with an
+  // explicit empty state instead of disappearing, so the homepage doesn't
+  // look broken/incomplete when nothing's curated yet.
   if (looks.length === 0) {
     return (
       <section
