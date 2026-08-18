@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Minus, Plus, X } from "lucide-react";
+import { isAllowedImageHost } from "@/shared/components/ImagePlaceholder";
 import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
 import { useBuyNowCartItem } from "../hooks/useBuyNow";
 import { COLOR_NAMES } from "./CategoryFilters";
@@ -145,7 +146,7 @@ export function CartContents({
                       backgroundColor: colors.ink2,
                     }}
                   >
-                    {item.imageUrl && (
+                    {item.imageUrl && isAllowedImageHost(item.imageUrl) && (
                       <Image
                         src={item.imageUrl}
                         alt={item.imageLabel}

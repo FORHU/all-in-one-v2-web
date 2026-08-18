@@ -1,13 +1,35 @@
 import Image from "next/image";
 
+// Mirrors next.config.ts's images.remotePatterns — next/image throws
+// synchronously (crashing the whole page, not just the image) when a `src`
+// host isn't on that list, so any URL from an unvetted source (collection
+// data pasted by hand, a future importer, etc.) has to be checked here
+// first and routed to the plain-text fallback instead of ever reaching
+// next/image. Keep this in sync whenever remotePatterns changes.
+const ALLOWED_IMAGE_HOSTS = [
+  /^images\.unsplash\.com$/,
+  /^([\w-]+\.)*cjdropshipping\.com$/,
+];
+
+export function isAllowedImageHost(url: string): boolean {
+  try {
+    return ALLOWED_IMAGE_HOSTS.some((pattern) =>
+      pattern.test(new URL(url).hostname),
+    );
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Renders a real image via next/image when `imageUrl` is provided (requires
- * the host to be listed in next.config.ts's images.remotePatterns). Falls
- * back to a text placeholder otherwise — most tenant asset pipelines/CDNs
- * still aren't wired up (see tenants/*\/assets — currently empty), so this
- * stays the default for anything without a real backing image yet. Uses
- * currentColor on the fallback so it inherits whatever ink color the parent
- * section has set, keeping it tenant-agnostic.
+ * Renders a real image via next/image when `imageUrl` is provided and its
+ * host is on the next.config.ts allowlist (see isAllowedImageHost above).
+ * Falls back to a text placeholder otherwise — either because no image
+ * exists yet (most tenant asset pipelines/CDNs still aren't wired up, see
+ * tenants/*\/assets — currently empty) or because the URL points somewhere
+ * next/image isn't configured to trust. Uses currentColor on the fallback
+ * so it inherits whatever ink color the parent section has set, keeping it
+ * tenant-agnostic.
  */
 export function ImagePlaceholder({
   label,
@@ -24,7 +46,7 @@ export function ImagePlaceholder({
 }) {
   const shapeClass = shape === "circle" ? "rounded-full" : "rounded-2xl";
 
-  if (imageUrl) {
+  if (imageUrl && isAllowedImageHost(imageUrl)) {
     return (
       <div
         className={`relative overflow-hidden ${shapeClass} ${className}`}
