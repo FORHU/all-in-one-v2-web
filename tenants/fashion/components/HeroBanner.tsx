@@ -80,16 +80,52 @@ export function HeroBanner({ tenantSlug }: { tenantSlug: string }) {
     )
     .map(toLook);
 
-  // Still loading, or none of the five categories have a look yet — hide
-  // the hero rather than render an empty/broken carousel.
+  // Still loading — nothing to show yet either way, so stay hidden rather
+  // than flash an empty state before the real data (or lack of it) arrives.
   const isLoading =
     loadingWomens ||
     loadingMens ||
     loadingKids ||
     loadingAccessories ||
     loadingShoes;
-  if (isLoading || looks.length === 0) {
+  if (isLoading) {
     return null;
+  }
+
+  // Loaded, but none of the five categories have a look yet — render the
+  // hero with an explicit empty state instead of disappearing, so the
+  // homepage doesn't look broken/incomplete when nothing's curated yet.
+  if (looks.length === 0) {
+    return (
+      <section
+        className="flex w-full items-center justify-center overflow-hidden"
+        style={{
+          minHeight: "calc(100vh - 320px)",
+          background:
+            "radial-gradient(ellipse 70% 60% at 28% 45%, color-mix(in srgb, var(--brand-primary) 12%, transparent), transparent 70%), " +
+            "radial-gradient(ellipse 50% 45% at 85% 15%, color-mix(in srgb, var(--brand-primary) 6%, transparent), transparent 70%), " +
+            "var(--brand-secondary)",
+          color: "var(--brand-primary)",
+        }}
+      >
+        <div className="flex flex-col items-center gap-4 text-center">
+          <div className="text-xs font-bold uppercase tracking-widest opacity-50 sm:text-sm">
+            Editor&rsquo;s Pick
+          </div>
+          <h2
+            className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl"
+            style={{ fontFamily: "var(--font-heading)" }}
+          >
+            Get the Look
+          </h2>
+          <div
+            className="h-0.5 w-14"
+            style={{ backgroundColor: "var(--brand-primary)" }}
+          />
+          <p className="mt-2 text-sm opacity-60">No product available</p>
+        </div>
+      </section>
+    );
   }
 
   const safeIndex = activeIndex % looks.length;

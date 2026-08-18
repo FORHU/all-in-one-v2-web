@@ -47,8 +47,21 @@ export const CollectionSchema = z.object({
 
 export const CollectionsResponseSchema = z.array(CollectionSchema);
 
+// GET /v2/collections goes through the platform's standard pagination
+// helper (buildPage), so `data` is `{ items, total, page, limit, totalPages
+// }`, not a bare array — the envelope must mirror that shape or every
+// response (empty or not) fails to parse, which previously surfaced as a
+// generic "Unexpected error occurred" toast on every collections fetch.
+export const CollectionsPageSchema = z.object({
+  items: CollectionsResponseSchema,
+  total: z.number(),
+  page: z.number(),
+  limit: z.number(),
+  totalPages: z.number(),
+});
+
 export const CollectionsApiEnvelopeSchema = z.object({
-  data: CollectionsResponseSchema,
+  data: CollectionsPageSchema,
 });
 
 export type CollectionProduct = z.infer<typeof CollectionProductSchema>;

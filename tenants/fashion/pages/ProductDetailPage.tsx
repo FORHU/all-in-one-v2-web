@@ -5,12 +5,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
+  Check,
+  ChevronLeft,
+  ChevronRight,
   CreditCard,
+  Heart,
   Minus,
   Plus,
   RotateCcw,
   ShoppingBag,
-  Star,
   Truck,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -18,10 +21,12 @@ import { FashionStorefrontLayout } from "../layouts/StorefrontLayout";
 import { ImagePlaceholder } from "@/shared/components/ImagePlaceholder";
 import { useProductDetail } from "@/features/storefront/hooks/queries/useProductDetail";
 import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
+import { useWishlistStore } from "@/features/storefront/stores/wishlist.store";
 import { useBuyNow } from "../hooks/useBuyNow";
 import { toProductCardProduct } from "../utils/toProductCardProduct";
 import { useFashionColorMode } from "../stores/colorMode.store";
 import { getFashionColors, fashionFraunces, fashionInter } from "../theme";
+import { ProductSpecSheet } from "../components/ProductSpecSheet";
 
 /**
  * Fashion — product detail page (PDP). Backed by GET /v2/products/:slug
@@ -52,6 +57,8 @@ export function FashionProductDetailPage({
   const addItem = useLocalCartStore((s) => s.addItem);
   const buyNow = useBuyNow();
   const colorMode = useFashionColorMode((s) => s.mode);
+  const wishlistIds = useWishlistStore((s) => s.ids);
+  const toggleWishlist = useWishlistStore((s) => s.toggle);
 
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedColor, setSelectedColor] = useState<string | undefined>();
@@ -135,6 +142,7 @@ export function FashionProductDetailPage({
     );
   }
 
+  const isFavorite = wishlistIds.includes(product.id);
   const price = product.price ?? 0;
   const hasDiscount =
     product.compareAtPrice != null && product.compareAtPrice > price;
@@ -191,6 +199,13 @@ export function FashionProductDetailPage({
     });
   };
 
+  const goPrevImage = () =>
+    setSelectedImage(
+      (i) => (i - 1 + product.images.length) % product.images.length,
+    );
+  const goNextImage = () =>
+    setSelectedImage((i) => (i + 1) % product.images.length);
+
   return (
     <FashionStorefrontLayout>
       <div
@@ -198,53 +213,164 @@ export function FashionProductDetailPage({
         style={{ backgroundColor: colors.ink }}
       >
         <div
-          className="mx-auto max-w-6xl px-6 py-10"
+          className="mx-auto max-w-[1600px] px-6 py-10 xl:px-12"
           style={{ color: colors.bone }}
         >
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="mb-4 flex items-center gap-1.5 text-xs font-semibold transition-colors hover:text-[var(--pdp-bone)]"
-            style={
-              {
-                color: colors.boneDim,
-                "--pdp-bone": colors.bone,
-              } as React.CSSProperties
-            }
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Back
-          </button>
-
-          <nav
-            className="mb-6 flex items-center gap-2 text-xs"
-            style={{ color: colors.boneDim }}
-          >
-            <Link
-              href={
-                product.categorySlug
-                  ? `/categories/${product.categorySlug}`
-                  : "/products"
-              }
-              className="hover:underline"
+          {/* Back button + breadcrumb, inline on one row. */}
+          <div className="mb-8 flex flex-wrap items-center gap-4">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-semibold transition-colors"
+              style={{ borderColor: colors.hairline, color: colors.bone }}
             >
-              {product.categoryName ?? "All Products"}
-            </Link>
-            <span>/</span>
-            <span style={{ color: colors.bone }}>{product.title}</span>
-          </nav>
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Back
+            </button>
 
-          <div className="grid grid-cols-1 gap-10 lg:grid-cols-[380px_1fr]">
-            <div className="flex gap-3">
+            <nav
+              className="flex items-center gap-2 text-xs"
+              style={{ color: colors.boneDim }}
+            >
+              <Link
+                href={
+                  product.categorySlug
+                    ? `/categories/${product.categorySlug}`
+                    : "/products"
+                }
+                className="hover:underline"
+              >
+                {product.categoryName ?? "All Products"}
+              </Link>
+              <span>/</span>
+              <span style={{ color: colors.bone }}>{product.title}</span>
+            </nav>
+          </div>
+
+          <div className="mx-auto flex max-w-xl flex-col lg:max-w-none lg:grid lg:grid-cols-[420px_1fr] lg:items-start lg:gap-12">
+            {/* Media column — no card frame, just the photo itself: a
+                price-tag badge and wishlist toggle float directly over it,
+                prev/next arrows sit outside it, and a thumbnail strip below
+                lets you jump straight to a photo. */}
+            <div className="lg:sticky lg:top-6 lg:min-w-0">
+              <div className="mx-auto flex max-w-sm items-center gap-3 lg:mx-0">
+                {product.images.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={goPrevImage}
+                    aria-label="Previous image"
+                    className="flex h-9 w-9 flex-none items-center justify-center rounded-full border transition-colors"
+                    style={{
+                      borderColor: colors.hairline,
+                      color: colors.bone,
+                    }}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                )}
+
+                <div className="relative min-w-0 flex-1">
+                  {/* Price tag — a physical price-tag shape (tilted, with a
+                      "hole" dot) rather than a plain badge. */}
+                  <div
+                    className="absolute -left-2 -top-2 z-10 -rotate-6 rounded-md border px-3 py-1.5 shadow-sm"
+                    style={{
+                      backgroundColor: colors.bone,
+                      borderColor: colors.hairline,
+                    }}
+                  >
+                    <span
+                      className="absolute left-1.5 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full border"
+                      style={{
+                        borderColor: colors.hairline,
+                        backgroundColor: colors.ink,
+                      }}
+                    />
+                    <div
+                      className="pl-2 text-sm font-bold"
+                      style={{ color: colors.ink }}
+                    >
+                      ${price.toFixed(2)}
+                    </div>
+                    {!isSelectionInStock && (
+                      <div
+                        className="pl-2 text-[9px] font-bold uppercase"
+                        style={{ color: colors.brick }}
+                      >
+                        Out of stock
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => toggleWishlist(product.id)}
+                    aria-pressed={isFavorite}
+                    aria-label={
+                      isFavorite ? "Remove from wishlist" : "Add to wishlist"
+                    }
+                    className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full transition-colors"
+                    style={{
+                      backgroundColor: `${colors.ink}b3`,
+                      color: isFavorite ? colors.brass : colors.bone,
+                    }}
+                  >
+                    <Heart
+                      className="h-4 w-4"
+                      fill={isFavorite ? "currentColor" : "none"}
+                    />
+                  </button>
+
+                  <div
+                    className="overflow-hidden rounded-2xl"
+                    style={{ backgroundColor: colors.ink2 }}
+                  >
+                    <ImagePlaceholder
+                      imageUrl={activeImage}
+                      label={product.title}
+                      aspect="3/5"
+                      className="w-full"
+                    />
+                  </div>
+
+                  {product.images.length > 1 && (
+                    <div
+                      className="absolute bottom-3 left-3 rounded-md px-2 py-1 text-[10px] italic"
+                      style={{
+                        backgroundColor: `${colors.ink}b3`,
+                        color: colors.bone,
+                      }}
+                    >
+                      Image {selectedImage + 1} of {product.images.length}
+                    </div>
+                  )}
+                </div>
+
+                {product.images.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={goNextImage}
+                    aria-label="Next image"
+                    className="flex h-9 w-9 flex-none items-center justify-center rounded-full border transition-colors"
+                    style={{
+                      borderColor: colors.hairline,
+                      color: colors.bone,
+                    }}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+
               {product.images.length > 1 && (
-                <div className="flex flex-col gap-3">
+                <div className="mx-auto mt-3 flex max-w-sm gap-2 overflow-x-auto [scrollbar-width:none] lg:mx-0 [&::-webkit-scrollbar]:hidden">
                   {product.images.map((img, i) => (
                     <button
                       key={img}
                       type="button"
                       onClick={() => setSelectedImage(i)}
                       aria-label={`View image ${i + 1}`}
-                      className="overflow-hidden rounded-lg border-2 transition-colors"
+                      className="h-16 w-16 flex-none overflow-hidden rounded-lg border-2 transition-colors"
                       style={{
                         borderColor:
                           i === selectedImage ? colors.brass : colors.hairline,
@@ -254,166 +380,145 @@ export function FashionProductDetailPage({
                         imageUrl={img}
                         label={product.title}
                         aspect="1/1"
-                        className="h-20 w-20"
+                        className="h-full w-full"
                       />
                     </button>
                   ))}
                 </div>
               )}
-              <div className="relative flex-1">
-                {hasDiscount && (
-                  <span
-                    className="absolute left-3 top-3 z-10 rounded-md px-2.5 py-1 text-xs font-bold"
-                    style={{
-                      backgroundColor: colors.brick,
-                      color: colors.bone,
-                    }}
-                  >
-                    -{discountPercent}%
-                  </span>
-                )}
-                <ImagePlaceholder
-                  imageUrl={activeImage}
-                  label={product.title}
-                  aspect="3/4"
-                  className="w-full"
-                />
-              </div>
             </div>
 
-            <div className="flex flex-col">
+            {/* Info column — no card frame either; sections are separated
+                by hairline rules instead of borders/backgrounds. */}
+            <div className="mt-8 flex flex-col lg:mt-0 lg:min-w-0">
               <div
-                className="flex items-center gap-2 text-xs font-bold uppercase"
-                style={{ color: colors.brassDim }}
+                className="text-xs font-semibold uppercase tracking-widest"
+                style={{ color: colors.boneDim }}
               >
-                {product.brand}
-                <span
-                  className="h-1 w-1 flex-none rounded-full"
-                  style={{ backgroundColor: colors.hairline }}
-                />
-                <span
-                  className="normal-case"
-                  style={{
-                    fontWeight: 500,
-                    color: isSelectionInStock ? colors.boneDim : colors.brick,
-                  }}
-                >
-                  {!isSelectionInStock
-                    ? "Out of stock"
-                    : selectedVariantStock != null
-                      ? `${selectedVariantStock} in stock — ships in 1–2 days`
-                      : "In stock — ships in 1–2 days"}
-                </span>
+                {[product.brand, product.categoryName ?? "Shop"]
+                  .filter(Boolean)
+                  .join(" — ")}
+                {" — REF. "}
+                {product.id.slice(-6).toUpperCase()}
               </div>
 
               <h1
                 className={fashionFraunces.className}
-                style={{ fontSize: 34, fontWeight: 600, marginTop: 6 }}
+                style={{ fontSize: 32, fontWeight: 600, marginTop: 10 }}
               >
                 {product.title}
               </h1>
 
-              <div className="mt-2 flex items-center gap-2">
-                <div
-                  className="flex"
-                  aria-hidden="true"
-                  style={{ color: colors.boneDim }}
-                >
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star
-                      key={i}
-                      className="h-3.5 w-3.5"
-                      fill={
-                        i < Math.round(product.rating) ? "currentColor" : "none"
-                      }
-                      strokeWidth={1.5}
-                    />
-                  ))}
-                </div>
-                <span
-                  className="text-xs underline"
-                  style={{ color: colors.boneDim }}
-                >
-                  {product.reviewCount > 0
-                    ? `(${product.reviewCount})`
-                    : "(0 — be the first to review)"}
-                </span>
-              </div>
-
-              <div className="mt-4 flex items-baseline gap-3">
+              <div className="mt-4 flex flex-wrap items-center gap-3">
                 <span
                   className={fashionFraunces.className}
-                  style={{ fontSize: 28, fontWeight: 600 }}
+                  style={{ fontSize: 22, fontWeight: 600 }}
                 >
                   ${price.toFixed(2)}
                 </span>
                 {hasDiscount && (
                   <>
                     <span
-                      className="text-base line-through"
+                      className="text-sm line-through"
                       style={{ color: colors.boneDim }}
                     >
                       ${product.compareAtPrice!.toFixed(2)}
                     </span>
                     <span
-                      className="text-sm font-semibold"
+                      className="text-xs font-semibold"
                       style={{ color: colors.brick }}
                     >
                       You save ${savings.toFixed(2)}
                     </span>
                   </>
                 )}
+                <span
+                  className="flex items-center gap-1.5 text-xs font-semibold"
+                  style={{
+                    color: isSelectionInStock ? colors.brassDim : colors.brick,
+                  }}
+                >
+                  <span
+                    className="h-1.5 w-1.5 rounded-full"
+                    style={{ backgroundColor: "currentColor" }}
+                  />
+                  {!isSelectionInStock
+                    ? "Out of stock"
+                    : selectedVariantStock != null
+                      ? `${selectedVariantStock} in stock`
+                      : "In stock"}
+                </span>
               </div>
-              <p className="mt-1 text-xs" style={{ color: colors.boneDim }}>
-                Tax included. Shipping calculated at checkout.
-              </p>
 
               {product.description && (
-                <p
-                  className="mt-5 text-sm leading-relaxed"
-                  style={{ color: colors.boneDim }}
-                >
-                  {product.description}
-                </p>
+                <ProductSpecSheet
+                  description={product.description}
+                  hasMounted={hasMounted}
+                  colors={colors}
+                />
               )}
 
               {product.colors.length > 0 && (
-                <div className="mt-6">
+                <div
+                  className="mt-6 border-t pt-5"
+                  style={{ borderColor: colors.hairline }}
+                >
                   <div className="mb-2.5 flex items-center justify-between">
                     <span
                       className="text-xs font-bold uppercase"
                       style={eyebrowStyle}
                     >
-                      Color
+                      Colour
                     </span>
                     <span className="text-xs" style={{ color: colors.boneDim }}>
                       {selectedColorLabel}
                     </span>
                   </div>
-                  <div className="flex gap-2">
-                    {product.colors.map((color) => (
-                      <button
-                        key={color.value}
-                        type="button"
-                        onClick={() => setSelectedColor(color.value)}
-                        aria-label={color.label}
-                        aria-pressed={selectedColor === color.value}
-                        className="h-8 w-8 rounded-full border-2"
-                        style={{
-                          backgroundColor: color.swatchColor ?? "#999999",
-                          borderColor:
-                            selectedColor === color.value
-                              ? colors.brass
-                              : "transparent",
-                        }}
-                      />
-                    ))}
+                  <div className="flex flex-wrap gap-2.5">
+                    {product.colors.map((color) => {
+                      const active = selectedColor === color.value;
+                      return (
+                        <button
+                          key={color.value}
+                          type="button"
+                          onClick={() => setSelectedColor(color.value)}
+                          aria-label={color.label}
+                          aria-pressed={active}
+                          className="relative h-8 w-8 rounded-full border"
+                          style={{
+                            backgroundColor: color.swatchColor ?? "#999999",
+                            borderColor: colors.hairline,
+                          }}
+                        >
+                          {active && (
+                            <span className="absolute inset-0 flex items-center justify-center">
+                              <span
+                                className="flex h-4 w-4 items-center justify-center rounded-full"
+                                style={{ backgroundColor: colors.bone }}
+                              >
+                                <Check
+                                  className="h-2.5 w-2.5"
+                                  style={{ color: colors.ink }}
+                                  strokeWidth={3}
+                                />
+                              </span>
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
 
+              {/* Size selector — rectangular, with a diagonal hatch fill
+                  and "SOLD OUT" label for unavailable sizes, instead of a
+                  separate caption underneath each. */}
               {product.sizes.length > 0 && (
-                <div className="mt-6">
+                <div
+                  className="mt-6 border-t pt-5"
+                  style={{ borderColor: colors.hairline }}
+                >
                   <div className="mb-2.5 flex items-center justify-between">
                     <span
                       className="text-xs font-bold uppercase"
@@ -428,27 +533,65 @@ export function FashionProductDetailPage({
                       Size Guide
                     </span>
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="grid grid-cols-4 gap-2">
                     {product.sizes.map((size) => {
                       const active = selectedSize === size.value;
+                      const stock =
+                        product.colors.length === 0
+                          ? product.variants.find((v) => v.size === size.value)
+                              ?.stock
+                          : product.variants.find(
+                              (v) =>
+                                v.color === selectedColor &&
+                                v.size === size.value,
+                            )?.stock;
+                      const soldOut = stock != null && stock <= 0;
                       return (
                         <button
                           key={size.value}
                           type="button"
-                          onClick={() => setSelectedSize(size.value)}
+                          onClick={() =>
+                            !soldOut && setSelectedSize(size.value)
+                          }
+                          disabled={soldOut}
                           aria-pressed={active}
-                          className="h-10 min-w-10 rounded-lg border px-3 text-sm font-semibold"
+                          aria-label={size.label}
+                          className="relative flex h-14 flex-col items-center justify-center gap-0.5 overflow-hidden rounded-lg border text-xs font-bold uppercase disabled:cursor-not-allowed"
                           style={{
-                            borderColor: active
-                              ? colors.brass
-                              : colors.hairline,
-                            backgroundColor: active
-                              ? colors.brass
-                              : colors.ink2,
-                            color: active ? colors.ink : colors.bone,
+                            borderColor:
+                              !soldOut && active
+                                ? colors.brass
+                                : colors.hairline,
+                            backgroundColor:
+                              !soldOut && active
+                                ? `${colors.brass}1f`
+                                : "transparent",
                           }}
                         >
-                          {size.label}
+                          {soldOut && (
+                            <span
+                              className="pointer-events-none absolute inset-0"
+                              style={{
+                                backgroundImage: `repeating-linear-gradient(135deg, transparent, transparent 4px, ${colors.hairline} 4px, ${colors.hairline} 5px)`,
+                              }}
+                            />
+                          )}
+                          <span
+                            className="relative"
+                            style={{
+                              color: soldOut ? colors.boneDim : colors.bone,
+                            }}
+                          >
+                            {size.value.toUpperCase()}
+                          </span>
+                          {soldOut && (
+                            <span
+                              className="relative text-[8px] font-semibold"
+                              style={{ color: colors.boneDim }}
+                            >
+                              Sold out
+                            </span>
+                          )}
                         </button>
                       );
                     })}
@@ -456,10 +599,13 @@ export function FashionProductDetailPage({
                 </div>
               )}
 
-              <div className="mt-7 flex flex-col gap-3">
+              <div
+                className="mt-6 flex flex-col gap-3 border-t pt-5"
+                style={{ borderColor: colors.hairline }}
+              >
                 <div className="flex items-center gap-3">
                   <div
-                    className="flex flex-none items-center rounded-lg border"
+                    className="flex flex-none items-center rounded-full border"
                     style={{ borderColor: colors.hairline }}
                   >
                     <button
@@ -495,44 +641,41 @@ export function FashionProductDetailPage({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={handleAddToBag}
-                    disabled={!isSelectionInStock}
-                    className="flex h-11 flex-1 items-center justify-center gap-2 rounded-lg text-sm font-bold transition-colors hover:bg-[var(--pdp-brass-hover)] disabled:opacity-40"
-                    style={
-                      {
-                        backgroundColor: colors.brass,
-                        color: colors.ink,
-                        "--pdp-brass-hover": colors.brassHover,
-                      } as React.CSSProperties
-                    }
-                  >
-                    <ShoppingBag className="h-4 w-4" />
-                    Add to Bag — ${(price * quantity).toFixed(2)}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleCheckout}
-                    disabled={!isSelectionInStock}
-                    className="flex h-11 flex-1 items-center justify-center gap-2 rounded-lg border text-sm font-bold transition-colors hover:bg-[var(--pdp-ink2)] disabled:opacity-40"
-                    style={
-                      {
-                        borderColor: colors.brass,
-                        color: colors.brass,
-                        "--pdp-ink2": colors.ink2,
-                      } as React.CSSProperties
-                    }
-                  >
-                    <CreditCard className="h-4 w-4" />
-                    Checkout
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={handleAddToBag}
+                  disabled={!isSelectionInStock}
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-full text-sm font-bold uppercase tracking-wide transition-colors disabled:cursor-not-allowed"
+                  style={{
+                    backgroundColor: isSelectionInStock
+                      ? colors.brass
+                      : colors.hairline,
+                    color: isSelectionInStock ? colors.ink : colors.boneDim,
+                  }}
+                >
+                  {isSelectionInStock ? (
+                    <>
+                      <ShoppingBag className="h-4 w-4" />
+                      Add to Bag — ${(price * quantity).toFixed(2)}
+                    </>
+                  ) : (
+                    "Currently Unavailable"
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCheckout}
+                  disabled={!isSelectionInStock}
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-full border text-sm font-bold uppercase tracking-wide transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                  style={{ borderColor: colors.brass, color: colors.brass }}
+                >
+                  <CreditCard className="h-4 w-4" />
+                  Checkout
+                </button>
               </div>
 
               <div
-                className="mt-6 flex items-center gap-6 border-t pt-5 text-xs"
+                className="mt-5 flex items-center gap-6 border-t pt-4 text-xs"
                 style={{
                   borderColor: colors.hairline,
                   color: colors.boneDim,
