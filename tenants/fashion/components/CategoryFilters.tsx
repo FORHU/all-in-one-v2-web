@@ -5,17 +5,15 @@ import type { ProductAttributeOption } from "@/features/storefront/contracts/pro
 
 export interface CategoryFilterState {
   sizes: string[];
-  colors: string[];
   priceRange: [number, number];
 }
 
 /**
  * Hex -> human label fallback, used by cart/order-success displays
  * (CartContents, OrderSuccessPage) to label a color already stored on a cart
- * line item. Unrelated to this component's own facet-driven color swatches
- * below, which now carry their own `label` from the API. Consumers fall back
- * to the raw hex string when a color isn't in this table, so an incomplete
- * mapping degrades gracefully rather than breaking.
+ * line item. Consumers fall back to the raw hex string when a color isn't
+ * in this table, so an incomplete mapping degrades gracefully rather than
+ * breaking.
  */
 export const COLOR_NAMES: Record<string, string> = {
   "#2b2b2b": "Charcoal",
@@ -36,27 +34,27 @@ export const COLOR_NAMES: Record<string, string> = {
 };
 
 /**
- * Fashion — category page filter sidebar (Size / Color / Price).
+ * Fashion — category page filter sidebar (Size / Price).
  * Facet options and callbacks are all supplied by the parent page, sourced
  * from the API's `facets` payload (see CategoryDetailPage) — this component
- * holds no product data of its own. `filters.sizes`/`filters.colors` hold
- * attribute `value`s (e.g. "m", "black"), matching the API's filter params.
+ * holds no product data of its own. `filters.sizes` holds attribute
+ * `value`s (e.g. "m"), matching the API's filter params.
+ *
+ * No Color filter: CJ-imported products rarely have a real swatchColor
+ * mapped, so every swatch rendered the same flat grey regardless of the
+ * actual color — worse than not showing a filter at all.
  */
 export function CategoryFilters({
   availableSizes,
-  availableColors,
   priceBounds,
   filters,
   onToggleSize,
-  onToggleColor,
   onPriceChange,
 }: {
   availableSizes: ProductAttributeOption[];
-  availableColors: ProductAttributeOption[];
   priceBounds: [number, number];
   filters: CategoryFilterState;
   onToggleSize: (size: string) => void;
-  onToggleColor: (color: string) => void;
   onPriceChange: (range: [number, number]) => void;
 }) {
   return (
@@ -87,29 +85,6 @@ export function CategoryFilters({
               >
                 {size.value.toUpperCase()}
               </button>
-            );
-          })}
-        </div>
-      </Accordion>
-
-      <Accordion title="Color">
-        <div className="flex flex-wrap gap-3">
-          {availableColors.map((color) => {
-            const active = filters.colors.includes(color.value);
-            return (
-              <button
-                key={color.value}
-                type="button"
-                onClick={() => onToggleColor(color.value)}
-                aria-pressed={active}
-                aria-label={color.label}
-                title={color.label}
-                className="h-7 w-7 rounded-full border-2 transition-colors"
-                style={{
-                  backgroundColor: color.swatchColor ?? "#999999",
-                  borderColor: active ? "var(--brand-primary)" : "transparent",
-                }}
-              />
             );
           })}
         </div>

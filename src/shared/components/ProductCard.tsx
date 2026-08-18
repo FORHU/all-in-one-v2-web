@@ -95,22 +95,6 @@ export function ProductCard({
         )}
       </div>
 
-      {!compact && product.colors && product.colors.length > 0 && (
-        <div className="mt-1.5 flex gap-1.5">
-          {product.colors.map((color, index) => (
-            <span
-              // Colors are plain hex strings with no id of their own, and
-              // products missing a real swatchColor all fall back to the
-              // same "#999999" — two such variants on one product collide
-              // on a bare `color` key, so the index disambiguates them.
-              key={`${color}-${index}`}
-              className="h-4 w-4 rounded-full border border-current/15"
-              style={{ backgroundColor: color }}
-            />
-          ))}
-        </div>
-      )}
-
       {!compact && product.sizes && product.sizes.length > 0 && (
         <div className="mt-1 flex flex-wrap gap-1.5">
           {product.sizes.map((size) => (
