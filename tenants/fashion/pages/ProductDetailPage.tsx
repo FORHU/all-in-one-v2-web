@@ -155,6 +155,11 @@ export function FashionProductDetailPage({
   const selectedColorLabel = product.colors.find(
     (c) => c.value === selectedColor,
   )?.label;
+  // A color with no real swatchColor renders as an identical flat grey
+  // regardless of what the color actually is (CJ often doesn't map one) —
+  // showing that swatch just teaches the shopper "grey" is a real, pickable
+  // color, which it isn't. Only show swatches CJ actually gave us a color for.
+  const swatchedColors = product.colors.filter((c) => c.swatchColor);
   const activeImage =
     product.images[selectedImage] ?? product.thumbnailUrl ?? undefined;
 
@@ -458,7 +463,7 @@ export function FashionProductDetailPage({
                 />
               )}
 
-              {product.colors.length > 0 && (
+              {swatchedColors.length > 0 && (
                 <div
                   className="mt-6 border-t pt-5"
                   style={{ borderColor: colors.hairline }}
@@ -475,7 +480,7 @@ export function FashionProductDetailPage({
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-2.5">
-                    {product.colors.map((color) => {
+                    {swatchedColors.map((color) => {
                       const active = selectedColor === color.value;
                       return (
                         <button
@@ -486,7 +491,7 @@ export function FashionProductDetailPage({
                           aria-pressed={active}
                           className="relative h-8 w-8 rounded-full border"
                           style={{
-                            backgroundColor: color.swatchColor ?? "#999999",
+                            backgroundColor: color.swatchColor!,
                             borderColor: colors.hairline,
                           }}
                         >

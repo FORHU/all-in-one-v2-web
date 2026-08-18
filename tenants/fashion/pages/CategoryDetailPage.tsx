@@ -93,7 +93,6 @@ export function FashionCategoryDetailPage({
   const page = Number(searchParams.get("page")) || 1;
   const sort = (searchParams.get("sort") as SortOption) || "newest";
   const sizes = parseCsv(searchParams.get("sizes"));
-  const colors = parseCsv(searchParams.get("colors"));
   const urlPriceMin = searchParams.get("priceMin");
   const urlPriceMax = searchParams.get("priceMax");
 
@@ -129,7 +128,6 @@ export function FashionCategoryDetailPage({
           ? "price-asc"
           : "newest",
     sizes: sizes.length ? sizes : undefined,
-    colors: colors.length ? colors : undefined,
     priceMin: urlPriceMin ? Number(urlPriceMin) : undefined,
     priceMax: urlPriceMax ? Number(urlPriceMax) : undefined,
     page,
@@ -149,7 +147,7 @@ export function FashionCategoryDetailPage({
     urlPriceMax ? Number(urlPriceMax) : priceBounds[1],
   ];
 
-  const filters: CategoryFilterState = { sizes, colors, priceRange };
+  const filters: CategoryFilterState = { sizes, priceRange };
 
   const handleAddToCart = (
     product: ProductCardProduct,
@@ -171,8 +169,6 @@ export function FashionCategoryDetailPage({
 
   const isPriceFiltered = urlPriceMin !== null || urlPriceMax !== null;
 
-  const colorLabel = (value: string) =>
-    facets?.colors.find((c) => c.value === value)?.label ?? value;
   const sizeLabel = (value: string) => value.toUpperCase();
 
   const activePills: { key: string; label: string; onRemove: () => void }[] = [
@@ -181,12 +177,6 @@ export function FashionCategoryDetailPage({
       label: `Size: ${sizeLabel(size)}`,
       onRemove: () =>
         updateParams({ sizes: toggleValue(sizes, size).join(",") || null }),
-    })),
-    ...colors.map((color) => ({
-      key: `color-${color}`,
-      label: `Color: ${colorLabel(color)}`,
-      onRemove: () =>
-        updateParams({ colors: toggleValue(colors, color).join(",") || null }),
     })),
     ...(isPriceFiltered
       ? [
@@ -202,20 +192,16 @@ export function FashionCategoryDetailPage({
   const clearAll = () =>
     updateParams({
       sizes: null,
-      colors: null,
       priceMin: null,
       priceMax: null,
     });
 
   const filterSidebarProps = {
     availableSizes: facets?.sizes ?? [],
-    availableColors: facets?.colors ?? [],
     priceBounds,
     filters,
     onToggleSize: (size: string) =>
       updateParams({ sizes: toggleValue(sizes, size).join(",") || null }),
-    onToggleColor: (color: string) =>
-      updateParams({ colors: toggleValue(colors, color).join(",") || null }),
     onPriceChange: (range: [number, number]) =>
       updateParams({ priceMin: String(range[0]), priceMax: String(range[1]) }),
   };
