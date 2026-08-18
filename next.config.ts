@@ -8,6 +8,13 @@ const nextConfig = {
         protocol: "https",
         hostname: "images.unsplash.com",
       },
+      // CJ Dropshipping serves product/variant images off several
+      // subdomains (cf.cjdropshipping.com seen so far) — wildcarded so
+      // newly imported products don't need a config change per subdomain.
+      {
+        protocol: "https",
+        hostname: "*.cjdropshipping.com",
+      },
     ],
   },
   // Next picks the next free port (3001, 3002...) whenever 3000 is taken,

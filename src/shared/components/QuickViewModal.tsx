@@ -118,9 +118,12 @@ export function QuickViewModal({
             <div className="mt-2 flex flex-col gap-1.5">
               <span className="text-xs font-semibold opacity-60">Color</span>
               <div className="flex gap-2">
-                {product.colors.map((color) => (
+                {product.colors.map((color, index) => (
                   <button
-                    key={color}
+                    // See ProductCard.tsx — colors with no real swatchColor
+                    // all fall back to the same "#999999", so a bare `color`
+                    // key collides when a product has more than one.
+                    key={`${color}-${index}`}
                     type="button"
                     onClick={() => setSelectedColor(color)}
                     aria-label={color}

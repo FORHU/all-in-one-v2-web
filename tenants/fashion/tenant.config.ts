@@ -17,9 +17,10 @@ export const fashionConfig: TenantConfig = {
   logoUrl: "/tenants/fashion/logo.svg",
   nav: [
     { label: "Tops", href: "/categories/tops" },
-    { label: "Dress", href: "/categories/dresses" },
+    { label: "Dress", href: "/categories/dress" },
     { label: "Bottoms", href: "/categories/bottoms" },
-    { label: "Outer wear", href: "/categories/outerwear" },
+    // Outer Wear has 0 real products in the catalog right now — no point
+    // linking to an empty category page. Add it back once it's stocked.
     { label: "Shoes", href: "/categories/shoes" },
   ],
   seo: {

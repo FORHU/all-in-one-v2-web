@@ -29,11 +29,13 @@ type FashionColors = ReturnType<typeof getFashionColors>;
  * via GET /v2/collections (no type filter — fetches both OUTFIT and LOOKBOOK
  * rows), scoped to `categorySlug` so each category page only shows looks
  * featured under it (e.g. Men only shows looks tagged mens-fashion) — a
- * category with no tagged looks renders nothing (see the early return
- * below), which is expected for categories like Shoes/Accessories/Kids that
- * don't have a dedicated look yet. Separate from components/HeroBanner.tsx's
- * own "Get the Look" carousel, which still reads the static data/looks.ts
- * mock — that's the homepage widget, out of scope here.
+ * category with no tagged looks renders an explicit "No product available"
+ * empty state rather than nothing, which is expected for categories like
+ * Shoes/Accessories/Kids that don't have a dedicated look yet. Separate from
+ * components/HeroBanner.tsx's own "Get the Look" carousel, which is also
+ * backed by CatalogCollection (via the same useCollections hook, one query
+ * per fixed category) but fetches one look per category rather than being
+ * scoped to a single page.
  *
  * Follows the site's light/dark toggle — see ../theme.ts's
  * getFashionColors. Gated behind a mount flag since useFashionColorMode
@@ -119,9 +121,41 @@ export function TrendingLookbook({
     moved: false,
   });
 
-  // No looks yet (still loading) or none exist for this tenant — hide the
-  // whole widget rather than render an empty shell.
-  if (isLoading || looks.length === 0) return null;
+  // Still loading — nothing to show yet either way, so stay hidden rather
+  // than flash an empty state before the real data (or lack of it) arrives.
+  if (isLoading) return null;
+
+  // Loaded, but this tenant/category genuinely has no looks — render the
+  // section with an explicit empty state instead of disappearing, so the
+  // page doesn't look broken/incomplete when a category simply has nothing
+  // curated yet.
+  if (looks.length === 0) {
+    return (
+      <section className="mx-auto flex max-w-7xl flex-col gap-6 px-6 pt-10">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <div className="flex items-center justify-center gap-4">
+            <span
+              className="h-px w-10"
+              style={{ backgroundColor: colors.hairline }}
+            />
+            <span
+              className="text-[11px] font-semibold uppercase tracking-[0.35em]"
+              style={{ color: colors.brass }}
+            >
+              Shop the Look
+            </span>
+            <span
+              className="h-px w-10"
+              style={{ backgroundColor: colors.hairline }}
+            />
+          </div>
+          <p className="text-sm" style={{ color: colors.boneDim }}>
+            No product available
+          </p>
+        </div>
+      </section>
+    );
+  }
 
   const filteredLooks = looks;
   const activeLook = looks.find((look) => look.id === activeLookId) ?? looks[0];

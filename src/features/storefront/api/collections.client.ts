@@ -27,5 +27,5 @@ export const getCollections = async (
       headers: { "x-tenant-slug": tenantSlug },
     },
   );
-  return CollectionsApiEnvelopeSchema.parse(raw).data;
+  return CollectionsApiEnvelopeSchema.parse(raw).data.items;
 };
