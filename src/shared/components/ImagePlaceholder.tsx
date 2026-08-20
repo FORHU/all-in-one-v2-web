@@ -9,6 +9,7 @@ import Image from "next/image";
 const ALLOWED_IMAGE_HOSTS = [
   /^images\.unsplash\.com$/,
   /^([\w-]+\.)*cjdropshipping\.com$/,
+  /^forhu-marketplace-dev\.s3\.ap-southeast-1\.amazonaws\.com$/,
 ];
 
 export function isAllowedImageHost(url: string): boolean {

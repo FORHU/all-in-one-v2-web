@@ -16,7 +16,7 @@ import { useCollections } from "@/features/storefront/hooks/queries/useCollectio
 import { type Look, type LookItem } from "../data/looks";
 import { toLook } from "../utils/toLook";
 import { useFashionColorMode } from "../stores/colorMode.store";
-import { getFashionColors, fashionFraunces } from "../theme";
+import { getFashionColors, fashionDidone } from "../theme";
 
 const PANEL_HEIGHT = "lg:h-[520px]";
 type FashionColors = ReturnType<typeof getFashionColors>;
@@ -298,7 +298,7 @@ export function TrendingLookbook({
             className="text-2xl font-medium tracking-tight sm:text-3xl"
             style={{
               color: colors.bone,
-              fontFamily: fashionFraunces.style.fontFamily,
+              fontFamily: fashionDidone.style.fontFamily,
             }}
           >
             {activeLook.name}

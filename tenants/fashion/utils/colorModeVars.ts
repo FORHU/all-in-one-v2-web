@@ -1,27 +1,33 @@
 import type { CSSProperties } from "react";
 import type { FashionColorMode } from "../stores/colorMode.store";
-import { FASHION_DARK_COLORS } from "../theme";
+import { getFashionColors } from "../theme";
 
 /**
- * CSS custom property overrides per mode, keyed to match
- * styles/theme.css's --brand-primary/--brand-secondary. Spread onto a root
- * element's style so everything nested inside inherits the flipped values.
- * "dark" uses the tenant's canonical palette (see theme.ts's
- * FASHION_DARK_COLORS — Bone text on Ink background), kept in sync with
- * styles/theme.css's base values since this is also the default mode
- * before the toggle hydrates. "light" mirrors the exact same two tones
- * rather than an unrelated light palette, so both modes share the same
- * contrast level — only which tone is foreground vs background swaps.
- * Shared by layouts/StorefrontLayout.tsx and pages/LoginPage.tsx, the two
- * page roots that read useFashionColorMode.
+ * CSS custom property overrides per mode, keyed to match styles/theme.css's
+ * --brand-primary/--brand-secondary/--brand-accent/--brand-border. Spread
+ * onto a root element's style so everything nested inside inherits the
+ * flipped values. Sourced from theme.ts's getFashionColors so this stays
+ * the single palette definition shared with CartContents.tsx/CartDrawer.tsx
+ * (which read FASHION_DARK_COLORS/FASHION_LIGHT_COLORS directly) — before
+ * this, "light" only flipped Bone/Ink and dropped Brass/Hairline entirely,
+ * so shared/ components (ProductCard, Trending, HeroBanner, ...) had no way
+ * to pick up the tenant's warm tan accent, only a flat black-on-cream
+ * inversion. "dark" is kept in sync with styles/theme.css's base values
+ * since it's also the default mode before the toggle hydrates. Shared by
+ * layouts/StorefrontLayout.tsx and pages/LoginPage.tsx, the two page roots
+ * that read useFashionColorMode.
  */
+function toColorVars(mode: FashionColorMode): CSSProperties {
+  const colors = getFashionColors(mode);
+  return {
+    "--brand-primary": colors.bone,
+    "--brand-secondary": colors.ink,
+    "--brand-accent": colors.brass,
+    "--brand-border": colors.hairline,
+  } as CSSProperties;
+}
+
 export const FASHION_COLOR_VARS: Record<FashionColorMode, CSSProperties> = {
-  dark: {
-    "--brand-primary": FASHION_DARK_COLORS.bone,
-    "--brand-secondary": FASHION_DARK_COLORS.ink,
-  } as CSSProperties,
-  light: {
-    "--brand-primary": FASHION_DARK_COLORS.ink,
-    "--brand-secondary": FASHION_DARK_COLORS.bone,
-  } as CSSProperties,
+  dark: toColorVars("dark"),
+  light: toColorVars("light"),
 };

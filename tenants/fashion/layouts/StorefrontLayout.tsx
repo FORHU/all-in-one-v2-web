@@ -11,7 +11,12 @@ import { AddictStyleLogo } from "../assets/AddictStyleLogo";
 import { CartDrawer } from "../components/CartDrawer";
 import { useFashionColorMode } from "../stores/colorMode.store";
 import { FASHION_COLOR_VARS } from "../utils/colorModeVars";
-import { fashionFraunces, fashionInter } from "../theme";
+import {
+  fashionDidone,
+  fashionInter,
+  fashionGrainBackgroundImage,
+  fashionVignetteBackgroundImage,
+} from "../theme";
 
 const FOOTER_LINKS = {
   Company: [
@@ -147,11 +152,33 @@ export function FashionStorefrontLayout({
 
   return (
     <div
-      className={`flex min-h-screen flex-col ${fashionFraunces.variable} ${fashionInter.variable}`}
+      className={`flex min-h-screen flex-col ${fashionDidone.variable} ${fashionInter.variable}`}
       style={{
         ...FASHION_COLOR_VARS[mode],
         fontFamily: "var(--font-body)",
         backgroundColor: "var(--brand-secondary)",
+        // Grain/vignette are tuned specifically for the light-mode cream
+        // palette (warm-white highlight, warm-brown shadow) — applying them
+        // in dark mode too overlaid that warm coloring on near-black,
+        // producing a hazy grey/brown smear instead of a clean dark
+        // background. Light-mode only. Vignette layers are deliberately
+        // left at their default size — no explicit backgroundSize/Position
+        // — so each stretches across the *entire* element as one
+        // continuous image with no internal edge anywhere to seam against.
+        // Two earlier approaches (`background-attachment:fixed`, then
+        // capping the layer at a fixed vh height) both left a visible seam
+        // at some scroll position — fixed because it repaints the same
+        // gradient at every scroll position, and a capped height because
+        // the box's own edge was still perceptible even with a
+        // fully-transparent color stop there. Only grain still gets an
+        // explicit size, since it's meant to visibly tile at a small scale.
+        ...(mode === "light"
+          ? {
+              backgroundImage: `${fashionVignetteBackgroundImage}, ${fashionGrainBackgroundImage}`,
+              backgroundRepeat: "no-repeat, no-repeat, repeat",
+              backgroundSize: "auto, auto, 180px 180px",
+            }
+          : {}),
         color: "var(--brand-primary)",
       }}
     >

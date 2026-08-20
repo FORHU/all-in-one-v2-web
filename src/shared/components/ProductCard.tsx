@@ -37,6 +37,7 @@ export function ProductCard({
   onQuickView,
   onQuickAdd,
   onBuyNow,
+  index,
 }: {
   product: ProductCardProduct;
   compact?: boolean;
@@ -44,6 +45,14 @@ export function ProductCard({
   onQuickView?: (product: ProductCardProduct) => void;
   onQuickAdd?: (product: ProductCardProduct) => void;
   onBuyNow?: (product: ProductCardProduct) => void;
+  /**
+   * 1-based position in the rail — when given, swaps the caption for an
+   * editorial numbered-tile treatment (centered, serif eyebrow number, no
+   * brand line) instead of the default left-aligned brand/name stack. Same
+   * idea as HeroBanner's numbered look items, applied to a plain product
+   * grid (see components/Trending.tsx).
+   */
+  index?: number;
 }) {
   const router = useRouter();
 
@@ -73,17 +82,44 @@ export function ProductCard({
     />
   );
 
+  const hasReviews = Boolean(product.reviewCount);
+
   const info = (
     <>
-      <div className="text-[11px] font-bold uppercase tracking-wide opacity-60">
-        {product.brand}
+      {index ? (
+        <div
+          className="text-[11px] font-semibold uppercase tracking-[0.15em]"
+          style={{
+            fontFamily: "var(--font-heading)",
+            color: "var(--brand-accent, var(--brand-primary))",
+          }}
+        >
+          {String(index).padStart(2, "0")}
+        </div>
+      ) : (
+        product.brand && (
+          <div className="text-[11px] font-bold uppercase tracking-wide opacity-60">
+            {product.brand}
+          </div>
+        )
+      )}
+      <div
+        className={
+          index
+            ? "text-[13px] font-semibold uppercase tracking-wide"
+            : "text-sm font-semibold"
+        }
+        style={index ? { fontFamily: "var(--font-heading)" } : undefined}
+      >
+        {product.name}
       </div>
-      <div className="text-sm font-semibold">{product.name}</div>
-      <StarRating
-        rating={product.rating}
-        reviewCount={product.reviewCount}
-        className="mt-0.5"
-      />
+      {hasReviews && (
+        <StarRating
+          rating={product.rating}
+          reviewCount={product.reviewCount}
+          className={`mt-0.5 ${index ? "justify-center" : ""}`}
+        />
+      )}
       <div className="mt-0.5 flex items-center gap-2">
         <span className="text-[15px] font-bold">
           ${product.price.toFixed(2)}
@@ -94,19 +130,6 @@ export function ProductCard({
           </span>
         )}
       </div>
-
-      {!compact && product.sizes && product.sizes.length > 0 && (
-        <div className="mt-1 flex flex-wrap gap-1.5">
-          {product.sizes.map((size) => (
-            <span
-              key={size}
-              className="rounded-md border border-current/15 px-1.5 py-0.5 text-[10px] font-semibold opacity-60"
-            >
-              {size}
-            </span>
-          ))}
-        </div>
-      )}
     </>
   );
 
@@ -211,12 +234,16 @@ export function ProductCard({
       {product.slug ? (
         <Link
           href={`/products/${product.slug}`}
-          className="flex flex-col gap-0.5"
+          className={`flex flex-col gap-0.5 ${index ? "items-center text-center" : ""}`}
         >
           {info}
         </Link>
       ) : (
-        <div className="flex flex-col gap-0.5">{info}</div>
+        <div
+          className={`flex flex-col gap-0.5 ${index ? "items-center text-center" : ""}`}
+        >
+          {info}
+        </div>
       )}
     </div>
   );

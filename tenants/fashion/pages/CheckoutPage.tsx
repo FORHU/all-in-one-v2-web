@@ -21,7 +21,7 @@ import type { Order } from "@/features/storefront/contracts/order.contract";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
 import { StripePaymentForm } from "../components/StripePaymentForm";
 import { useFashionColorMode } from "../stores/colorMode.store";
-import { getFashionColors, fashionFraunces, fashionInter } from "../theme";
+import { getFashionColors, fashionDidone, fashionInter } from "../theme";
 import {
   SHIPPING_METHODS,
   TAX_RATE,
@@ -408,7 +408,7 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
             style={{ color: colors.bone }}
           >
             <h1
-              className={fashionFraunces.className}
+              className={fashionDidone.className}
               style={{ fontSize: 28, fontWeight: 600 }}
             >
               {isBuyNow ? "No item selected" : "Your cart is empty"}
@@ -455,7 +455,7 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
           style={{ color: colors.bone }}
         >
           <h1
-            className={fashionFraunces.className}
+            className={fashionDidone.className}
             style={{ fontSize: 32, fontWeight: 600 }}
           >
             Review Order
@@ -1048,7 +1048,7 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
                   Order total ({itemCount} item{itemCount !== 1 ? "s" : ""}):
                 </span>
                 <span
-                  className={fashionFraunces.className}
+                  className={fashionDidone.className}
                   style={{
                     fontSize: 26,
                     fontWeight: 600,

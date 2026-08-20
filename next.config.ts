@@ -9,11 +9,21 @@ const nextConfig = {
         hostname: "images.unsplash.com",
       },
       // CJ Dropshipping serves product/variant images off several
-      // subdomains (cf.cjdropshipping.com seen so far) — wildcarded so
-      // newly imported products don't need a config change per subdomain.
+      // subdomains (cf.cjdropshipping.com, oss-cf.cjdropshipping.com seen
+      // so far) — wildcarded so newly imported products don't need a
+      // config change per subdomain.
       {
         protocol: "https",
         hostname: "*.cjdropshipping.com",
+      },
+      // The platform's own S3 bucket, used to re-host CJ product/collection
+      // images during import rather than hotlinking CJ's CDN directly (see
+      // product-import.service.ts). Bucket name is per-environment — this
+      // is the dev bucket; staging/prod will need their own hostname added
+      // here when those buckets are known.
+      {
+        protocol: "https",
+        hostname: "forhu-marketplace-dev.s3.ap-southeast-1.amazonaws.com",
       },
     ],
   },

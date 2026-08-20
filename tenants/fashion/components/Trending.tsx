@@ -57,19 +57,22 @@ export function Trending({ tenantSlug }: { tenantSlug: string }) {
         </h2>
         <div
           className="mt-3 h-0.5 w-10"
-          style={{ backgroundColor: "var(--brand-primary)" }}
+          style={{
+            backgroundColor: "var(--brand-accent, var(--brand-primary))",
+          }}
         />
       </div>
       <div
         className="grid grid-cols-3 gap-5 sm:grid-cols-4 lg:grid-cols-6"
         style={{ color: "var(--brand-primary)" }}
       >
-        {products.map((product) => (
+        {products.map((product, i) => (
           <ProductCard
             key={product.id}
             product={toProductCardProduct(product)}
             onQuickAdd={quickAddToCart}
             onBuyNow={buyNow}
+            index={i + 1}
           />
         ))}
       </div>

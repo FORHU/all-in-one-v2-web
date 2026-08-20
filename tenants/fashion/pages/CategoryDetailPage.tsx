@@ -3,13 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { SlidersHorizontal, X } from "lucide-react";
 import { FashionStorefrontLayout } from "../layouts/StorefrontLayout";
 import { TrendingLookbook } from "../components/TrendingLookbook";
-import {
-  CategoryFilters,
-  type CategoryFilterState,
-} from "../components/CategoryFilters";
 import {
   ProductCard,
   type ProductCardProduct,
@@ -46,29 +41,6 @@ const CATEGORY_SLUG_ALIASES: Record<string, string> = {
   men: "mens-fashion",
 };
 
-type SortOption = "newest" | "price-asc" | "popularity";
-
-const SORT_LABELS: Record<SortOption, string> = {
-  newest: "Newest",
-  "price-asc": "Price: Low to High",
-  popularity: "Popularity",
-};
-
-function toggleValue(list: string[], value: string) {
-  return list.includes(value)
-    ? list.filter((v) => v !== value)
-    : [...list, value];
-}
-
-function parseCsv(value: string | null): string[] {
-  return value
-    ? value
-        .split(",")
-        .map((v) => v.trim())
-        .filter(Boolean)
-    : [];
-}
-
 /**
  * Fashion — category / collection page. Filters, sort, and page are all
  * URL-driven (shareable, bookmarkable) and passed straight through to
@@ -91,14 +63,9 @@ export function FashionCategoryDetailPage({
   const label = humanize(slug);
 
   const page = Number(searchParams.get("page")) || 1;
-  const sort = (searchParams.get("sort") as SortOption) || "newest";
-  const sizes = parseCsv(searchParams.get("sizes"));
-  const urlPriceMin = searchParams.get("priceMin");
-  const urlPriceMax = searchParams.get("priceMax");
 
   const [quickViewProduct, setQuickViewProduct] =
     useState<ProductCardProduct | null>(null);
-  const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
   const addItem = useLocalCartStore((s) => s.addItem);
   const buyNow = useBuyNow();
 
@@ -113,23 +80,9 @@ export function FashionCategoryDetailPage({
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
-  // Not memoized: sizes/colors come from parseCsv() on searchParams,
-  // a new array reference every render regardless, so a useMemo here would
-  // recompute every time anyway — no real memoization to be had. TanStack
-  // Query dedupes by the query key's serialized content (see
-  // productsKeys.list), not by this object's identity, so rebuilding it
-  // plainly on every render is harmless.
   const queryParams: ProductListingParams = {
     categorySlug,
-    sort:
-      sort === "popularity"
-        ? "popularity"
-        : sort === "price-asc"
-          ? "price-asc"
-          : "newest",
-    sizes: sizes.length ? sizes : undefined,
-    priceMin: urlPriceMin ? Number(urlPriceMin) : undefined,
-    priceMax: urlPriceMax ? Number(urlPriceMax) : undefined,
+    sort: "newest",
     page,
     limit: 12,
   };
@@ -137,17 +90,6 @@ export function FashionCategoryDetailPage({
   const { data, isLoading, isError } = useProducts(tenantSlug, queryParams);
 
   const products = data?.items ?? [];
-  const facets = data?.facets;
-  const priceBounds: [number, number] = [
-    facets?.priceMin ?? 0,
-    facets?.priceMax ?? 0,
-  ];
-  const priceRange: [number, number] = [
-    urlPriceMin ? Number(urlPriceMin) : priceBounds[0],
-    urlPriceMax ? Number(urlPriceMax) : priceBounds[1],
-  ];
-
-  const filters: CategoryFilterState = { sizes, priceRange };
 
   const handleAddToCart = (
     product: ProductCardProduct,
@@ -165,45 +107,6 @@ export function FashionCategoryDetailPage({
       quantity: selection.quantity,
     });
     toast.success(`Added ${product.name} to cart`);
-  };
-
-  const isPriceFiltered = urlPriceMin !== null || urlPriceMax !== null;
-
-  const sizeLabel = (value: string) => value.toUpperCase();
-
-  const activePills: { key: string; label: string; onRemove: () => void }[] = [
-    ...sizes.map((size) => ({
-      key: `size-${size}`,
-      label: `Size: ${sizeLabel(size)}`,
-      onRemove: () =>
-        updateParams({ sizes: toggleValue(sizes, size).join(",") || null }),
-    })),
-    ...(isPriceFiltered
-      ? [
-          {
-            key: "price",
-            label: `$${priceRange[0].toFixed(2)} - $${priceRange[1].toFixed(2)}`,
-            onRemove: () => updateParams({ priceMin: null, priceMax: null }),
-          },
-        ]
-      : []),
-  ];
-
-  const clearAll = () =>
-    updateParams({
-      sizes: null,
-      priceMin: null,
-      priceMax: null,
-    });
-
-  const filterSidebarProps = {
-    availableSizes: facets?.sizes ?? [],
-    priceBounds,
-    filters,
-    onToggleSize: (size: string) =>
-      updateParams({ sizes: toggleValue(sizes, size).join(",") || null }),
-    onPriceChange: (range: [number, number]) =>
-      updateParams({ priceMin: String(range[0]), priceMax: String(range[1]) }),
   };
 
   return (
@@ -247,171 +150,68 @@ export function FashionCategoryDetailPage({
             </p>
           </div>
         ) : (
-          <div className="flex flex-col gap-8 lg:flex-row">
-            <button
-              type="button"
-              onClick={() => setIsMobileFiltersOpen(true)}
-              className="flex items-center gap-2 self-start rounded-xl border px-4 py-2.5 text-sm font-semibold lg:hidden"
-              style={{
-                borderColor:
-                  "color-mix(in srgb, var(--brand-primary) 20%, transparent)",
-              }}
-            >
-              <SlidersHorizontal className="h-4 w-4" />
-              Filters
-            </button>
-
-            <aside className="hidden w-64 flex-none lg:block">
-              <CategoryFilters {...filterSidebarProps} />
-            </aside>
-
-            {isMobileFiltersOpen && (
-              <div className="fixed inset-0 z-50 lg:hidden">
-                <div
-                  className="absolute inset-0 bg-black/50"
-                  onClick={() => setIsMobileFiltersOpen(false)}
-                  aria-hidden="true"
-                />
-                <div
-                  className="absolute inset-y-0 left-0 w-[85%] max-w-sm overflow-y-auto p-6"
-                  style={{
-                    backgroundColor: "var(--brand-secondary)",
-                    color: "var(--brand-primary)",
-                  }}
-                >
-                  <div className="mb-4 flex items-center justify-between">
-                    <span className="text-lg font-bold">Filters</span>
-                    <button
-                      type="button"
-                      onClick={() => setIsMobileFiltersOpen(false)}
-                      aria-label="Close filters"
-                    >
-                      <X className="h-5 w-5" />
-                    </button>
-                  </div>
-                  <CategoryFilters {...filterSidebarProps} />
-                </div>
+          <div>
+            {!isLoading && products.length === 0 ? (
+              <div className="flex flex-col items-center gap-3 rounded-2xl border border-current/10 py-20 text-center">
+                <p className="text-sm opacity-60">
+                  No products found in this category yet.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 xl:grid-cols-4">
+                {isLoading && products.length === 0
+                  ? Array.from({ length: 8 }).map((_, i) => (
+                      <div
+                        key={i}
+                        className="aspect-[3/4] animate-pulse rounded-2xl bg-current/5"
+                      />
+                    ))
+                  : products.map((product) => {
+                      const cardProduct = toProductCardProduct(product);
+                      return (
+                        <ProductCard
+                          key={cardProduct.id}
+                          product={cardProduct}
+                          onQuickView={setQuickViewProduct}
+                          onQuickAdd={quickAddToCart}
+                          onBuyNow={buyNow}
+                        />
+                      );
+                    })}
               </div>
             )}
 
-            <div className="flex-1">
-              <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  {activePills.map((pill) => (
-                    <button
-                      key={pill.key}
-                      type="button"
-                      onClick={pill.onRemove}
-                      className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold"
-                      style={{
-                        backgroundColor:
-                          "color-mix(in srgb, var(--brand-primary) 8%, transparent)",
-                      }}
-                    >
-                      {pill.label}
-                      <X className="h-3 w-3" />
-                    </button>
-                  ))}
-                  {activePills.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={clearAll}
-                      className="text-xs font-semibold underline opacity-70"
-                    >
-                      Clear all
-                    </button>
-                  )}
-                </div>
-
-                <select
-                  value={sort}
-                  onChange={(event) =>
-                    updateParams({ sort: event.target.value })
-                  }
-                  className="h-10 rounded-full border bg-transparent px-4 text-xs font-semibold outline-none"
+            {data && data.totalPages > 1 && (
+              <div className="mt-10 flex items-center justify-center gap-3">
+                <button
+                  type="button"
+                  disabled={page <= 1}
+                  onClick={() => updateParams({ page: String(page - 1) })}
+                  className="rounded-full border px-4 py-2 text-xs font-semibold disabled:opacity-30"
                   style={{
                     borderColor:
                       "color-mix(in srgb, var(--brand-primary) 20%, transparent)",
-                    color: "var(--brand-primary)",
                   }}
                 >
-                  {(Object.keys(SORT_LABELS) as SortOption[]).map((key) => (
-                    <option key={key} value={key}>
-                      {SORT_LABELS[key]}
-                    </option>
-                  ))}
-                </select>
+                  Previous
+                </button>
+                <span className="text-xs opacity-60">
+                  Page {data.page} of {data.totalPages}
+                </span>
+                <button
+                  type="button"
+                  disabled={page >= data.totalPages}
+                  onClick={() => updateParams({ page: String(page + 1) })}
+                  className="rounded-full border px-4 py-2 text-xs font-semibold disabled:opacity-30"
+                  style={{
+                    borderColor:
+                      "color-mix(in srgb, var(--brand-primary) 20%, transparent)",
+                  }}
+                >
+                  Next
+                </button>
               </div>
-
-              {!isLoading && products.length === 0 ? (
-                <div className="flex flex-col items-center gap-3 rounded-2xl border border-current/10 py-20 text-center">
-                  <p className="text-sm opacity-60">
-                    No products match these filters.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={clearAll}
-                    className="text-sm font-semibold underline"
-                  >
-                    Clear filters
-                  </button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 xl:grid-cols-4">
-                  {isLoading && products.length === 0
-                    ? Array.from({ length: 8 }).map((_, i) => (
-                        <div
-                          key={i}
-                          className="aspect-[3/4] animate-pulse rounded-2xl bg-current/5"
-                        />
-                      ))
-                    : products.map((product) => {
-                        const cardProduct = toProductCardProduct(product);
-                        return (
-                          <ProductCard
-                            key={cardProduct.id}
-                            product={cardProduct}
-                            onQuickView={setQuickViewProduct}
-                            onQuickAdd={quickAddToCart}
-                            onBuyNow={buyNow}
-                          />
-                        );
-                      })}
-                </div>
-              )}
-
-              {data && data.totalPages > 1 && (
-                <div className="mt-10 flex items-center justify-center gap-3">
-                  <button
-                    type="button"
-                    disabled={page <= 1}
-                    onClick={() => updateParams({ page: String(page - 1) })}
-                    className="rounded-full border px-4 py-2 text-xs font-semibold disabled:opacity-30"
-                    style={{
-                      borderColor:
-                        "color-mix(in srgb, var(--brand-primary) 20%, transparent)",
-                    }}
-                  >
-                    Previous
-                  </button>
-                  <span className="text-xs opacity-60">
-                    Page {data.page} of {data.totalPages}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={page >= data.totalPages}
-                    onClick={() => updateParams({ page: String(page + 1) })}
-                    className="rounded-full border px-4 py-2 text-xs font-semibold disabled:opacity-30"
-                    style={{
-                      borderColor:
-                        "color-mix(in srgb, var(--brand-primary) 20%, transparent)",
-                    }}
-                  >
-                    Next
-                  </button>
-                </div>
-              )}
-            </div>
+            )}
           </div>
         )}
       </div>
