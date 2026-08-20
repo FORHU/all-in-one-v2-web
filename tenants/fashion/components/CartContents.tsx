@@ -6,9 +6,9 @@ import { Minus, Plus, X } from "lucide-react";
 import { isAllowedImageHost } from "@/shared/components/ImagePlaceholder";
 import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
 import { useBuyNowCartItem } from "../hooks/useBuyNow";
-import { COLOR_NAMES } from "./CategoryFilters";
+import { COLOR_NAMES } from "../utils/colorNames";
 import { useFashionColorMode } from "../stores/colorMode.store";
-import { getFashionColors, fashionFraunces, fashionInter } from "../theme";
+import { getFashionColors, fashionDidone, fashionInter } from "../theme";
 import { FREE_SHIPPING_THRESHOLD } from "../data/checkoutRules";
 
 /**
@@ -73,7 +73,7 @@ export function CartContents({
       >
         <div className="flex items-center justify-between">
           <div
-            className={fashionFraunces.className}
+            className={fashionDidone.className}
             style={{ fontSize: 22, fontWeight: 500, letterSpacing: "0.2px" }}
           >
             Your bag
@@ -108,7 +108,7 @@ export function CartContents({
           style={{ color: colors.boneDim }}
         >
           <div
-            className={fashionFraunces.className}
+            className={fashionDidone.className}
             style={{
               fontSize: 19,
               color: colors.bone,
@@ -170,7 +170,7 @@ export function CartContents({
                           {item.brand}
                         </div>
                         <div
-                          className={`truncate ${fashionFraunces.className}`}
+                          className={`truncate ${fashionDidone.className}`}
                           style={{
                             fontSize: 15.5,
                             fontWeight: 500,
@@ -246,7 +246,7 @@ export function CartContents({
                         </button>
                       </div>
                       <div
-                        className={fashionFraunces.className}
+                        className={fashionDidone.className}
                         style={{
                           fontSize: 15,
                           fontWeight: 500,
@@ -317,7 +317,7 @@ export function CartContents({
             >
               <span>Total</span>
               <span
-                className={fashionFraunces.className}
+                className={fashionDidone.className}
                 style={{ fontSize: 21, fontWeight: 500 }}
               >
                 ${total.toFixed(2)}

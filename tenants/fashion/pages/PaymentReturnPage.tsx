@@ -7,7 +7,7 @@ import { getStripe } from "@/shared/lib/stripe";
 import { getOrderById } from "@/features/storefront/api/orders.client";
 import { FashionStorefrontLayout } from "../layouts/StorefrontLayout";
 import { useFashionColorMode } from "../stores/colorMode.store";
-import { getFashionColors, fashionFraunces, fashionInter } from "../theme";
+import { getFashionColors, fashionDidone, fashionInter } from "../theme";
 
 const POLL_INTERVAL_MS = 2000;
 const MAX_POLL_ATTEMPTS = 8; // ~16s — generous for a local `stripe listen` forward
@@ -122,7 +122,7 @@ export function FashionPaymentReturnPage({
           style={{ color: colors.bone }}
         >
           <h1
-            className={fashionFraunces.className}
+            className={fashionDidone.className}
             style={{ fontSize: 24, fontWeight: 600 }}
           >
             {status === "finalizing"

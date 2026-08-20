@@ -15,19 +15,21 @@ const MAX_LOOKS = 5;
 
 /**
  * Fashion — homepage hero: "Get the Look" curated outfit carousel. Pulls
- * every CatalogCollection for the tenant via GET /v2/collections (same
- * endpoint/mapper TrendingLookbook uses, but unscoped by categorySlug —
- * real collections here are frequently uncategorized, e.g. seeded OUTFIT
- * rows with no categoryId, so filtering by category would silently hide
- * them), and shows up to MAX_LOOKS. Left: a fanned card stack of outfit
- * photos, navigated by explicit prev/next arrows + dot indicators (not by
- * clicking the stack itself — that was ambiguous, easy to miss). Right:
- * that look's shoppable items, individually addable or all at once, both
- * wired to the real useLocalCartStore (see that store's doc comment —
- * client-only stand-in for /v2/cart).
+ * every OUTFIT-type CatalogCollection for the tenant via
+ * GET /v2/collections?type=OUTFIT (same endpoint/mapper TrendingLookbook
+ * uses, but unscoped by categorySlug — real collections here are frequently
+ * uncategorized, e.g. seeded OUTFIT rows with no categoryId, so filtering by
+ * category would silently hide them). Scoped to OUTFIT specifically since
+ * CatalogCollection also holds BUNDLE and LOOKBOOK rows, which aren't
+ * single-outfit "get the look" content. Shows up to MAX_LOOKS. Left: a
+ * fanned card stack of outfit photos, navigated by explicit prev/next
+ * arrows + dot indicators (not by clicking the stack itself — that was
+ * ambiguous, easy to miss). Right: that look's shoppable items, individually
+ * addable or all at once, both wired to the real useLocalCartStore (see
+ * that store's doc comment — client-only stand-in for /v2/cart).
  */
 export function HeroBanner({ tenantSlug }: { tenantSlug: string }) {
-  const { data: collections, isLoading } = useCollections(tenantSlug);
+  const { data: collections, isLoading } = useCollections(tenantSlug, "OUTFIT");
 
   const [activeIndex, setActiveIndex] = useState(0);
   const addCartItem = useLocalCartStore((s) => s.addItem);
@@ -276,7 +278,7 @@ export function HeroBanner({ tenantSlug }: { tenantSlug: string }) {
             />
           </div>
 
-          <div className="flex flex-col gap-4">
+          <div className="scrollbar-hide flex max-h-[420px] flex-col gap-4 overflow-y-auto pr-1">
             {activeLook.items.map((item, i) => (
               <div
                 key={item.id}

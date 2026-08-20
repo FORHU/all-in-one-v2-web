@@ -9,7 +9,7 @@ import { useLastOrderStore } from "@/features/storefront/stores/lastOrder.store"
 import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
 import { useBuyNowStore } from "@/features/storefront/stores/buyNow.store";
 import { SHIPPING_METHODS } from "../data/checkoutRules";
-import { COLOR_NAMES } from "../components/CategoryFilters";
+import { COLOR_NAMES } from "../utils/colorNames";
 
 const TRACKING_STAGES = ["Order Placed", "Processing", "Shipped", "Delivered"];
 

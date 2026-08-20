@@ -25,7 +25,7 @@ import { useWishlistStore } from "@/features/storefront/stores/wishlist.store";
 import { useBuyNow } from "../hooks/useBuyNow";
 import { toProductCardProduct } from "../utils/toProductCardProduct";
 import { useFashionColorMode } from "../stores/colorMode.store";
-import { getFashionColors, fashionFraunces, fashionInter } from "../theme";
+import { getFashionColors, fashionDidone, fashionInter } from "../theme";
 import { ProductSpecSheet } from "../components/ProductSpecSheet";
 
 /**
@@ -117,7 +117,7 @@ export function FashionProductDetailPage({
             style={{ color: colors.bone }}
           >
             <h1
-              className={fashionFraunces.className}
+              className={fashionDidone.className}
               style={{ fontSize: 28, fontWeight: 600 }}
             >
               Product not found
@@ -408,7 +408,7 @@ export function FashionProductDetailPage({
               </div>
 
               <h1
-                className={fashionFraunces.className}
+                className={fashionDidone.className}
                 style={{ fontSize: 32, fontWeight: 600, marginTop: 10 }}
               >
                 {product.title}
@@ -416,7 +416,7 @@ export function FashionProductDetailPage({
 
               <div className="mt-4 flex flex-wrap items-center gap-3">
                 <span
-                  className={fashionFraunces.className}
+                  className={fashionDidone.className}
                   style={{ fontSize: 22, fontWeight: 600 }}
                 >
                   ${price.toFixed(2)}

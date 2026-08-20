@@ -39,7 +39,9 @@ export function FeaturedProducts({ tenantSlug }: { tenantSlug: string }) {
           </h2>
           <div
             className="mt-3 h-0.5 w-10"
-            style={{ backgroundColor: "var(--brand-primary)" }}
+            style={{
+              backgroundColor: "var(--brand-accent, var(--brand-primary))",
+            }}
           />
         </div>
         <Link

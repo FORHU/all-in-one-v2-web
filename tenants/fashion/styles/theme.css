@@ -7,13 +7,19 @@
  * theme.ts's FASHION_DARK_COLORS, the canonical source these values are
  * copied from (kept in sync with utils/colorModeVars.ts's "dark" entry,
  * since this is also the default mode before the toggle hydrates).
- * --font-fraunces/--font-inter-fashion are set by next/font/google via the
- * fashionFraunces/fashionInter .variable classNames applied in
+ * --brand-accent/--brand-border expose the same palette's Brass/Hairline
+ * roles, so shared/ components (ProductCard's numbered eyebrow, etc.) can
+ * pick up the tenant's warm tan accent instead of only the two-tone
+ * primary/secondary pairing.
+ * --font-didone/--font-inter-fashion are set by next/font/google via the
+ * fashionDidone/fashionInter .variable classNames applied in
  * layouts/StorefrontLayout.tsx and pages/LoginPage.tsx (theme.ts).
  */
 :root[data-tenant="fashion"] {
   --brand-primary: #f6f1e7;
   --brand-secondary: #121110;
-  --font-heading: var(--font-fraunces), serif;
+  --brand-accent: #b9945c;
+  --brand-border: #2e2b27;
+  --font-heading: var(--font-didone), serif;
   --font-body: var(--font-inter-fashion), sans-serif;
 }
