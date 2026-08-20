@@ -1,0 +1,181 @@
+name: Deploy Staging
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, tag, or SHA to deploy"
+        required: true
+        default: main
+
+concurrency:
+  group: all-in-one-v2-web-deploy-staging
+  cancel-in-progress: true
+
+env:
+  ECR_REPOSITORY: all-in-one-v2-web
+  AWS_REGION: ap-southeast-1
+  NODE_ENV: staging
+  IMAGE_TAG: ${{ github.event.workflow_run.head_sha || github.sha }}
+  EC2_IAM_ROLE_NAME: forhu-staging-style-os-mirror-role
+  CONTAINER_NAME: all-in-one-v2-web
+  APP_PORT: 5001
+  DEPLOY_ARTIFACTS_BUCKET: ${{ secrets.DEPLOY_ARTIFACTS_BUCKET || 'forhu-deploy-artifacts' }}
+  NEXT_PUBLIC_APP_ENV: staging
+  NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'https://staging-api.example.com' }}
+  NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL || 'https://staging.example.com' }}
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '' }}
+  NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '' }}
+
+jobs:
+  deploy:
+    name: Build, Push & Deploy (staging)
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    environment: staging
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.event.workflow_run.head_sha }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY || secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Grant EC2 role ECR pull access
+        run: |
+          aws iam put-role-policy \
+            --role-name "${{ env.EC2_IAM_ROLE_NAME }}" \
+            --policy-name all-in-one-v2-web-ecr-pull \
+            --policy-document file://infra/ec2-ecr-pull-policy.json || echo "Warning: Could not attach inline policy."
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
+        run: |
+          ECR="${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}"
+          docker build \
+            -t "$ECR:${{ env.IMAGE_TAG }}" \
+            -t "$ECR:latest" \
+            --build-arg NEXT_PUBLIC_API_URL="${{ env.NEXT_PUBLIC_API_URL }}" \
+            --build-arg NEXT_PUBLIC_SITE_URL="${{ env.NEXT_PUBLIC_SITE_URL }}" \
+            --build-arg NEXT_PUBLIC_APP_ENV="${{ env.NEXT_PUBLIC_APP_ENV }}" \
+            --build-arg NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="${{ env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}" \
+            --build-arg NEXT_PUBLIC_GOOGLE_CLIENT_ID="${{ env.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}" \
+            .
+          docker push "$ECR:${{ env.IMAGE_TAG }}"
+          docker push "$ECR:latest"
+
+      - name: Write env file
+        run: |
+          cat > ${{ github.workspace }}/web.env << EOF
+          PORT=${{ env.APP_PORT }}
+          NODE_ENV=${{ env.NODE_ENV }}
+          NEXT_PUBLIC_API_URL=${{ env.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_SITE_URL=${{ env.NEXT_PUBLIC_SITE_URL }}
+          NEXT_PUBLIC_APP_ENV=${{ env.NEXT_PUBLIC_APP_ENV }}
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${{ env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+          NEXT_PUBLIC_GOOGLE_CLIENT_ID=${{ env.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
+          EOF
+
+      - name: Upload env file to S3
+        run: |
+          S3_ENV_KEY="deploy/${{ env.NODE_ENV }}/${{ env.CONTAINER_NAME }}/${{ github.run_id }}-${{ github.run_attempt }}/web.env"
+          echo "S3_ENV_KEY=$S3_ENV_KEY" >> "$GITHUB_ENV"
+          aws s3 cp ${{ github.workspace }}/web.env "s3://${{ env.DEPLOY_ARTIFACTS_BUCKET }}/$S3_ENV_KEY" --sse AES256
+
+      - name: Deploy via SSM
+        env:
+          EC2_INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
+        run: |
+          set -e
+
+          SCRIPT=$(cat << 'SCRIPT_EOF'
+          set -e
+          aws s3 cp "s3://${{ env.DEPLOY_ARTIFACTS_BUCKET }}/${{ env.S3_ENV_KEY }}" /home/ec2-user/web.env
+          aws s3 rm "s3://${{ env.DEPLOY_ARTIFACTS_BUCKET }}/${{ env.S3_ENV_KEY }}"
+          chmod 600 /home/ec2-user/web.env
+          set -a
+          source /home/ec2-user/web.env
+          set +a
+          aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
+          docker pull ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+
+          docker stop ${{ env.CONTAINER_NAME }} 2>/dev/null || true
+          docker rm ${{ env.CONTAINER_NAME }} 2>/dev/null || true
+          docker run -d --name ${{ env.CONTAINER_NAME }} --restart unless-stopped \
+            --network all-in-one \
+            --env-file /home/ec2-user/web.env \
+            -p ${{ env.APP_PORT }}:${{ env.APP_PORT }} \
+            --log-driver json-file \
+            --log-opt max-size=10m \
+            --log-opt max-file=3 \
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+
+          echo "Verifying frontend health..."
+          HEALTH_CHECK_PASSED=false
+          for i in $(seq 1 10); do
+            if curl -sf http://127.0.0.1:${{ env.APP_PORT }}/ > /dev/null 2>&1; then
+              echo "Health check passed!"
+              HEALTH_CHECK_PASSED=true
+              break
+            fi
+            echo "Waiting for frontend to become ready... (attempt $i/10)"
+            sleep 3
+          done
+
+          if [ "$HEALTH_CHECK_PASSED" = false ]; then
+            echo "Health check failed after 30 seconds. Displaying container logs:"
+            docker logs ${{ env.CONTAINER_NAME }} --tail 50
+            exit 1
+          fi
+
+          docker image prune -f
+          SCRIPT_EOF
+          )
+
+          PAYLOAD=$(jq -n \
+            --arg script "$SCRIPT" \
+            --arg instance_id "$EC2_INSTANCE_ID" \
+            --arg comment "Deploy ${{ env.CONTAINER_NAME }}:${{ env.IMAGE_TAG }}" \
+            '{DocumentName: "AWS-RunShellScript", InstanceIds: [$instance_id], TimeoutSeconds: 1200, Comment: $comment, Parameters: {commands: [$script]}}')
+
+          COMMAND_ID=$(aws ssm send-command --cli-input-json "$PAYLOAD" --query "Command.CommandId" --output text)
+          echo "SSM Command ID: $COMMAND_ID"
+
+          STATUS="InProgress"
+          for i in $(seq 1 120); do
+            STATUS=$(aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$EC2_INSTANCE_ID" --query "Status" --output text 2>/dev/null || echo "Pending")
+            if [[ "$STATUS" != "InProgress" && "$STATUS" != "Pending" && "$STATUS" != "Delayed" ]]; then
+              break
+            fi
+            sleep 10
+          done
+
+          echo "--- Remote stdout ---"
+          aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$EC2_INSTANCE_ID" --query "StandardOutputContent" --output text
+          echo "--- Remote stderr ---"
+          aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$EC2_INSTANCE_ID" --query "StandardErrorContent" --output text
+
+          if [ "$STATUS" != "Success" ]; then
+            echo "SSM command finished with status: $STATUS"
+            exit 1
+          fi
