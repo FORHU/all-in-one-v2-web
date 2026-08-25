@@ -30,6 +30,8 @@ export interface Look {
   id: string;
   name: string;
   category: LookCategory;
+  /** Raw CatalogCollection.type from the API (e.g. "OUTFIT", "BUNDLE", "LOOKBOOK") — shown as a small badge on the card. Static mock looks below don't have a real one, so it's optional there. */
+  type?: string;
   imageLabel: string;
   imageUrl?: string | null;
   items: LookItem[];

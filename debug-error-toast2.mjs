@@ -19,7 +19,7 @@ page.on("response", async (res) => {
   }
 });
 
-await page.goto("http://addictstyle.com:3000/categories/shoes", {
+await page.goto("http://addictstyle.com:5000/categories/shoes", {
   waitUntil: "networkidle",
   timeout: 30000,
 });

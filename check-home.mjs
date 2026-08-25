@@ -1,7 +1,7 @@
 import { chromium } from "playwright";
 const browser = await chromium.launch();
 const page = await browser.newPage();
-await page.goto("http://addictstyle.com:3000/", {
+await page.goto("http://addictstyle.com:5000/", {
   waitUntil: "networkidle",
   timeout: 30000,
 });

@@ -37,10 +37,10 @@ type FashionColors = ReturnType<typeof getFashionColors>;
  * tagged looks renders an explicit "No product available" empty state
  * rather than nothing, which is expected for categories like
  * Shoes/Accessories/Kids that don't have a dedicated look yet. Separate from
- * components/HeroBanner.tsx's own "Get the Look" carousel, which is also
- * backed by CatalogCollection (via the same useCollections hook, one query
- * per fixed category) but fetches one look per category rather than being
- * scoped to a single page.
+ * components/HeroBanner.tsx's "Get the Look" moodboard
+ * (components/GetTheLookMoodboard.tsx), which is also backed by
+ * CatalogCollection (via the same useCollections hook) but is unscoped by
+ * category — every curated look for the tenant, not just one page's.
  *
  * Follows the site's light/dark toggle — see ../theme.ts's
  * getFashionColors. Gated behind a mount flag since useFashionColorMode

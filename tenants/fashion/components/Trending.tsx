@@ -6,6 +6,7 @@ import { useProducts } from "@/features/storefront/hooks/queries/useProducts";
 import { quickAddToCart } from "../utils/quickAddToCart";
 import { toProductCardProduct } from "../utils/toProductCardProduct";
 import { useBuyNow } from "../hooks/useBuyNow";
+import { fashionWardrobePanelBackgroundImage } from "../theme";
 
 function shuffle<T>(items: T[]): T[] {
   const shuffled = [...items];
@@ -44,60 +45,67 @@ export function Trending({ tenantSlug }: { tenantSlug: string }) {
   if (isLoading || products.length === 0) return null;
 
   return (
-    <section className="mx-auto max-w-7xl px-6 py-16">
-      <div className="mb-8">
-        <h2
-          className="text-2xl font-bold tracking-tight sm:text-3xl"
-          style={{
-            color: "var(--brand-primary)",
-            fontFamily: "var(--font-heading)",
-          }}
-        >
-          Trending
-        </h2>
-        <div
-          className="mt-3 h-0.5 w-10"
-          style={{
-            backgroundColor: "var(--brand-accent, var(--brand-primary))",
-          }}
-        />
-      </div>
-      <div
-        className="grid grid-cols-3 gap-5 sm:grid-cols-4 lg:grid-cols-6"
-        style={{ color: "var(--brand-primary)" }}
-      >
-        {products.map((product, i) => (
-          <ProductCard
-            key={product.id}
-            product={toProductCardProduct(product)}
-            onQuickAdd={quickAddToCart}
-            onBuyNow={buyNow}
-            index={i + 1}
+    // Full-width backdrop carries the same pinstripe texture as the "Get
+    // the Look" moodboard above it (components/GetTheLookMoodboard.tsx),
+    // with the max-w-7xl content column nested inside rather than being
+    // the textured element itself — otherwise the pattern would stop at
+    // the content's own width instead of spanning edge to edge.
+    <section style={{ backgroundImage: fashionWardrobePanelBackgroundImage }}>
+      <div className="mx-auto max-w-7xl px-6 py-16">
+        <div className="mb-8">
+          <h2
+            className="text-2xl font-bold tracking-tight sm:text-3xl"
+            style={{
+              color: "var(--brand-primary)",
+              fontFamily: "var(--font-heading)",
+            }}
+          >
+            Trending
+          </h2>
+          <div
+            className="mt-3 h-0.5 w-10"
+            style={{
+              backgroundColor: "var(--brand-accent, var(--brand-primary))",
+            }}
           />
-        ))}
-      </div>
+        </div>
+        <div
+          className="grid grid-cols-3 gap-5 sm:grid-cols-4 lg:grid-cols-6"
+          style={{ color: "var(--brand-primary)" }}
+        >
+          {products.map((product, i) => (
+            <ProductCard
+              key={product.id}
+              product={toProductCardProduct(product)}
+              onQuickAdd={quickAddToCart}
+              onBuyNow={buyNow}
+              index={i + 1}
+            />
+          ))}
+        </div>
 
-      {/* Marks the end of the curated/random Trending rail before the page
-          drops back into standard footer content below. */}
-      <div className="mt-16 flex items-center justify-center gap-4">
-        <span
-          className="h-px flex-1"
-          style={{
-            backgroundColor:
-              "color-mix(in srgb, var(--brand-primary) 15%, transparent)",
-          }}
-        />
-        <span
-          className="h-1.5 w-1.5 flex-none rounded-full"
-          style={{ backgroundColor: "var(--brand-primary)" }}
-        />
-        <span
-          className="h-px flex-1"
-          style={{
-            backgroundColor:
-              "color-mix(in srgb, var(--brand-primary) 15%, transparent)",
-          }}
-        />
+        {/* Marks the end of the curated/random Trending rail before the page
+            drops back into standard footer content below. */}
+        <div className="mt-16 flex items-center justify-center gap-4">
+          <span
+            className="h-px flex-1"
+            style={{
+              backgroundColor:
+                "color-mix(in srgb, var(--brand-primary) 15%, transparent)",
+            }}
+          />
+          <span
+            className="h-1.5 w-1.5 flex-none rounded-full"
+            style={{ backgroundColor: "var(--brand-primary)" }}
+          />
+          <span
+            className="h-px flex-1"
+            style={{
+              backgroundColor:
+                "color-mix(in srgb, var(--brand-primary) 15%, transparent)",
+            }}
+          />
+        </div>
       </div>
     </section>
   );

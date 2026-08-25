@@ -38,12 +38,22 @@ export function ImagePlaceholder({
   aspect = "1/1",
   shape = "rounded",
   className = "",
+  objectFit = "cover",
 }: {
   label: string;
   imageUrl?: string | null;
   aspect?: string;
   shape?: "rounded" | "circle";
   className?: string;
+  /**
+   * "cover" (default) fills the box and crops to it — fine for roughly
+   * box-shaped source photos. "contain" letterboxes instead of cropping —
+   * needed for sources whose real aspect ratio is far more extreme than
+   * the box (e.g. a full-length hanging-garment shot several times taller
+   * than it is wide), where "cover" would crop off the top/bottom of the
+   * outfit itself rather than just trimming empty background.
+   */
+  objectFit?: "cover" | "contain";
 }) {
   const shapeClass = shape === "circle" ? "rounded-full" : "rounded-2xl";
 
@@ -58,7 +68,9 @@ export function ImagePlaceholder({
           alt={label}
           fill
           sizes="(max-width: 640px) 50vw, (max-width: 1280px) 33vw, 25vw"
-          className="object-cover"
+          className={
+            objectFit === "contain" ? "object-contain" : "object-cover"
+          }
         />
       </div>
     );

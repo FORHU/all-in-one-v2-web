@@ -6,13 +6,11 @@ import type { Address } from "@/features/storefront/contracts/address.contract";
  * shipping-completeness.util.ts.
  */
 export const REQUIRED_SHIPPING_FIELDS = [
-  "countryCode",
   "country",
   "state",
   "city",
   "addressLine1",
-  "firstName",
-  "lastName",
+  "fullName",
   "postalCode",
   "phone",
 ] as const satisfies readonly (keyof Address)[];
