@@ -43,19 +43,17 @@ export function FashionGetTheLookMoodboard({
   tenantSlug: string;
 }) {
   const { data: collections, isLoading } = useCollections(tenantSlug, "OUTFIT");
+  // Only bare outfits belong on this moodboard — a non-null metadata (e.g.
+  // { season: "SUMMER" }) marks a collection as tagged for some other
+  // seasonal/curated surface, not a plain "Get the Look" pick. isDeleted
+  // rows never reach here at all — the backend's collections list already
+  // filters those out (collection.repository.ts findAllRoot).
   const looks: Look[] = (collections ?? [])
-    .filter((collection) => collection.items.length > 0)
+    .filter(
+      (collection) =>
+        collection.items.length > 0 && collection.metadata === null,
+    )
     .map(toLook);
-  // Each column's "Complete the Look" item list below the hero photo is an
-  // independent vertical stack, not a real CSS grid — so when outfits have
-  // different item counts (e.g. 4 for Cold/Winter, 3 for the rest), the
-  // shorter columns just stop, leaving a ragged blank gap under the taller
-  // ones instead of a clean last row. Capping every column's list to the
-  // shortest outfit's item count keeps all 6 the same height with no gaps.
-  // Only applies to this grid view — the detail overlay below still shows
-  // every item in a look via activeLook.items directly.
-  const minItemCount =
-    looks.length > 0 ? Math.min(...looks.map((look) => look.items.length)) : 0;
 
   const [activeLookId, setActiveLookId] = useState<string | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -233,17 +231,16 @@ export function FashionGetTheLookMoodboard({
                   wrapping grid: 6 columns show by default on desktop (2 on
                   mobile, 3 on tablet) and any looks beyond that are reached
                   by swiping/scrolling sideways rather than wrapping to a
-                  second row. Gap kept minimal (gap-x-1/1.5) and the hero
-                  image tall (3/5) so each column's basis-calc offset must
-                  stay in sync with the gap total (30px = 5 gaps x 6px
-                  sm:gap-x-1.5). */}
-              <div className="mt-6 flex snap-x snap-mandatory gap-x-1 overflow-x-auto pb-2 scrollbar-hide sm:gap-x-1.5">
+                  second row. Gap kept minimal (gap-x-1) and the hero image
+                  tall (3/5) so each column's basis-calc offset must stay in
+                  sync with the gap total (20px = 5 gaps x 4px gap-x-1). */}
+              <div className="mt-6 flex snap-x snap-mandatory gap-x-1 overflow-x-auto pb-2 scrollbar-hide">
                 {looks.map((look) => {
                   const isFavorite = wishlistIds.includes(look.id);
                   return (
                     <div
                       key={look.id}
-                      className="flex min-w-0 flex-none snap-start basis-1/2 flex-col items-stretch sm:basis-1/3 lg:basis-[calc((100%-30px)/6)]"
+                      className="flex min-w-0 flex-none snap-start basis-1/2 flex-col items-stretch sm:basis-1/3 lg:basis-[calc((100%-20px)/6)]"
                     >
                       <div className="flex flex-col items-center gap-3 pb-2 pt-1">
                         <button
@@ -296,55 +293,6 @@ export function FashionGetTheLookMoodboard({
                             style={{ backgroundColor: "currentColor" }}
                           />
                         </button>
-                      </div>
-
-                      <div
-                        className="mt-8 flex flex-col border-t pt-8"
-                        style={{ borderColor: MOOD.border }}
-                      >
-                        {look.items.slice(0, minItemCount).map((item) => {
-                          const tileContent = (
-                            <>
-                              <div className="relative aspect-square w-24 overflow-hidden">
-                                <ImagePlaceholder
-                                  label={item.imageLabel}
-                                  imageUrl={item.imageUrl}
-                                  aspect="1/1"
-                                  shape="rounded"
-                                  className="h-full w-full text-current transition-transform duration-300 group-hover:scale-[1.04]"
-                                />
-                              </div>
-                              <div
-                                className="w-full truncate text-center text-[11px] font-bold uppercase tracking-[0.1em]"
-                                style={{
-                                  color: MOOD.ink,
-                                  fontFamily: fashionInter.style.fontFamily,
-                                }}
-                              >
-                                {item.name}
-                              </div>
-                            </>
-                          );
-
-                          return item.slug ? (
-                            <Link
-                              key={item.id}
-                              href={`/products/${item.slug}`}
-                              className="group flex min-w-0 flex-col items-center gap-2 border-b py-6"
-                              style={{ borderColor: MOOD.border }}
-                            >
-                              {tileContent}
-                            </Link>
-                          ) : (
-                            <div
-                              key={item.id}
-                              className="group flex min-w-0 flex-col items-center gap-2 border-b py-6"
-                              style={{ borderColor: MOOD.border }}
-                            >
-                              {tileContent}
-                            </div>
-                          );
-                        })}
                       </div>
                     </div>
                   );
