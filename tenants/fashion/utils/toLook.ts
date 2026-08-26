@@ -49,6 +49,7 @@ export function toLook(collection: Collection): Look {
     id: collection.id,
     name: collection.title,
     category: toCategory(collection.metadata),
+    type: collection.type,
     imageLabel: collection.title,
     imageUrl:
       collection.imageUrl ?? collection.items[0]?.product.thumbnailUrl ?? null,

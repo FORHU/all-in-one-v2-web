@@ -1,13 +1,16 @@
 "use client";
 
-import {
-  useEffect,
-  useRef,
-  useState,
-  type PointerEvent as ReactPointerEvent,
-} from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Check, ChevronLeft, ChevronRight, Heart, Plus } from "lucide-react";
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Heart,
+  Maximize2,
+  Plus,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { ImagePlaceholder } from "@/shared/components/ImagePlaceholder";
 import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
@@ -18,33 +21,31 @@ import { toLook } from "../utils/toLook";
 import { useFashionColorMode } from "../stores/colorMode.store";
 import { getFashionColors, fashionDidone } from "../theme";
 
-const PANEL_HEIGHT = "lg:h-[520px]";
 type FashionColors = ReturnType<typeof getFashionColors>;
 
 /**
  * Fashion — "Shop the Look" widget shown above the filters+grid on
- * pages/CategoryDetailPage.tsx. Three panels: a vertical looks carousel
- * (left), the active look at large size (center), and that look's
- * individual pieces (right). Backed by CatalogCollection/CatalogCollectionItem
- * via GET /v2/collections (no type filter — fetches both OUTFIT and LOOKBOOK
- * rows), scoped to `categorySlug` so each category page only shows looks
- * featured under it (e.g. Men only shows looks tagged mens-fashion) — a
- * category with no tagged looks renders an explicit "No product available"
- * empty state rather than nothing, which is expected for categories like
+ * pages/CategoryDetailPage.tsx. A dense mosaic grid of every look's thumbnail
+ * (matches a "30 outfit ideas" moodboard reference, not a single-look
+ * carousel) — clicking a thumbnail opens the full look (large photo,
+ * prev/next between looks, "Complete the Look" items, Add All to Bag) in an
+ * overlay, reusing the same detail logic the old 3-panel layout had inline.
+ * Backed by CatalogCollection/CatalogCollectionItem via GET /v2/collections
+ * (no type filter — fetches both OUTFIT and LOOKBOOK rows), scoped to
+ * `categorySlug` so each category page only shows looks featured under it
+ * (e.g. Men only shows looks tagged mens-fashion) — a category with no
+ * tagged looks renders an explicit "No product available" empty state
+ * rather than nothing, which is expected for categories like
  * Shoes/Accessories/Kids that don't have a dedicated look yet. Separate from
- * components/HeroBanner.tsx's own "Get the Look" carousel, which is also
- * backed by CatalogCollection (via the same useCollections hook, one query
- * per fixed category) but fetches one look per category rather than being
- * scoped to a single page.
+ * components/HeroBanner.tsx's "Get the Look" moodboard
+ * (components/GetTheLookMoodboard.tsx), which is also backed by
+ * CatalogCollection (via the same useCollections hook) but is unscoped by
+ * category — every curated look for the tenant, not just one page's.
  *
  * Follows the site's light/dark toggle — see ../theme.ts's
  * getFashionColors. Gated behind a mount flag since useFashionColorMode
  * persists to localStorage, unavailable during SSR (same pattern as
- * layouts/StorefrontLayout.tsx). Inactive thumbnails in the left carousel
- * are dimmed with a black gradient overlay on the image itself rather than
- * fading the whole element's opacity — a plain opacity fade let the page
- * background show through and washed out both the image and its label in
- * light mode.
+ * layouts/StorefrontLayout.tsx).
  */
 export function TrendingLookbook({
   tenantSlug,
@@ -61,6 +62,7 @@ export function TrendingLookbook({
   const looks: Look[] = (collections ?? []).map(toLook);
 
   const [activeLookId, setActiveLookId] = useState<string | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [justAddedAll, setJustAddedAll] = useState(false);
   const [addAllPulse, setAddAllPulse] = useState(0);
   const addAllTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -74,52 +76,22 @@ export function TrendingLookbook({
   const mode = hasMounted ? colorMode : "dark";
   const colors = getFashionColors(mode);
 
-  // Looks load asynchronously — pick the first one once they arrive, and
-  // re-pick if the currently active look disappears (e.g. data refetches).
+  // Closing the overlay (Escape, backdrop click, X) only hides it — the
+  // last-viewed look stays selected so reopening (or navigating prev/next
+  // right after) doesn't jump back to look #1.
   useEffect(() => {
-    if (looks.length === 0) return;
-    if (!looks.some((look) => look.id === activeLookId)) {
-      setActiveLookId(looks[0].id);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [looks.map((l) => l.id).join(",")]);
+    if (!isDetailOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsDetailOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isDetailOpen]);
 
-  // Crossfades the center photo when the active look changes (arrows,
-  // thumbnail clicks, category switches). The photo shown is deliberately
-  // decoupled from `activeLookId` — title/subtitle/right panel update
-  // immediately, but the image itself keeps rendering the *previous* look
-  // until it has faded to 0, only then swapping `src` and fading back in.
-  // Swapping the src immediately (e.g. via a plain opacity toggle on the
-  // same render as the id change) makes the new photo pop in at full
-  // opacity on the very first frame, since nothing lags behind to fade —
-  // this is what made the transition invisible before.
-  const FADE_MS = 300;
-  const [displayedLookId, setDisplayedLookId] = useState<string | null>(null);
-  const [imageVisible, setImageVisible] = useState(true);
-  useEffect(() => {
-    if (activeLookId === null || activeLookId === displayedLookId) return;
-    if (displayedLookId === null) {
-      // First look ever selected — show it immediately, nothing to fade from.
-      setDisplayedLookId(activeLookId);
-      return;
-    }
-    setImageVisible(false);
-    const timeout = setTimeout(() => {
-      setDisplayedLookId(activeLookId);
-      setImageVisible(true);
-    }, FADE_MS);
-    return () => clearTimeout(timeout);
-  }, [activeLookId, displayedLookId]);
-
-  const carouselRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef({
-    dragging: false,
-    startX: 0,
-    startY: 0,
-    scrollLeft: 0,
-    scrollTop: 0,
-    moved: false,
-  });
+  const openLook = (id: string) => {
+    setActiveLookId(id);
+    setIsDetailOpen(true);
+  };
 
   // Still loading — nothing to show yet either way, so stay hidden rather
   // than flash an empty state before the real data (or lack of it) arrives.
@@ -157,84 +129,21 @@ export function TrendingLookbook({
     );
   }
 
-  const filteredLooks = looks;
   const activeLook = looks.find((look) => look.id === activeLookId) ?? looks[0];
-  if (!activeLook) return null;
-  const displayedLook =
-    looks.find((look) => look.id === displayedLookId) ?? activeLook;
+  const activeIndex = looks.findIndex((look) => look.id === activeLook.id);
   const total = activeLook.items.reduce((sum, item) => sum + item.price, 0);
-  const lookNumber = String(
-    looks.findIndex((look) => look.id === activeLook.id) + 1,
-  ).padStart(3, "0");
+  const lookNumber = String(activeIndex + 1).padStart(3, "0");
   const baseItems = activeLook.items.filter((item) => item.tag === "BASE");
   const accessoryItems = activeLook.items.filter((item) => item.tag === "OVER");
 
-  // Center-panel arrows step through the same filteredLooks list the left
-  // carousel renders, so advancing here also moves the highlighted
-  // thumbnail there — one shared selection, two ways to drive it.
-  const activeIndexInFiltered = filteredLooks.findIndex(
-    (look) => look.id === activeLook.id,
-  );
-
   const showPrevLook = () => {
-    if (filteredLooks.length === 0) return;
-    const currentIndex =
-      activeIndexInFiltered === -1 ? 0 : activeIndexInFiltered;
-    const prevIndex =
-      (currentIndex - 1 + filteredLooks.length) % filteredLooks.length;
-    setActiveLookId(filteredLooks[prevIndex].id);
+    const prevIndex = (activeIndex - 1 + looks.length) % looks.length;
+    setActiveLookId(looks[prevIndex].id);
   };
 
   const showNextLook = () => {
-    if (filteredLooks.length === 0) return;
-    const currentIndex =
-      activeIndexInFiltered === -1 ? 0 : activeIndexInFiltered;
-    const nextIndex = (currentIndex + 1) % filteredLooks.length;
-    setActiveLookId(filteredLooks[nextIndex].id);
-  };
-
-  // Click-and-drag scrolling for mouse users — touch already scrolls
-  // natively via swipe, so this only activates for pointerType "mouse".
-  // Pointer capture is deferred until real movement crosses the threshold
-  // (not taken immediately on pointerdown) — setPointerCapture also
-  // redirects the compatibility mouse/click events to the capturing
-  // element, so capturing eagerly silently ate every plain click on the
-  // look thumbnails, drag or not. `moved` gates whether a drag should
-  // suppress the click (dragging past a thumbnail shouldn't select it).
-  const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.pointerType !== "mouse") return;
-    const container = carouselRef.current;
-    if (!container) return;
-    dragRef.current = {
-      dragging: true,
-      startX: event.clientX,
-      startY: event.clientY,
-      scrollLeft: container.scrollLeft,
-      scrollTop: container.scrollTop,
-      moved: false,
-    };
-  };
-
-  const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const drag = dragRef.current;
-    const container = carouselRef.current;
-    if (!drag.dragging || !container) return;
-    const dx = event.clientX - drag.startX;
-    const dy = event.clientY - drag.startY;
-    if (!drag.moved && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
-      drag.moved = true;
-      container.setPointerCapture(event.pointerId);
-    }
-    if (!drag.moved) return;
-    container.scrollLeft = drag.scrollLeft - dx;
-    container.scrollTop = drag.scrollTop - dy;
-  };
-
-  const handlePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
-    dragRef.current.dragging = false;
-    if (carouselRef.current?.hasPointerCapture(event.pointerId)) {
-      carouselRef.current.releasePointerCapture(event.pointerId);
-    }
+    const nextIndex = (activeIndex + 1) % looks.length;
+    setActiveLookId(looks[nextIndex].id);
   };
 
   const addAllToBag = () => {
@@ -274,288 +183,295 @@ export function TrendingLookbook({
 
   return (
     <section className="mx-auto flex max-w-7xl flex-col gap-6 px-6 pt-10">
-      {/* Header — eyebrow, title, subtitle, category tabs */}
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-col items-center gap-3 text-center">
-          <div className="flex items-center justify-center gap-4">
-            <span
-              className="h-px w-10"
-              style={{ backgroundColor: colors.hairline }}
-            />
-            <span
-              className="text-[11px] font-semibold uppercase tracking-[0.35em]"
-              style={{ color: colors.brass }}
-            >
-              Shop the Look
-            </span>
-            <span
-              className="h-px w-10"
-              style={{ backgroundColor: colors.hairline }}
-            />
-          </div>
-
-          <h2
-            className="text-2xl font-medium tracking-tight sm:text-3xl"
-            style={{
-              color: colors.bone,
-              fontFamily: fashionDidone.style.fontFamily,
-            }}
+      {/* Header — eyebrow + title */}
+      <div className="flex flex-col items-center gap-3 text-center">
+        <div className="flex items-center justify-center gap-4">
+          <span
+            className="h-px w-10"
+            style={{ backgroundColor: colors.hairline }}
+          />
+          <span
+            className="text-[11px] font-semibold uppercase tracking-[0.35em]"
+            style={{ color: colors.brass }}
           >
-            {activeLook.name}
-          </h2>
+            Shop the Look
+          </span>
+          <span
+            className="h-px w-10"
+            style={{ backgroundColor: colors.hairline }}
+          />
         </div>
+        <h2
+          className="text-2xl font-medium tracking-tight sm:text-3xl"
+          style={{
+            color: colors.bone,
+            fontFamily: fashionDidone.style.fontFamily,
+          }}
+        >
+          {looks.length} Outfit Idea{looks.length !== 1 ? "s" : ""}
+        </h2>
       </div>
 
-      <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-[400px_1fr_320px]">
-        {/* Left — looks carousel, product-photo thumbnails */}
-        <div
-          ref={carouselRef}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerLeave={handlePointerUp}
-          className={`scrollbar-hide flex min-w-0 cursor-grab select-none gap-2 overflow-x-auto overflow-y-hidden pb-1 active:cursor-grabbing lg:grid lg:grid-cols-3 lg:auto-rows-[240px] lg:gap-1.5 lg:overflow-x-hidden lg:overflow-y-auto lg:pb-0 ${PANEL_HEIGHT}`}
-        >
-          {filteredLooks.map((look) => {
-            const isActive = look.id === activeLookId;
-            const isFavorite = wishlistIds.includes(look.id);
-            const lookTotal = look.items.reduce(
-              (sum, item) => sum + item.price,
-              0,
-            );
-            return (
-              <div
-                key={look.id}
-                className="flex w-20 flex-none flex-col gap-1 lg:w-full"
+      {/* Mosaic grid — every look's thumbnail, click to open the full look */}
+      <div className="grid grid-cols-5 gap-2">
+        {looks.map((look) => {
+          const isFavorite = wishlistIds.includes(look.id);
+          const lookTotal = look.items.reduce(
+            (sum, item) => sum + item.price,
+            0,
+          );
+          return (
+            <div key={look.id} className="flex flex-col gap-1.5">
+              <button
+                type="button"
+                onClick={() => openLook(look.id)}
+                aria-label={`Open ${look.name}`}
+                className="group relative aspect-[3/4] w-full overflow-hidden rounded-lg border"
+                style={{ borderColor: colors.hairline }}
               >
-                <div
-                  className="relative h-20 w-full overflow-hidden rounded-lg border-2 transition-colors duration-300 lg:h-full lg:w-full lg:flex-1"
+                <ImagePlaceholder
+                  label={look.imageLabel}
+                  imageUrl={look.imageUrl}
+                  aspect="3/4"
+                  className="h-full w-full transition-transform duration-300 group-hover:scale-105"
+                />
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
                   style={{
-                    borderColor: isActive ? colors.brass : "transparent",
+                    background:
+                      "linear-gradient(to top, rgba(0,0,0,0.45), rgba(0,0,0,0) 55%)",
+                  }}
+                />
+                <span
+                  className="absolute bottom-2 right-2 flex h-7 w-7 items-center justify-center rounded-full opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+                  style={{
+                    backgroundColor: `${colors.ink}b3`,
+                    color: colors.bone,
                   }}
                 >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (dragRef.current.moved) return;
-                      setActiveLookId(look.id);
-                    }}
-                    aria-pressed={isActive}
-                    aria-label={`Show ${look.name}`}
-                    className="absolute inset-0"
-                  >
-                    <ImagePlaceholder
-                      label={look.imageLabel}
-                      imageUrl={look.imageUrl}
-                      aspect="1/1"
-                      className="h-full w-full"
-                    />
-                    {!isActive && (
-                      <span
-                        aria-hidden="true"
-                        className="absolute inset-0 transition-opacity duration-300"
-                        style={{
-                          background:
-                            "linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0.2))",
-                        }}
-                      />
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      toggleFavorite(look.id);
-                    }}
-                    aria-pressed={isFavorite}
-                    aria-label={
-                      isFavorite
-                        ? `Remove ${look.name} from wishlist`
-                        : `Add ${look.name} to wishlist`
-                    }
-                    className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full transition-colors"
-                    style={{
-                      backgroundColor: `${colors.ink}b3`,
-                      color: isFavorite ? colors.brass : colors.bone,
-                    }}
-                  >
-                    <Heart
-                      className="h-3.5 w-3.5"
-                      fill={isFavorite ? "currentColor" : "none"}
-                    />
-                  </button>
-                </div>
-                <span
-                  className="truncate text-center text-[11px] font-semibold"
-                  style={{
-                    color: isActive ? colors.bone : colors.boneDim,
+                  <Maximize2 className="h-3.5 w-3.5" />
+                </span>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    toggleFavorite(look.id);
                   }}
+                  aria-pressed={isFavorite}
+                  aria-label={
+                    isFavorite
+                      ? `Remove ${look.name} from wishlist`
+                      : `Add ${look.name} to wishlist`
+                  }
+                  className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full"
+                  style={{
+                    backgroundColor: `${colors.ink}b3`,
+                    color: isFavorite ? colors.brass : colors.bone,
+                  }}
+                >
+                  <Heart
+                    className="h-3.5 w-3.5"
+                    fill={isFavorite ? "currentColor" : "none"}
+                  />
+                </button>
+              </button>
+              <div>
+                <div
+                  className="truncate text-xs font-semibold"
+                  style={{ color: colors.bone }}
                 >
                   {look.name}
-                </span>
-                <span
-                  className="text-center text-[10px] font-bold"
+                </div>
+                <div
+                  className="text-[11px] font-bold"
                   style={{ color: colors.brass }}
                 >
                   ${lookTotal.toFixed(2)}
-                </span>
+                </div>
               </div>
-            );
-          })}
-        </div>
+            </div>
+          );
+        })}
+      </div>
 
-        {/* Center — active look, large */}
+      {/* Detail overlay — the previously inline center/right panels, now a lightbox */}
+      {isDetailOpen && (
         <div
-          className={`relative flex min-w-0 items-center justify-center ${PANEL_HEIGHT}`}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setIsDetailOpen(false)}
         >
           <div
-            className="relative mx-auto flex h-full w-full max-w-[320px] items-center justify-center overflow-hidden rounded-2xl border"
+            className="relative flex max-h-[90vh] w-full max-w-4xl flex-col overflow-y-auto rounded-2xl border p-5 sm:flex-row sm:gap-6"
             style={{
-              backgroundColor: colors.ink,
+              backgroundColor: colors.ink2,
               borderColor: colors.hairline,
             }}
+            onClick={(event) => event.stopPropagation()}
           >
-            <ImagePlaceholder
-              label={displayedLook.imageLabel}
-              imageUrl={displayedLook.imageUrl}
-              aspect="3/4"
-              className={`h-full w-full transition-opacity duration-300 ${
-                imageVisible ? "opacity-100" : "opacity-0"
-              }`}
-            />
-            <span
-              className="absolute bottom-3 right-3 text-[10px] font-semibold uppercase tracking-[0.3em]"
-              style={{
-                color: colors.brassDim,
-                writingMode: "vertical-rl",
-              }}
+            <button
+              type="button"
+              onClick={() => setIsDetailOpen(false)}
+              aria-label="Close"
+              className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full"
+              style={{ backgroundColor: `${colors.ink}b3`, color: colors.bone }}
             >
-              Look № {lookNumber}
-            </span>
-          </div>
+              <X className="h-4 w-4" />
+            </button>
 
-          {filteredLooks.length > 1 && (
-            <>
-              <button
-                type="button"
-                onClick={showPrevLook}
-                aria-label="Show previous look"
-                className="absolute left-0 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border transition-colors hover:border-current"
+            {/* Left — active look, large */}
+            <div className="relative flex h-[320px] flex-none items-center justify-center sm:h-auto sm:w-[320px]">
+              <div
+                className="relative mx-auto flex h-full w-full max-w-[320px] items-center justify-center overflow-hidden rounded-2xl border"
                 style={{
-                  backgroundColor: colors.ink2,
+                  backgroundColor: colors.ink,
                   borderColor: colors.hairline,
-                  color: colors.bone,
                 }}
               >
-                <ChevronLeft className="h-5 w-5" />
-              </button>
-              <button
-                type="button"
-                onClick={showNextLook}
-                aria-label="Show next look"
-                className="absolute right-0 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border transition-colors hover:border-current"
+                <ImagePlaceholder
+                  label={activeLook.imageLabel}
+                  imageUrl={activeLook.imageUrl}
+                  aspect="3/4"
+                  className="h-full w-full"
+                />
+                <span
+                  className="absolute bottom-3 right-3 text-[10px] font-semibold uppercase tracking-[0.3em]"
+                  style={{ color: colors.brassDim, writingMode: "vertical-rl" }}
+                >
+                  Look № {lookNumber}
+                </span>
+              </div>
+
+              {looks.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={showPrevLook}
+                    aria-label="Show previous look"
+                    className="absolute left-0 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border transition-colors hover:border-current"
+                    style={{
+                      backgroundColor: colors.ink2,
+                      borderColor: colors.hairline,
+                      color: colors.bone,
+                    }}
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={showNextLook}
+                    aria-label="Show next look"
+                    className="absolute right-0 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border transition-colors hover:border-current"
+                    style={{
+                      backgroundColor: colors.ink2,
+                      borderColor: colors.hairline,
+                      color: colors.bone,
+                    }}
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Right — pieces in this look */}
+            <div className="mt-5 flex min-w-0 flex-1 flex-col gap-4 sm:mt-0">
+              <h2
+                className="text-xl font-medium tracking-tight"
                 style={{
-                  backgroundColor: colors.ink2,
-                  borderColor: colors.hairline,
                   color: colors.bone,
+                  fontFamily: fashionDidone.style.fontFamily,
                 }}
               >
-                <ChevronRight className="h-5 w-5" />
-              </button>
-            </>
-          )}
-        </div>
-
-        {/* Right — pieces in this look */}
-        <div className={`flex min-w-0 flex-col gap-4 ${PANEL_HEIGHT}`}>
-          <h3
-            className="text-xs font-bold uppercase tracking-[0.25em]"
-            style={{ color: colors.brass }}
-          >
-            Complete the Look
-          </h3>
-          <div className="relative flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto pr-1 scrollbar-hide">
-            <div
-              className="pointer-events-none absolute bottom-2 left-1.5 top-2 border-l border-dashed"
-              style={{ borderColor: colors.hairline }}
-            />
-            {baseItems.length > 0 && (
-              <div
-                className="pl-3 text-[10px] font-bold uppercase tracking-[0.2em]"
-                style={{ color: colors.boneDim }}
-              >
-                Base Item
-              </div>
-            )}
-            {baseItems.map((item) => (
-              <ShopTheLookItemRow
-                key={item.id}
-                item={item}
-                onAdd={addItemToBag}
-                colors={colors}
-              />
-            ))}
-
-            {accessoryItems.length > 0 && (
-              <div
-                className="pl-3 pt-2 text-[10px] font-bold uppercase tracking-[0.2em]"
-                style={{ color: colors.boneDim }}
-              >
-                Accessory Items
-              </div>
-            )}
-            {accessoryItems.map((item) => (
-              <ShopTheLookItemRow
-                key={item.id}
-                item={item}
-                onAdd={addItemToBag}
-                colors={colors}
-              />
-            ))}
-          </div>
-
-          <div
-            className="flex flex-none items-center justify-between gap-3 border-t pt-3"
-            style={{ borderColor: colors.hairline }}
-          >
-            <div>
-              <div
-                className="text-[10px] font-bold uppercase tracking-[0.2em]"
-                style={{ color: colors.boneDim }}
-              >
-                Edit Total
-              </div>
-              <span
-                className="text-lg font-bold"
+                {activeLook.name}
+              </h2>
+              <h3
+                className="text-xs font-bold uppercase tracking-[0.25em]"
                 style={{ color: colors.brass }}
               >
-                ${total.toFixed(2)}
-              </span>
+                Complete the Look
+              </h3>
+              <div className="relative flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto pr-1 scrollbar-hide">
+                <div
+                  className="pointer-events-none absolute bottom-2 left-1.5 top-2 border-l border-dashed"
+                  style={{ borderColor: colors.hairline }}
+                />
+                {baseItems.length > 0 && (
+                  <div
+                    className="pl-3 text-[10px] font-bold uppercase tracking-[0.2em]"
+                    style={{ color: colors.boneDim }}
+                  >
+                    Base Item
+                  </div>
+                )}
+                {baseItems.map((item) => (
+                  <ShopTheLookItemRow
+                    key={item.id}
+                    item={item}
+                    onAdd={addItemToBag}
+                    colors={colors}
+                  />
+                ))}
+
+                {accessoryItems.length > 0 && (
+                  <div
+                    className="pl-3 pt-2 text-[10px] font-bold uppercase tracking-[0.2em]"
+                    style={{ color: colors.boneDim }}
+                  >
+                    Accessory Items
+                  </div>
+                )}
+                {accessoryItems.map((item) => (
+                  <ShopTheLookItemRow
+                    key={item.id}
+                    item={item}
+                    onAdd={addItemToBag}
+                    colors={colors}
+                  />
+                ))}
+              </div>
+
+              <div
+                className="flex flex-none items-center justify-between gap-3 border-t pt-3"
+                style={{ borderColor: colors.hairline }}
+              >
+                <div>
+                  <div
+                    className="text-[10px] font-bold uppercase tracking-[0.2em]"
+                    style={{ color: colors.boneDim }}
+                  >
+                    Edit Total
+                  </div>
+                  <span
+                    className="text-lg font-bold"
+                    style={{ color: colors.brass }}
+                  >
+                    ${total.toFixed(2)}
+                  </span>
+                </div>
+                <button
+                  key={addAllPulse}
+                  type="button"
+                  onClick={addAllToBag}
+                  className={`flex-none whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-bold transition-opacity hover:opacity-90 ${
+                    justAddedAll ? "animate-add-bounce" : ""
+                  }`}
+                  style={{ backgroundColor: colors.brass, color: colors.ink }}
+                >
+                  {justAddedAll ? (
+                    <span className="flex items-center justify-center gap-1.5">
+                      <Check className="h-4 w-4" />
+                      Added
+                    </span>
+                  ) : (
+                    "Add all to bag"
+                  )}
+                </button>
+              </div>
             </div>
-            <button
-              key={addAllPulse}
-              type="button"
-              onClick={addAllToBag}
-              className={`flex-none whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-bold transition-opacity hover:opacity-90 ${
-                justAddedAll ? "animate-add-bounce" : ""
-              }`}
-              style={{
-                backgroundColor: colors.brass,
-                color: colors.ink,
-              }}
-            >
-              {justAddedAll ? (
-                <span className="flex items-center justify-center gap-1.5">
-                  <Check className="h-4 w-4" />
-                  Added
-                </span>
-              ) : (
-                "Add all to bag"
-              )}
-            </button>
           </div>
         </div>
-      </div>
+      )}
     </section>
   );
 }

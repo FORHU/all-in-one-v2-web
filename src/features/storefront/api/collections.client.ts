@@ -27,5 +27,22 @@ export const getCollections = async (
       headers: { "x-tenant-slug": tenantSlug },
     },
   );
-  return CollectionsApiEnvelopeSchema.parse(raw).data.items;
+  const parsed = CollectionsApiEnvelopeSchema.safeParse(raw);
+  if (parsed.success) {
+    return parsed.data.data.items;
+  }
+
+  // Defensive fallback if backend returns raw array or custom page shape
+  const rawData = (raw as { data?: unknown })?.data;
+  if (Array.isArray(rawData)) return rawData as CollectionsResponse;
+  if (
+    rawData &&
+    typeof rawData === "object" &&
+    "items" in rawData &&
+    Array.isArray(rawData.items)
+  ) {
+    return rawData.items as CollectionsResponse;
+  }
+
+  return [];
 };

@@ -19,7 +19,7 @@ export default defineConfig({
 
   // ── Shared settings ───────────────────────────────────────────────────────
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: "http://localhost:5000",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
@@ -33,7 +33,7 @@ export default defineConfig({
   // Comment this out if you prefer to run `pnpm dev` manually first.
   webServer: {
     command: "npx pnpm dev",
-    url: "http://localhost:3000",
+    url: "http://localhost:5000",
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
   },

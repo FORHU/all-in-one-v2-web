@@ -1,4 +1,4 @@
-import { Playfair_Display, Inter } from "next/font/google";
+import { Playfair_Display, Inter, Yellowtail } from "next/font/google";
 import type { FashionColorMode } from "./stores/colorMode.store";
 
 /**
@@ -69,6 +69,25 @@ export function getFashionColors(mode: FashionColorMode) {
 }
 
 /**
+ * Cream/sage moodboard palette — a fixed editorial look (not themeable via
+ * the light/dark toggle above) used by the "Get the Look" surfaces:
+ * pages/GetTheLookPage.tsx and components/HeroBanner.tsx's homepage grid.
+ * Both read from here so the two surfaces can never drift into two
+ * near-identical palettes with slightly different hex values.
+ */
+export const FASHION_MOOD_COLORS = {
+  cream: "#F7F1E4",
+  creamSoft: "#EFE6CE",
+  ink: "#2B2A26",
+  textMuted: "#6B6558",
+  sage: "#8E9977",
+  sageDark: "#707A5D",
+  border: "#E1D5B7",
+  /** Pale sage band background for the subtitle/section-header/tagline bars. */
+  band: "#DCE3CC",
+} as const;
+
+/**
  * Subtle paper/film grain for the page background (see
  * layouts/StorefrontLayout.tsx's root div), so the flat cream/ink fill
  * behind the homepage rails reads as a styled surface rather than plain
@@ -119,6 +138,18 @@ export const fashionVignetteBackgroundImage = [
 ].join(", ");
 
 /**
+ * Faint vertical pinstripe pattern for the "Get the Look" moodboard's page
+ * background (pages/GetTheLookPage.tsx via components/GetTheLookMoodboard.tsx)
+ * — applied to the whole section, not scoped to individual outfit photos,
+ * so the garments sit directly on a textured page rather than each photo
+ * carrying its own separate background box. Reads as slatted wardrobe/closet
+ * paneling. Pure CSS repeating-linear-gradient (no SVG/image asset): a 1px
+ * line every 22px at low opacity over FASHION_MOOD_COLORS' own border tone,
+ * so it stays legible as texture without competing with the garment photos.
+ */
+export const fashionWardrobePanelBackgroundImage = `repeating-linear-gradient(90deg, ${FASHION_MOOD_COLORS.border}3d 0px, ${FASHION_MOOD_COLORS.border}3d 1px, transparent 1px, transparent 22px)`;
+
+/**
  * Loaded once here and applied globally via layout.tsx's --font-didone/
  * --font-inter CSS variables (see globals wiring) — styles/theme.css then
  * points --font-heading/--font-body at them for this tenant only. Playfair
@@ -143,6 +174,19 @@ export const fashionDidone = Playfair_Display({
 export const fashionInter = Inter({
   variable: "--font-inter-fashion",
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+});
+
+/**
+ * Cursive accent face for the "Get the Look" landing page's moodboard-style
+ * header (pages/GetTheLookPage.tsx) — pairs a heavy sans headline word with
+ * a script word, matching the "MINIMAL Wardrobe Inspo" reference design.
+ * Single weight only (400) — Yellowtail ships one weight on Google Fonts.
+ */
+export const fashionScript = Yellowtail({
+  variable: "--font-script-fashion",
+  subsets: ["latin"],
+  weight: "400",
   display: "swap",
 });
