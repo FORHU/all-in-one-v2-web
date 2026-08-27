@@ -31,6 +31,12 @@ import {
  * Shared, not duplicated, between pages/GetTheLookPage.tsx (the standalone
  * /get-the-look route) and components/HeroBanner.tsx (the homepage section)
  * — both surfaces show the exact same content.
+ *
+ * Requires a real collection-level `imageUrl` (a composed outfit photo).
+ * Without one, toLook() falls back to the first item's own product photo —
+ * a single garment, not an outfit — which is indistinguishable from "just a
+ * top" once rendered, so such a collection is excluded rather than shown
+ * mislabeled as a full look.
  */
 export function FashionGetTheLookMoodboard({
   tenantSlug,
@@ -49,7 +55,9 @@ export function FashionGetTheLookMoodboard({
   const looks: Look[] = (collections ?? [])
     .filter(
       (collection) =>
-        collection.items.length > 0 && collection.metadata === null,
+        collection.items.length > 0 &&
+        collection.metadata === null &&
+        collection.imageUrl !== null,
     )
     .map(toLook);
 

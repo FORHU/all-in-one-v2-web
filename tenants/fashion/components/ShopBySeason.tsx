@@ -35,6 +35,11 @@ function seasonOf(metadata: Record<string, unknown> | null): string | null {
  * palette (rather than the site's var(--brand-primary) dark system) since
  * that's the palette its tiles/overlay are built against. A season with
  * no tagged outfits doesn't render a row at all.
+ *
+ * Requires a real collection-level `imageUrl` (a composed outfit photo) —
+ * same reasoning as GetTheLookMoodboard: without one, toLook() falls back
+ * to a single item's own product photo, which reads as "just a top", not
+ * an outfit.
  */
 export function ShopBySeason({ tenantSlug }: { tenantSlug: string }) {
   // limit=100 (the backend's max) — every season group is derived from the
@@ -55,7 +60,9 @@ export function ShopBySeason({ tenantSlug }: { tenantSlug: string }) {
     looks: (collections ?? [])
       .filter(
         (collection) =>
-          collection.items.length > 0 && seasonOf(collection.metadata) === key,
+          collection.items.length > 0 &&
+          collection.imageUrl !== null &&
+          seasonOf(collection.metadata) === key,
       )
       .map(toLook) as Look[],
   })).filter((group) => group.looks.length > 0);
