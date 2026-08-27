@@ -50,7 +50,7 @@ export function ProductCard({
    * editorial numbered-tile treatment (centered, serif eyebrow number, no
    * brand line) instead of the default left-aligned brand/name stack. Same
    * idea as HeroBanner's numbered look items, applied to a plain product
-   * grid (see components/Trending.tsx).
+   * grid.
    */
   index?: number;
 }) {

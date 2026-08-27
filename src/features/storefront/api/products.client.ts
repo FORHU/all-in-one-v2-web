@@ -12,6 +12,7 @@ export interface ProductListingParams {
   brands?: string[];
   colors?: string[];
   sizes?: string[];
+  season?: "spring" | "summer" | "fall" | "winter";
   priceMin?: number;
   priceMax?: number;
   sort?: "newest" | "price-asc" | "price-desc" | "popularity";
@@ -26,6 +27,7 @@ function buildQueryString(params: ProductListingParams): string {
   if (params.brands?.length) search.set("brand", params.brands.join(","));
   if (params.colors?.length) search.set("color", params.colors.join(","));
   if (params.sizes?.length) search.set("size", params.sizes.join(","));
+  if (params.season) search.set("season", params.season);
   if (params.priceMin != null) search.set("priceMin", String(params.priceMin));
   if (params.priceMax != null) search.set("priceMax", String(params.priceMax));
   if (params.sort) search.set("sort", params.sort);

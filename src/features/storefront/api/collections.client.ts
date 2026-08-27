@@ -9,16 +9,21 @@ import {
  * Tenant-scoped via the `x-tenant-slug` header, same convention as
  * products.client.ts. `categorySlug` narrows to looks featured under that
  * category page (e.g. Women only shows looks tagged womens-fashion) —
- * omitted fetches every look regardless of category.
+ * omitted fetches every look regardless of category. `limit` defaults to
+ * the backend's own default (20) if omitted — callers that need the
+ * complete set to filter/group client-side (e.g. by metadata.season) must
+ * pass a limit covering every row, since the list is paginated server-side.
  */
 export const getCollections = async (
   tenantSlug: string,
   type?: string,
   categorySlug?: string,
+  limit?: number,
 ): Promise<CollectionsResponse> => {
   const params = new URLSearchParams();
   if (type) params.set("type", type);
   if (categorySlug) params.set("categorySlug", categorySlug);
+  if (limit) params.set("limit", String(limit));
   const qs = params.toString();
 
   const raw = await fetcher<unknown>(
