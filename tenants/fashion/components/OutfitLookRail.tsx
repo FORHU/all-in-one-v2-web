@@ -8,7 +8,9 @@ import { ImagePlaceholder } from "@/shared/components/ImagePlaceholder";
 import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
 import { useWishlistStore } from "@/features/storefront/stores/wishlist.store";
 import { type Look, type LookItem } from "../data/looks";
-import { fashionInter, FASHION_MOOD_COLORS as MOOD } from "../theme";
+import { fashionInter, getFashionMoodColors } from "../theme";
+
+type FashionMoodColors = ReturnType<typeof getFashionMoodColors>;
 
 /**
  * Literal Tailwind class per supported desktop column count — kept as full,
@@ -30,13 +32,21 @@ const DESKTOP_BASIS: Record<number, string> = {
  * overlay cycles only through the `looks` this instance was given — each
  * rail is its own independent look set. Assumes `looks` is non-empty; the
  * caller decides what to render (or skip) when there's nothing to show.
+ *
+ * Takes its palette as a `colors` prop rather than importing a fixed one —
+ * the caller resolves getFashionMoodColors(mode) against the site's
+ * light/dark toggle (see useFashionColorMode) and passes the result down,
+ * so this rail (and its overlay) actually darkens along with the rest of
+ * the site instead of staying a fixed cream regardless of mode.
  */
 export function OutfitLookRail({
   looks,
+  colors,
   desktopColumns = 6,
   naturalImages = false,
 }: {
   looks: Look[];
+  colors: FashionMoodColors;
   /** How many tiles show on desktop before the strip needs scrolling. */
   desktopColumns?: 6 | 8;
   /**
@@ -139,9 +149,12 @@ export function OutfitLookRail({
           A horizontal snap-scroll strip, not a wrapping grid: 6 columns show
           by default on desktop (2 on mobile, 3 on tablet) and any looks
           beyond that are reached by swiping/scrolling sideways rather than
-          wrapping to a second row. Gap kept minimal (gap-x-1) and the hero
-          image tall (3/5) so each column's basis-calc offset must stay in
-          sync with the gap total (20px = 5 gaps x 4px gap-x-1). */}
+          wrapping to a second row. Gap kept minimal (gap-x-1) and each
+          column's basis-calc offset must stay in sync with the gap total
+          (20px = 5 gaps x 4px gap-x-1). The hero box is 459/1908 — the
+          actual outfit photo dimensions — with objectFit="contain" so the
+          full head-to-toe outfit always shows uncropped, matching
+          naturalImages' intent without giving up the fixed-height rail. */}
       <div className="flex snap-x snap-mandatory gap-x-1 overflow-x-auto pb-2 scrollbar-hide">
         {looks.map((look) => {
           const isFavorite = wishlistIds.includes(look.id);
@@ -158,7 +171,7 @@ export function OutfitLookRail({
                   className={
                     naturalImages
                       ? "group relative w-full"
-                      : "group relative aspect-[3/5] w-full overflow-hidden rounded-xl"
+                      : "group relative aspect-[459/1908] w-full overflow-hidden rounded-xl"
                   }
                 >
                   {naturalImages ? (
@@ -183,7 +196,7 @@ export function OutfitLookRail({
                     <ImagePlaceholder
                       label={look.imageLabel}
                       imageUrl={look.imageUrl}
-                      aspect="3/5"
+                      aspect="459/1908"
                       objectFit="contain"
                       className="h-full w-full text-current transition-transform duration-300 group-hover:scale-[1.03]"
                     />
@@ -192,7 +205,7 @@ export function OutfitLookRail({
                 <div
                   className="line-clamp-2 min-h-[2.5em] text-center text-xs font-extrabold uppercase leading-snug tracking-[0.12em]"
                   style={{
-                    color: MOOD.ink,
+                    color: colors.ink,
                     fontFamily: fashionInter.style.fontFamily,
                   }}
                 >
@@ -209,7 +222,7 @@ export function OutfitLookRail({
                   }
                   className="flex items-center gap-1.5 transition-transform hover:scale-110"
                   style={{
-                    color: isFavorite ? MOOD.sage : MOOD.border,
+                    color: isFavorite ? colors.sage : colors.border,
                   }}
                 >
                   <span
@@ -240,8 +253,8 @@ export function OutfitLookRail({
           <div
             className="relative flex max-h-[90vh] w-full max-w-4xl flex-col overflow-y-auto rounded-2xl border p-5 sm:flex-row sm:gap-6"
             style={{
-              backgroundColor: MOOD.cream,
-              borderColor: MOOD.border,
+              backgroundColor: colors.cream,
+              borderColor: colors.border,
             }}
             onClick={(event) => event.stopPropagation()}
           >
@@ -250,7 +263,7 @@ export function OutfitLookRail({
               onClick={() => setIsDetailOpen(false)}
               aria-label="Close"
               className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full"
-              style={{ backgroundColor: MOOD.creamSoft, color: MOOD.ink }}
+              style={{ backgroundColor: colors.creamSoft, color: colors.ink }}
             >
               <X className="h-4 w-4" />
             </button>
@@ -260,8 +273,8 @@ export function OutfitLookRail({
               <div
                 className="relative mx-auto flex h-full w-full max-w-[320px] items-center justify-center overflow-hidden rounded-2xl border"
                 style={{
-                  backgroundColor: MOOD.creamSoft,
-                  borderColor: MOOD.border,
+                  backgroundColor: colors.creamSoft,
+                  borderColor: colors.border,
                 }}
               >
                 <ImagePlaceholder
@@ -281,9 +294,9 @@ export function OutfitLookRail({
                     aria-label="Show previous look"
                     className="absolute left-0 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border transition-colors hover:border-current"
                     style={{
-                      backgroundColor: MOOD.cream,
-                      borderColor: MOOD.border,
-                      color: MOOD.ink,
+                      backgroundColor: colors.cream,
+                      borderColor: colors.border,
+                      color: colors.ink,
                     }}
                   >
                     <ChevronLeft className="h-5 w-5" />
@@ -294,9 +307,9 @@ export function OutfitLookRail({
                     aria-label="Show next look"
                     className="absolute right-0 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border transition-colors hover:border-current"
                     style={{
-                      backgroundColor: MOOD.cream,
-                      borderColor: MOOD.border,
-                      color: MOOD.ink,
+                      backgroundColor: colors.cream,
+                      borderColor: colors.border,
+                      color: colors.ink,
                     }}
                   >
                     <ChevronRight className="h-5 w-5" />
@@ -310,7 +323,7 @@ export function OutfitLookRail({
               <h2
                 className="text-xl font-extrabold tracking-tight"
                 style={{
-                  color: MOOD.ink,
+                  color: colors.ink,
                   fontFamily: fashionInter.style.fontFamily,
                 }}
               >
@@ -318,19 +331,19 @@ export function OutfitLookRail({
               </h2>
               <h3
                 className="text-xs font-bold uppercase tracking-[0.25em]"
-                style={{ color: MOOD.sageDark }}
+                style={{ color: colors.sageDark }}
               >
                 Complete the Look
               </h3>
               <div className="relative flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto pr-1 scrollbar-hide">
                 <div
                   className="pointer-events-none absolute bottom-2 left-1.5 top-2 border-l border-dashed"
-                  style={{ borderColor: MOOD.border }}
+                  style={{ borderColor: colors.border }}
                 />
                 {baseItems.length > 0 && (
                   <div
                     className="pl-3 text-[10px] font-bold uppercase tracking-[0.2em]"
-                    style={{ color: MOOD.textMuted }}
+                    style={{ color: colors.textMuted }}
                   >
                     Base Item
                   </div>
@@ -340,13 +353,14 @@ export function OutfitLookRail({
                     key={item.id}
                     item={item}
                     onAdd={addItemToBag}
+                    colors={colors}
                   />
                 ))}
 
                 {accessoryItems.length > 0 && (
                   <div
                     className="pl-3 pt-2 text-[10px] font-bold uppercase tracking-[0.2em]"
-                    style={{ color: MOOD.textMuted }}
+                    style={{ color: colors.textMuted }}
                   >
                     Accessory Items
                   </div>
@@ -356,24 +370,25 @@ export function OutfitLookRail({
                     key={item.id}
                     item={item}
                     onAdd={addItemToBag}
+                    colors={colors}
                   />
                 ))}
               </div>
 
               <div
                 className="flex flex-none items-center justify-between gap-3 border-t pt-3"
-                style={{ borderColor: MOOD.border }}
+                style={{ borderColor: colors.border }}
               >
                 <div>
                   <div
                     className="text-[10px] font-bold uppercase tracking-[0.2em]"
-                    style={{ color: MOOD.textMuted }}
+                    style={{ color: colors.textMuted }}
                   >
                     Edit Total
                   </div>
                   <span
                     className="text-lg font-bold"
-                    style={{ color: MOOD.sageDark }}
+                    style={{ color: colors.sageDark }}
                   >
                     ${total.toFixed(2)}
                   </span>
@@ -385,7 +400,7 @@ export function OutfitLookRail({
                   className={`flex-none whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-bold transition-opacity hover:opacity-90 ${
                     justAddedAll ? "animate-add-bounce" : ""
                   }`}
-                  style={{ backgroundColor: MOOD.sage, color: MOOD.cream }}
+                  style={{ backgroundColor: colors.sage, color: colors.cream }}
                 >
                   {justAddedAll ? (
                     <span className="flex items-center justify-center gap-1.5">
@@ -409,9 +424,11 @@ export function OutfitLookRail({
 function OutfitLookItemRow({
   item,
   onAdd,
+  colors,
 }: {
   item: LookItem;
   onAdd: (item: LookItem) => void;
+  colors: FashionMoodColors;
 }) {
   const [justAdded, setJustAdded] = useState(false);
   const [pulse, setPulse] = useState(0);
@@ -436,11 +453,11 @@ function OutfitLookItemRow({
       <div className="min-w-0 flex-1">
         <div
           className="truncate text-sm font-semibold"
-          style={{ color: MOOD.ink }}
+          style={{ color: colors.ink }}
         >
           {item.name}
         </div>
-        <div className="text-xs font-bold" style={{ color: MOOD.sageDark }}>
+        <div className="text-xs font-bold" style={{ color: colors.sageDark }}>
           ${item.price.toFixed(2)}
         </div>
       </div>
@@ -452,7 +469,7 @@ function OutfitLookItemRow({
       <div className="flex w-3 flex-none items-center justify-center self-stretch">
         <span
           className="h-1.5 w-1.5 rounded-full"
-          style={{ backgroundColor: MOOD.sage }}
+          style={{ backgroundColor: colors.sage }}
         />
       </div>
       {item.slug ? (
@@ -475,7 +492,7 @@ function OutfitLookItemRow({
         className={`flex h-8 w-8 flex-none items-center justify-center rounded-full transition-opacity hover:opacity-90 ${
           justAdded ? "animate-add-bounce" : ""
         }`}
-        style={{ backgroundColor: MOOD.sage, color: MOOD.cream }}
+        style={{ backgroundColor: colors.sage, color: colors.cream }}
       >
         {justAdded ? (
           <Check className="h-4 w-4" />

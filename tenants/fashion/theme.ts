@@ -69,13 +69,18 @@ export function getFashionColors(mode: FashionColorMode) {
 }
 
 /**
- * Cream/sage moodboard palette — a fixed editorial look (not themeable via
- * the light/dark toggle above) used by the "Get the Look" surfaces:
- * pages/GetTheLookPage.tsx and components/HeroBanner.tsx's homepage grid.
- * Both read from here so the two surfaces can never drift into two
- * near-identical palettes with slightly different hex values.
+ * Cream/sage moodboard palette — used by the "Get the Look" surfaces
+ * (pages/GetTheLookPage.tsx, components/HeroBanner.tsx's homepage grid, and
+ * components/ShopBySeason.tsx) via components/OutfitLookRail.tsx. Follows
+ * the same light/dark toggle as the rest of the site — see
+ * getFashionMoodColors below — rather than being a fixed editorial look, so
+ * this section doesn't visually clash with the header/nav when dark mode is
+ * active. The dark variant reuses FASHION_DARK_COLORS' own ink/ink2/bone/
+ * boneDim/hairline values for cream/creamSoft/ink/textMuted/border so this
+ * section's dark background is provably the same dark as everywhere else on
+ * the site, not a second near-identical dark tone.
  */
-export const FASHION_MOOD_COLORS = {
+export const FASHION_MOOD_LIGHT_COLORS = {
   cream: "#F7F1E4",
   creamSoft: "#EFE6CE",
   ink: "#2B2A26",
@@ -86,6 +91,27 @@ export const FASHION_MOOD_COLORS = {
   /** Pale sage band background for the subtitle/section-header/tagline bars. */
   band: "#DCE3CC",
 } as const;
+
+export const FASHION_MOOD_DARK_COLORS = {
+  cream: FASHION_DARK_COLORS.ink,
+  creamSoft: FASHION_DARK_COLORS.ink2,
+  ink: FASHION_DARK_COLORS.bone,
+  textMuted: FASHION_DARK_COLORS.boneDim,
+  sage: "#8E9977",
+  // Brighter than the light mode's sageDark — that value is a *darkened*
+  // sage meant to read as text on a light cream background; on a dark
+  // background the same darkening direction would nearly disappear, so
+  // this goes lighter instead to keep the same "readable accent" role.
+  sageDark: "#A9B48F",
+  border: FASHION_DARK_COLORS.hairline,
+  band: "#242920",
+} as const;
+
+export function getFashionMoodColors(mode: FashionColorMode) {
+  return mode === "light"
+    ? FASHION_MOOD_LIGHT_COLORS
+    : FASHION_MOOD_DARK_COLORS;
+}
 
 /**
  * Subtle paper/film grain for the page background (see
@@ -139,15 +165,20 @@ export const fashionVignetteBackgroundImage = [
 
 /**
  * Faint vertical pinstripe pattern for the "Get the Look" moodboard's page
- * background (pages/GetTheLookPage.tsx via components/GetTheLookMoodboard.tsx)
- * — applied to the whole section, not scoped to individual outfit photos,
- * so the garments sit directly on a textured page rather than each photo
- * carrying its own separate background box. Reads as slatted wardrobe/closet
- * paneling. Pure CSS repeating-linear-gradient (no SVG/image asset): a 1px
- * line every 22px at low opacity over FASHION_MOOD_COLORS' own border tone,
- * so it stays legible as texture without competing with the garment photos.
+ * background (pages/GetTheLookPage.tsx via components/GetTheLookMoodboard.tsx,
+ * and components/ShopBySeason.tsx) — applied to the whole section, not
+ * scoped to individual outfit photos, so the garments sit directly on a
+ * textured page rather than each photo carrying its own separate background
+ * box. Reads as slatted wardrobe/closet paneling. Pure CSS
+ * repeating-linear-gradient (no SVG/image asset): a 1px line every 22px at
+ * low opacity over the mood palette's own border tone for the given mode,
+ * so it stays legible as texture without competing with the garment photos
+ * in either light or dark mode.
  */
-export const fashionWardrobePanelBackgroundImage = `repeating-linear-gradient(90deg, ${FASHION_MOOD_COLORS.border}3d 0px, ${FASHION_MOOD_COLORS.border}3d 1px, transparent 1px, transparent 22px)`;
+export function getFashionWardrobePanelBackgroundImage(mode: FashionColorMode) {
+  const border = getFashionMoodColors(mode).border;
+  return `repeating-linear-gradient(90deg, ${border}3d 0px, ${border}3d 1px, transparent 1px, transparent 22px)`;
+}
 
 /**
  * Loaded once here and applied globally via layout.tsx's --font-didone/

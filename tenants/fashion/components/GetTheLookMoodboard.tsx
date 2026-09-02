@@ -1,16 +1,18 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Heart } from "lucide-react";
 import { useCollections } from "@/features/storefront/hooks/queries/useCollections";
 import { type Look } from "../data/looks";
 import { toLook } from "../utils/toLook";
 import { OutfitLookRail } from "./OutfitLookRail";
+import { useFashionColorMode } from "../stores/colorMode.store";
 import {
   fashionDidone,
   fashionInter,
   fashionScript,
-  fashionWardrobePanelBackgroundImage,
-  FASHION_MOOD_COLORS as MOOD,
+  getFashionMoodColors,
+  getFashionWardrobePanelBackgroundImage,
 } from "../theme";
 
 /**
@@ -43,6 +45,15 @@ export function FashionGetTheLookMoodboard({
 }: {
   tenantSlug: string;
 }) {
+  const colorMode = useFashionColorMode((s) => s.mode);
+  // useFashionColorMode persists to localStorage, unavailable during SSR —
+  // gate behind a mount flag so the server-rendered first paint doesn't
+  // depend on it (same pattern as CheckoutPage.tsx/HeroBanner.tsx).
+  const [hasMounted, setHasMounted] = useState(false);
+  useEffect(() => setHasMounted(true), []);
+  const mode = hasMounted ? colorMode : "dark";
+  const colors = getFashionMoodColors(mode);
+
   // limit=100 (the backend's max) — this page needs every OUTFIT collection
   // to filter client-side by metadata; the default page size (20) would
   // silently drop rows past the first page, whether or not they're bare.
@@ -71,8 +82,8 @@ export function FashionGetTheLookMoodboard({
     <section
       className="pb-14 pt-4 sm:pb-24 sm:pt-6"
       style={{
-        backgroundColor: MOOD.cream,
-        backgroundImage: fashionWardrobePanelBackgroundImage,
+        backgroundColor: colors.cream,
+        backgroundImage: getFashionWardrobePanelBackgroundImage(mode),
       }}
     >
       {/* Deliberately wider than the max-w-7xl rail directly below (was
@@ -91,7 +102,7 @@ export function FashionGetTheLookMoodboard({
             <span
               className="text-4xl uppercase tracking-[0.15em] sm:text-6xl"
               style={{
-                color: MOOD.ink,
+                color: colors.ink,
                 fontWeight: 400,
                 fontFamily: fashionDidone.style.fontFamily,
               }}
@@ -101,14 +112,14 @@ export function FashionGetTheLookMoodboard({
             <span
               className="flex items-center gap-2 text-4xl sm:text-6xl"
               style={{
-                color: MOOD.ink,
+                color: colors.ink,
                 fontFamily: fashionScript.style.fontFamily,
               }}
             >
               Wardrobe Inspo
               <Heart
                 className="h-6 w-6 sm:h-8 sm:w-8"
-                style={{ color: MOOD.ink }}
+                style={{ color: colors.ink }}
               />
             </span>
           </div>
@@ -118,17 +129,17 @@ export function FashionGetTheLookMoodboard({
           <div className="flex w-full max-w-xl items-center gap-4 sm:gap-6">
             <span
               className="h-px flex-1"
-              style={{ backgroundColor: MOOD.border }}
+              style={{ backgroundColor: colors.border }}
             />
             <p
               className="flex-none text-center text-xs font-normal uppercase tracking-[0.15em] sm:whitespace-nowrap sm:tracking-[0.3em] sm:text-sm"
-              style={{ color: MOOD.textMuted }}
+              style={{ color: colors.textMuted }}
             >
               Simple. Timeless. Always Stylish.
             </p>
             <span
               className="h-px flex-1"
-              style={{ backgroundColor: MOOD.border }}
+              style={{ backgroundColor: colors.border }}
             />
           </div>
         </div>
@@ -136,23 +147,28 @@ export function FashionGetTheLookMoodboard({
         {looks.length === 0 ? (
           <p
             className="py-10 text-center text-sm"
-            style={{ color: MOOD.textMuted }}
+            style={{ color: colors.textMuted }}
           >
             No product available
           </p>
         ) : (
           <>
             <div className="mt-6">
-              <OutfitLookRail looks={looks} desktopColumns={8} naturalImages />
+              <OutfitLookRail
+                looks={looks}
+                colors={colors}
+                desktopColumns={8}
+                naturalImages
+              />
             </div>
 
             <div
               className="mt-14 w-full py-3"
-              style={{ backgroundColor: MOOD.band }}
+              style={{ backgroundColor: colors.band }}
             >
               <p
                 className="text-center text-xs font-semibold italic tracking-wide sm:text-sm"
-                style={{ color: MOOD.ink }}
+                style={{ color: colors.ink }}
               >
                 &ldquo;Less clutter, more style.&rdquo; &#9825;
               </p>
