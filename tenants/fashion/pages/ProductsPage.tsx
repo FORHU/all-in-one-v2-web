@@ -9,14 +9,22 @@ import { quickAddToCart } from "../utils/quickAddToCart";
 import { toProductCardProduct } from "../utils/toProductCardProduct";
 import { useBuyNow } from "../hooks/useBuyNow";
 
+const SEASONS = ["spring", "summer", "fall", "winter"] as const;
+type Season = (typeof SEASONS)[number];
+
+function readSeason(raw: string | null): Season | undefined {
+  return SEASONS.includes(raw as Season) ? (raw as Season) : undefined;
+}
+
 /**
- * Fashion — full product listing page ("All Products"). No category/attribute
- * filters here (that's CategoryDetailPage's job) — this page is deliberately
- * just "browse everything, paginated". Page number lives in the URL so it's
- * shareable/bookmarkable, same pattern as CategoryDetailPage. All pagination
- * math (skip/take/total/totalPages) happens on the backend — this component
- * only reads `data.page`/`data.totalPages` to render and disable the
- * Previous/Next controls, it never slices or counts anything itself.
+ * Fashion — full product listing page ("All Products"), also doubles as the
+ * season-filtered listing (`?season=spring` etc, linked from the homepage's
+ * "Shop by Season" tiles) — no category/attribute filters here (that's
+ * CategoryDetailPage's job). Page number and season both live in the URL so
+ * the page is shareable/bookmarkable, same pattern as CategoryDetailPage. All
+ * pagination math (skip/take/total/totalPages) happens on the backend — this
+ * component only reads `data.page`/`data.totalPages` to render and disable
+ * the Previous/Next controls, it never slices or counts anything itself.
  */
 export function FashionProductsPage({ tenantSlug }: { tenantSlug: string }) {
   const router = useRouter();
@@ -25,11 +33,13 @@ export function FashionProductsPage({ tenantSlug }: { tenantSlug: string }) {
   const buyNow = useBuyNow();
 
   const page = Number(searchParams.get("page")) || 1;
+  const season = readSeason(searchParams.get("season"));
 
   const queryParams: ProductListingParams = {
     sort: "newest",
     page,
     limit: 12,
+    season,
   };
 
   const { data, isLoading, isError } = useProducts(tenantSlug, queryParams);
@@ -52,7 +62,9 @@ export function FashionProductsPage({ tenantSlug }: { tenantSlug: string }) {
             className="text-2xl font-bold tracking-tight sm:text-3xl"
             style={{ fontFamily: "var(--font-heading)" }}
           >
-            All Products
+            {season
+              ? `${season.charAt(0).toUpperCase()}${season.slice(1)} Collection`
+              : "All Products"}
           </h1>
           <span className="text-sm opacity-60">
             {isLoading ? "Loading…" : `${data?.total ?? 0} items`}
