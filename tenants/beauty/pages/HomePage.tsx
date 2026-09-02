@@ -1,20 +1,20 @@
 import { BeautyStorefrontLayout } from "../layouts/StorefrontLayout";
-import { HeroBanner } from "../components/HeroBanner";
+import { MirrorShelfHero } from "../components/MirrorShelfHero";
 
 /**
- * Beauty — storefront home page presentation.
- * Rendered by src/app/page.tsx once tenant routing resolves this slug.
- * Consumes shared hooks (features/storefront, features/cms) — no
- * data-fetching or business logic of its own.
- * Kept intentionally minimal (hero only) for now — components/CategoryGrid.tsx,
- * components/FeaturedProducts.tsx, and components/TrustBadges.tsx exist and
- * are ready to compose back in once the storefront moves past this initial
- * landing page.
+ * Beauty — storefront home page presentation ("Mirror Shelf" design).
+ * Rendered by src/app/page.tsx once tenant routing resolves this slug —
+ * needs `tenantSlug` since MirrorShelfHero fetches real category data,
+ * same reason fashion's home page is special-cased there.
+ * components/CategoryGrid.tsx, components/FeaturedProducts.tsx, and
+ * components/TrustBadges.tsx are earlier, unused scaffolding superseded by
+ * MirrorShelfHero — left in place rather than deleted, in case any of
+ * their static content is useful reference later.
  */
-export function BeautyHomePage() {
+export function BeautyHomePage({ tenantSlug }: { tenantSlug: string }) {
   return (
     <BeautyStorefrontLayout>
-      <HeroBanner />
+      <MirrorShelfHero tenantSlug={tenantSlug} />
     </BeautyStorefrontLayout>
   );
 }

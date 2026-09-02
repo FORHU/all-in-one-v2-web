@@ -1,9 +1,11 @@
 import { headers } from "next/headers";
 import { getTenantConfig } from "@/tenants/registry";
 import { FashionCategoriesPage } from "@/tenants/fashion/pages/CategoriesPage";
+import { BeautyCategoriesPage } from "@/tenants/beauty/pages/CategoriesPage";
 
 const categoriesPagesBySlug = {
   fashion: FashionCategoriesPage,
+  beauty: BeautyCategoriesPage,
 } as const;
 
 /**

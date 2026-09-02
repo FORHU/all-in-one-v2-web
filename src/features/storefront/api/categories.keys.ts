@@ -1,4 +1,5 @@
 export const categoriesKeys = {
   all: ["storefront", "categories"] as const,
-  list: () => [...categoriesKeys.all, "list"] as const,
+  list: (tenantSlug: string) =>
+    [...categoriesKeys.all, "list", tenantSlug] as const,
 } as const;

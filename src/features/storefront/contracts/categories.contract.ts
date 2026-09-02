@@ -13,7 +13,18 @@ export const CategorySchema = z.object({
   name: z.string(),
 });
 
-export const CategoriesResponseSchema = z.array(CategorySchema);
+export const CategoriesResponseSchema = z.object({
+  items: z.array(CategorySchema),
+  total: z.number(),
+  page: z.number(),
+  limit: z.number(),
+  totalPages: z.number(),
+});
+
+/** Backend envelope wrapper — see response.helper.ts's `{ status, statusCode, data }`. */
+export const CategoriesApiEnvelopeSchema = z.object({
+  data: CategoriesResponseSchema,
+});
 
 export type Category = z.infer<typeof CategorySchema>;
 export type CategoriesResponse = z.infer<typeof CategoriesResponseSchema>;

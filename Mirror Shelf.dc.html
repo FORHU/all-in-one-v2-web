@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=Helvetica&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin: 0; padding: 0; background: #0e0f11; }
+  a { color: #cfd6dc; text-decoration: none; }
+  a:hover { color: #ffffff; }
+</style>
+</helmet>
+<div style="width: 1920px; height: 930px; padding: 24px; box-sizing: border-box; background: radial-gradient(120% 90% at 50% 0%, #23262a 0%, #14161a 55%, #0b0c0e 100%); font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
+  <div style="position: relative; width: 100%; height: 100%; border-radius: 44px; padding: 2px; background: linear-gradient(135deg, #f2f5f7 0%, #9aa4ad 18%, #5c646c 34%, #e8edf1 50%, #6d757d 66%, #b8c1c8 82%, #f4f7f9 100%); box-shadow: 0 40px 120px rgba(0,0,0,.7);">
+    <div style="position: relative; width: 100%; height: 100%; border-radius: 42px; overflow: hidden; background: linear-gradient(160deg, #2b2f34 0%, #1b1e22 30%, #23272c 52%, #171a1d 74%, #262a2f 100%);">
+      <div style="position: absolute; inset: 0; background: repeating-linear-gradient(115deg, rgba(255,255,255,.045) 0px, rgba(255,255,255,.045) 1px, transparent 1px, transparent 7px); pointer-events: none;"></div>
+      <div style="position: absolute; inset: 0; background: radial-gradient(70% 55% at 22% 8%, rgba(255,255,255,.16) 0%, rgba(255,255,255,0) 60%), radial-gradient(55% 45% at 82% 92%, rgba(255,255,255,.09) 0%, rgba(255,255,255,0) 60%), linear-gradient(105deg, rgba(255,255,255,0) 38%, rgba(255,255,255,.07) 47%, rgba(255,255,255,0) 56%); pointer-events: none;"></div>
+      <div style="position: absolute; inset: 0; background: radial-gradient(120% 80% at 50% 120%, rgba(0,0,0,.55) 0%, rgba(0,0,0,0) 60%); pointer-events: none;"></div>
+
+      <div style="position: relative; height: 100%; display: grid; grid-template-columns: 620px 1fr 620px; grid-template-rows: auto 1fr auto; column-gap: 40px; padding: 26px 44px 0; box-sizing: border-box;">
+
+        <div style="display: flex; align-items: baseline; gap: 12px; padding-top: 8px;">
+          <span style="font-size: 26px; font-weight: 300; color: #eef2f5; letter-spacing: -.01em;">22°</span>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .16em; color: #98a2ab; line-height: 1.5;">
+            <div>SEOUL</div>
+            <div>HUMIDITY 74%</div>
+          </div>
+        </div>
+
+        <div style="text-align: center;">
+          <div style="width: 7px; height: 7px; border-radius: 50%; margin: 0 auto 10px; background: radial-gradient(circle at 30% 30%, #ffffff, #7d858d);"></div>
+          <div style="font-size: 52px; font-weight: 300; letter-spacing: .01em; color: #f4f7f9; line-height: 1; text-shadow: 0 1px 0 rgba(255,255,255,.35), 0 12px 30px rgba(0,0,0,.5);">10:30</div>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .2em; color: #9aa4ad; margin-top: 10px;">THURSDAY, APRIL 17</div>
+        </div>
+
+        <div style="text-align: right; padding-top: 8px;">
+          <div style="font-size: 17px; font-weight: 300; color: #eef2f5;">Hello, Mina</div>
+          <div style="display: flex; justify-content: flex-end; gap: 18px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .16em; color: #98a2ab; margin-top: 8px;">
+            <span>SAVED</span><span>ACCOUNT</span><span>BAG · 02</span>
+          </div>
+        </div>
+
+        <div style="grid-column: 1; display: flex; flex-direction: column; gap: 14px; padding-top: 22px; min-height: 0;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .2em; color: #8e979f;">SKINCARE</div>
+          <sc-for list="{{ skincare }}" as="cat" hint-placeholder-count="5">
+            <div style="flex: 1; min-height: 0; border-radius: 16px; padding: 16px 18px; box-sizing: border-box; border: 1px solid rgba(255,255,255,.09); background: linear-gradient(150deg, rgba(255,255,255,.075) 0%, rgba(255,255,255,.02) 45%, rgba(255,255,255,.05) 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 10px 24px rgba(0,0,0,.28); display: flex; flex-direction: column;" style-hover="border-color: rgba(255,255,255,.22); background: linear-gradient(150deg, rgba(255,255,255,.11) 0%, rgba(255,255,255,.035) 45%, rgba(255,255,255,.075) 100%);">
+              <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                <span style="font-size: 15px; font-weight: 400; color: #f0f3f6;">{{ cat.name }}</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: .14em; color: #8e979f;">{{ cat.count }} items</span>
+              </div>
+              <div style="display: flex; align-items: flex-end; gap: 8px; margin-top: auto; height: 62px;">
+                <sc-for list="{{ cat.bars }}" as="b" hint-placeholder-count="4">
+                  <div style="width: 30px; height: {{ b.h }}; border-radius: 4px; border: 1px solid rgba(255,255,255,.12); background-color: rgba(255,255,255,.05); background-image: repeating-linear-gradient(135deg, rgba(255,255,255,.11) 0px, rgba(255,255,255,.11) 1px, transparent 1px, transparent 5px);"></div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="grid-column: 2; display: flex; flex-direction: column; align-items: center; padding-top: 26px; min-height: 0;">
+          <div style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 36px; font-weight: 400; letter-spacing: .1em; color: #f6f8fa; text-shadow: 0 1px 0 rgba(255,255,255,.3);">MIRROR MODE</div>
+          <div style="display: flex; gap: 12px; margin-top: 20px;">
+            <div style="padding: 9px 22px; border-radius: 999px; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.04); font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .16em; color: #b9c1c8;" style-hover="background: rgba(255,255,255,.09); color: #ffffff;">DAILY</div>
+            <div style="padding: 9px 22px; border-radius: 999px; border: 1px solid rgba(255,255,255,.5); background: linear-gradient(180deg, #f7f9fb 0%, #cdd5db 55%, #eef2f5 100%); font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .16em; color: #24282c; box-shadow: 0 6px 18px rgba(0,0,0,.35);">EVENING</div>
+            <div style="padding: 9px 22px; border-radius: 999px; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.04); font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .16em; color: #b9c1c8;" style-hover="background: rgba(255,255,255,.09); color: #ffffff;">MY SHELF</div>
+          </div>
+          <div style="flex: 1; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .18em; color: #7f888f; text-align: center;">
+            <div>AMBIENT PORTRAIT</div>
+            <div>MODEL APPLYING, 3:4</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 30px; padding: 11px 22px 11px 16px; border-radius: 999px; border: 1px solid rgba(255,255,255,.16); background: linear-gradient(150deg, rgba(255,255,255,.1), rgba(255,255,255,.03)); box-shadow: inset 0 1px 0 rgba(255,255,255,.2), 0 10px 26px rgba(0,0,0,.35);" style-hover="border-color: rgba(255,255,255,.3);">
+            <div style="width: 9px; height: 16px; border-radius: 999px; background: linear-gradient(180deg, #ffffff, #a6aeb5);"></div>
+            <span style="font-size: 14px; font-weight: 300; color: #e9edf1;">Ask me anything</span>
+          </div>
+        </div>
+
+        <div style="grid-column: 3; display: flex; flex-direction: column; gap: 14px; padding-top: 22px; min-height: 0;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .2em; color: #8e979f; text-align: right;">MAKEUP &amp; OTHERS</div>
+          <sc-for list="{{ makeup }}" as="cat" hint-placeholder-count="5">
+            <div style="flex: 1; min-height: 0; border-radius: 16px; padding: 16px 18px; box-sizing: border-box; border: 1px solid rgba(255,255,255,.09); background: linear-gradient(150deg, rgba(255,255,255,.075) 0%, rgba(255,255,255,.02) 45%, rgba(255,255,255,.05) 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 10px 24px rgba(0,0,0,.28); display: flex; flex-direction: column;" style-hover="border-color: rgba(255,255,255,.22); background: linear-gradient(150deg, rgba(255,255,255,.11) 0%, rgba(255,255,255,.035) 45%, rgba(255,255,255,.075) 100%);">
+              <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                <span style="font-size: 15px; font-weight: 400; color: #f0f3f6;">{{ cat.name }}</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: .14em; color: #8e979f;">{{ cat.count }} items</span>
+              </div>
+              <div style="display: flex; align-items: flex-end; gap: 8px; margin-top: auto; height: 62px;">
+                <sc-for list="{{ cat.bars }}" as="b" hint-placeholder-count="4">
+                  <div style="width: 30px; height: {{ b.h }}; border-radius: 4px; border: 1px solid rgba(255,255,255,.12); background-color: rgba(255,255,255,.05); background-image: repeating-linear-gradient(135deg, rgba(255,255,255,.11) 0px, rgba(255,255,255,.11) 1px, transparent 1px, transparent 5px);"></div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="grid-column: 1 / -1; display: flex; justify-content: center; gap: 44px; padding: 20px 0 22px; border-top: 1px solid rgba(255,255,255,.09); margin-top: 20px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .18em; color: #a6aeb5;">
+          <span style="color: #f2f5f7;">HOME</span>
+          <span>SHELVES</span>
+          <span>CONSULTATION</span>
+          <span>SAVED</span>
+          <span>BAG</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1920,&quot;height&quot;:930}}">
+const bars = (hs) => hs.map(h => ({ h: h + "px" }));
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      skincare: [
+        { name: "Oil cleansers", count: 3, bars: bars([58, 62, 46]) },
+        { name: "Essences", count: 4, bars: bars([62, 48, 58, 38]) },
+        { name: "Treatments", count: 4, bars: bars([50, 62, 40, 56]) },
+        { name: "Night creams", count: 3, bars: bars([62, 44, 54]) },
+        { name: "Masks", count: 4, bars: bars([48, 54, 62, 42]) }
+      ],
+      makeup: [
+        { name: "Contour", count: 3, bars: bars([56, 62, 46]) },
+        { name: "Eye colour", count: 4, bars: bars([60, 48, 56, 38]) },
+        { name: "Highlighter", count: 4, bars: bars([52, 62, 44, 58]) },
+        { name: "Lip tint", count: 4, bars: bars([50, 42, 54, 62]) },
+        { name: "Setting spray", count: 3, bars: bars([46, 58, 62]) }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>
