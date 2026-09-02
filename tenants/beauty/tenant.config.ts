@@ -1,18 +1,19 @@
 import type { TenantConfig } from "../types";
 
 /**
- * TODO: replace placeholder branding with real values (colors, fonts, logo,
- * nav, SEO) once the Beauty storefront's design is finalized.
+ * "Mirror Shelf" branding — see components/MirrorShelfHero.tsx and
+ * theme.ts for the fuller palette/font values this config's simple
+ * fields can't carry (glass-panel gradients, muted-text tone, etc.).
  */
 export const beautyConfig: TenantConfig = {
   slug: "beauty",
   name: "Beauty",
   domain: "askmebeauty.com",
   theme: {
-    colorPrimary: "#FFFFFF",
-    colorSecondary: "#000000",
-    fontHeading: "sans-serif",
-    fontBody: "sans-serif",
+    colorPrimary: "#f0f3f6",
+    colorSecondary: "#0e0f11",
+    fontHeading: "Cormorant Garamond, Georgia, serif",
+    fontBody: "Helvetica Neue, Helvetica, Arial, sans-serif",
   },
   logoUrl: "/tenants/beauty/logo.svg",
   nav: [

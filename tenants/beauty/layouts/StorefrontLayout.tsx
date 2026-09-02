@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { beautyConfig } from "../tenant.config";
+import { beautyCormorant, beautyPlexMono } from "../theme";
 
 /**
  * Beauty — storefront layout (header/footer/nav shell).
@@ -15,7 +16,7 @@ export function BeautyStorefrontLayout({
 }) {
   return (
     <div
-      className="flex min-h-screen flex-col"
+      className={`flex min-h-screen flex-col ${beautyCormorant.variable} ${beautyPlexMono.variable}`}
       style={{
         fontFamily: "var(--font-body)",
         backgroundColor: "var(--brand-secondary)",

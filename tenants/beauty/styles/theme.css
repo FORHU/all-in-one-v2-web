@@ -3,11 +3,21 @@
  * Consumed by shared/components and features/storefront/components, which
  * must theme themselves only via these variables — never via tenant checks
  * in component code.
- * Palette: pure black & white — permanent dark, monochrome look.
+ * Palette: permanent dark, monochrome "Mirror Shelf" look — near-black
+ * background, off-white text (see theme.ts's BEAUTY_MIRROR_COLORS for the
+ * richer glass-panel/border/muted-text values components consume directly
+ * as JS, same split as fashion's --brand-primary/secondary vs.
+ * FASHION_MOOD_COLORS). --font-heading points at theme.ts's Cormorant
+ * Garamond variable; --font-body stays a plain sans-serif — the mockup's
+ * own base font is Helvetica/Arial, with IBM Plex Mono applied selectively
+ * to specific label elements (nav, weather, timestamps) inside
+ * MirrorShelfHero itself, not as the page's general body font.
  */
 :root[data-tenant="beauty"] {
-  --brand-primary: #ffffff;
-  --brand-secondary: #000000;
-  --font-heading: sans-serif;
-  --font-body: sans-serif;
+  --brand-primary: #f0f3f6;
+  --brand-secondary: #0e0f11;
+  --font-heading: var(--font-cormorant), Georgia, serif;
+  --font-body:
+    -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial,
+    sans-serif;
 }
