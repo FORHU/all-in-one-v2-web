@@ -13,10 +13,15 @@ import {
  * new filter/sort/page combination loads, instead of flashing back to a
  * loading state on every change.
  */
-export function useProducts(tenantSlug: string, params: ProductListingParams) {
+export function useProducts(
+  tenantSlug: string,
+  params: ProductListingParams,
+  enabled = true,
+) {
   return useSafeQuery({
     queryKey: productsKeys.list(tenantSlug, params),
     queryFn: () => getProducts(tenantSlug, params),
     placeholderData: keepPreviousData,
+    enabled,
   });
 }

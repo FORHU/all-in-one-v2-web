@@ -106,8 +106,8 @@ export function ProductCard({
       <div
         className={
           index
-            ? "text-[13px] font-semibold uppercase tracking-wide"
-            : "text-sm font-semibold"
+            ? "line-clamp-2 min-h-[2.5em] text-[13px] font-semibold uppercase tracking-wide"
+            : "line-clamp-2 min-h-[2.5em] text-sm font-semibold leading-snug"
         }
         style={index ? { fontFamily: "var(--font-heading)" } : undefined}
       >
@@ -134,8 +134,16 @@ export function ProductCard({
   );
 
   return (
-    <div className={`flex flex-col gap-3 ${className}`}>
-      <div className="group relative aspect-[3/4] overflow-hidden rounded-2xl">
+    <div
+      className={`flex flex-col gap-3 rounded-2xl p-2.5 transition-shadow duration-300 hover:shadow-lg ${className}`}
+      style={{
+        border:
+          "1px solid color-mix(in srgb, var(--brand-primary) 8%, transparent)",
+        backgroundColor:
+          "color-mix(in srgb, var(--brand-secondary) 92%, var(--brand-primary) 8%)",
+      }}
+    >
+      <div className="group relative aspect-[3/4] overflow-hidden rounded-xl">
         {product.slug ? (
           <Link
             href={`/products/${product.slug}`}

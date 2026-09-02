@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { FashionStorefrontLayout } from "../layouts/StorefrontLayout";
@@ -20,6 +20,8 @@ import type { ProductListingParams } from "@/features/storefront/api/products.cl
 import { quickAddToCart } from "../utils/quickAddToCart";
 import { toProductCardProduct } from "../utils/toProductCardProduct";
 import { useBuyNow } from "../hooks/useBuyNow";
+import { useFashionColorMode } from "../stores/colorMode.store";
+import { getFashionWardrobePanelBackgroundImage } from "../theme";
 
 function humanize(slug: string) {
   return slug
@@ -58,6 +60,14 @@ export function FashionCategoryDetailPage({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+
+  const colorMode = useFashionColorMode((s) => s.mode);
+  // useFashionColorMode persists to localStorage, unavailable during SSR —
+  // gate behind a mount flag so the server-rendered first paint doesn't
+  // depend on it (same pattern as CheckoutPage.tsx/HeroBanner.tsx).
+  const [hasMounted, setHasMounted] = useState(false);
+  useEffect(() => setHasMounted(true), []);
+  const mode = hasMounted ? colorMode : "dark";
 
   const categorySlug = CATEGORY_SLUG_ALIASES[slug] ?? slug;
   const label = humanize(slug);
@@ -111,109 +121,119 @@ export function FashionCategoryDetailPage({
 
   return (
     <FashionStorefrontLayout>
-      <TrendingLookbook tenantSlug={tenantSlug} categorySlug={categorySlug} />
+      {/* Same pinstripe wardrobe-panel texture the homepage's "Get the
+          Look"/"Shop by Season" sections use (see theme.ts), so category
+          pages read as part of the same design rather than a plainer,
+          untextured page underneath. */}
       <div
-        className="mx-auto max-w-7xl px-6 py-10"
-        style={{ color: "var(--brand-primary)" }}
+        style={{
+          backgroundImage: getFashionWardrobePanelBackgroundImage(mode),
+        }}
       >
-        <nav
-          aria-label="Breadcrumb"
-          className="mb-3 flex items-center gap-1.5 text-xs opacity-60"
+        <TrendingLookbook tenantSlug={tenantSlug} categorySlug={categorySlug} />
+        <div
+          className="mx-auto max-w-7xl px-6 py-10"
+          style={{ color: "var(--brand-primary)" }}
         >
-          <Link href="/" className="hover:underline">
-            Home
-          </Link>
-          <span>/</span>
-          <Link href="/categories" className="hover:underline">
-            Categories
-          </Link>
-          <span>/</span>
-          <span className="font-semibold opacity-100">{label}</span>
-        </nav>
-
-        <div className="mb-8 flex items-baseline justify-between gap-4">
-          <h1
-            className="text-2xl font-bold tracking-tight sm:text-3xl"
-            style={{ fontFamily: "var(--font-heading)" }}
+          <nav
+            aria-label="Breadcrumb"
+            className="mb-3 flex items-center gap-1.5 text-xs opacity-60"
           >
-            {label}
-          </h1>
-          <span className="text-sm opacity-60">
-            {isLoading ? "Loading…" : `${data?.total ?? 0} items`}
-          </span>
-        </div>
+            <Link href="/" className="hover:underline">
+              Home
+            </Link>
+            <span>/</span>
+            <Link href="/categories" className="hover:underline">
+              Categories
+            </Link>
+            <span>/</span>
+            <span className="font-semibold opacity-100">{label}</span>
+          </nav>
 
-        {isError ? (
-          <div className="flex flex-col items-center gap-3 rounded-2xl border border-current/10 py-20 text-center">
-            <p className="text-sm opacity-60">
-              Something went wrong loading these products.
-            </p>
+          <div className="mb-8 flex items-baseline justify-between gap-4">
+            <h1
+              className="text-2xl font-bold tracking-tight sm:text-3xl"
+              style={{ fontFamily: "var(--font-heading)" }}
+            >
+              {label}
+            </h1>
+            <span className="text-sm opacity-60">
+              {isLoading ? "Loading…" : `${data?.total ?? 0} items`}
+            </span>
           </div>
-        ) : (
-          <div>
-            {!isLoading && products.length === 0 ? (
-              <div className="flex flex-col items-center gap-3 rounded-2xl border border-current/10 py-20 text-center">
-                <p className="text-sm opacity-60">
-                  No products found in this category yet.
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-5 gap-4">
-                {isLoading && products.length === 0
-                  ? Array.from({ length: 8 }).map((_, i) => (
-                      <div
-                        key={i}
-                        className="aspect-[3/4] animate-pulse rounded-2xl bg-current/5"
-                      />
-                    ))
-                  : products.map((product) => {
-                      const cardProduct = toProductCardProduct(product);
-                      return (
-                        <ProductCard
-                          key={cardProduct.id}
-                          product={cardProduct}
-                          onQuickView={setQuickViewProduct}
-                          onQuickAdd={quickAddToCart}
-                          onBuyNow={buyNow}
+
+          {isError ? (
+            <div className="flex flex-col items-center gap-3 rounded-2xl border border-current/10 py-20 text-center">
+              <p className="text-sm opacity-60">
+                Something went wrong loading these products.
+              </p>
+            </div>
+          ) : (
+            <div>
+              {!isLoading && products.length === 0 ? (
+                <div className="flex flex-col items-center gap-3 rounded-2xl border border-current/10 py-20 text-center">
+                  <p className="text-sm opacity-60">
+                    No products found in this category yet.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-5 gap-4">
+                  {isLoading && products.length === 0
+                    ? Array.from({ length: 8 }).map((_, i) => (
+                        <div
+                          key={i}
+                          className="aspect-[3/4] animate-pulse rounded-2xl bg-current/5"
                         />
-                      );
-                    })}
-              </div>
-            )}
+                      ))
+                    : products.map((product) => {
+                        const cardProduct = toProductCardProduct(product);
+                        return (
+                          <ProductCard
+                            key={cardProduct.id}
+                            product={cardProduct}
+                            onQuickView={setQuickViewProduct}
+                            onQuickAdd={quickAddToCart}
+                            onBuyNow={buyNow}
+                          />
+                        );
+                      })}
+                </div>
+              )}
 
-            {data && data.totalPages > 1 && (
-              <div className="mt-10 flex items-center justify-center gap-3">
-                <button
-                  type="button"
-                  disabled={page <= 1}
-                  onClick={() => updateParams({ page: String(page - 1) })}
-                  className="rounded-full border px-4 py-2 text-xs font-semibold disabled:opacity-30"
-                  style={{
-                    borderColor:
-                      "color-mix(in srgb, var(--brand-primary) 20%, transparent)",
-                  }}
-                >
-                  Previous
-                </button>
-                <span className="text-xs opacity-60">
-                  Page {data.page} of {data.totalPages}
-                </span>
-                <button
-                  type="button"
-                  disabled={page >= data.totalPages}
-                  onClick={() => updateParams({ page: String(page + 1) })}
-                  className="rounded-full border px-4 py-2 text-xs font-semibold disabled:opacity-30"
-                  style={{
-                    borderColor:
-                      "color-mix(in srgb, var(--brand-primary) 20%, transparent)",
-                  }}
-                >
-                  Next
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+              {data && data.totalPages > 1 && (
+                <div className="mt-10 flex items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    disabled={page <= 1}
+                    onClick={() => updateParams({ page: String(page - 1) })}
+                    className="rounded-full border px-4 py-2 text-xs font-semibold disabled:opacity-30"
+                    style={{
+                      borderColor:
+                        "color-mix(in srgb, var(--brand-primary) 20%, transparent)",
+                    }}
+                  >
+                    Previous
+                  </button>
+                  <span className="text-xs opacity-60">
+                    Page {data.page} of {data.totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={page >= data.totalPages}
+                    onClick={() => updateParams({ page: String(page + 1) })}
+                    className="rounded-full border px-4 py-2 text-xs font-semibold disabled:opacity-30"
+                    style={{
+                      borderColor:
+                        "color-mix(in srgb, var(--brand-primary) 20%, transparent)",
+                    }}
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       <QuickViewModal

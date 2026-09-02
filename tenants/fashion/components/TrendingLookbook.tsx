@@ -13,13 +13,34 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { ImagePlaceholder } from "@/shared/components/ImagePlaceholder";
+import type { ProductCardProduct } from "@/shared/components/ProductCard";
 import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
 import { useWishlistStore } from "@/features/storefront/stores/wishlist.store";
 import { useCollections } from "@/features/storefront/hooks/queries/useCollections";
+import { useProducts } from "@/features/storefront/hooks/queries/useProducts";
 import { type Look, type LookItem } from "../data/looks";
 import { toLook } from "../utils/toLook";
+import { toProductCardProduct } from "../utils/toProductCardProduct";
 import { useFashionColorMode } from "../stores/colorMode.store";
-import { getFashionColors, fashionDidone } from "../theme";
+import { getFashionColors, fashionDidone, fashionInter } from "../theme";
+
+function humanize(slug: string) {
+  return slug
+    .split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+/** ISO-8601 week number (1–53) for "WEEK N" — a real, computable value, not a placeholder. */
+function isoWeekNumber(date: Date): number {
+  const d = new Date(
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
+  );
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+}
 
 type FashionColors = ReturnType<typeof getFashionColors>;
 
@@ -34,9 +55,13 @@ type FashionColors = ReturnType<typeof getFashionColors>;
  * (no type filter — fetches both OUTFIT and LOOKBOOK rows), scoped to
  * `categorySlug` so each category page only shows looks featured under it
  * (e.g. Men only shows looks tagged mens-fashion) — a category with no
- * tagged looks renders an explicit "No product available" empty state
- * rather than nothing, which is expected for categories like
- * Shoes/Accessories/Kids that don't have a dedicated look yet. Separate from
+ * tagged looks falls back to that category's own trending products
+ * (GET /v2/products?categorySlug=...&sort=popularity, same query
+ * pages/CategoryDetailPage.tsx's grid below could show — intentionally
+ * duplicated content, not a bug, since there's no other curated content to
+ * fill this slot with yet) rather than an empty "No product available"
+ * line. A category with neither curated looks nor any products at all
+ * still shows that empty state. Separate from
  * components/HeroBanner.tsx's "Get the Look" moodboard
  * (components/GetTheLookMoodboard.tsx), which is also backed by
  * CatalogCollection (via the same useCollections hook) but is unscoped by
@@ -60,6 +85,31 @@ export function TrendingLookbook({
     categorySlug,
   );
   const looks: Look[] = (collections ?? []).map(toLook);
+
+  // Fallback source for this section when the category has no curated
+  // looks — only fetched once we actually know that's the case, not
+  // speculatively on every render. Fetches enough for a few pages of the
+  // TRENDING_PAGE_SIZE-wide carousel below, not just one page's worth.
+  const TRENDING_PAGE_SIZE = 5;
+  const shouldFetchTrending =
+    !isLoading && looks.length === 0 && !!categorySlug;
+  const { data: trendingData, isLoading: isLoadingTrending } = useProducts(
+    tenantSlug,
+    { categorySlug, sort: "popularity", limit: 15 },
+    shouldFetchTrending,
+  );
+  const trendingProducts: ProductCardProduct[] = (
+    trendingData?.items ?? []
+  ).map(toProductCardProduct);
+  const [trendingPage, setTrendingPage] = useState(0);
+  const trendingPageCount = Math.max(
+    1,
+    Math.ceil(trendingProducts.length / TRENDING_PAGE_SIZE),
+  );
+  const visibleTrending = trendingProducts.slice(
+    trendingPage * TRENDING_PAGE_SIZE,
+    trendingPage * TRENDING_PAGE_SIZE + TRENDING_PAGE_SIZE,
+  );
 
   const [activeLookId, setActiveLookId] = useState<string | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -102,6 +152,10 @@ export function TrendingLookbook({
   // page doesn't look broken/incomplete when a category simply has nothing
   // curated yet.
   if (looks.length === 0) {
+    const weekNumber = isoWeekNumber(new Date());
+    const canGoPrev = trendingPage > 0;
+    const canGoNext = trendingPage < trendingPageCount - 1;
+
     return (
       <section className="mx-auto flex max-w-7xl flex-col gap-6 px-6 pt-10">
         <div className="flex flex-col items-center gap-3 text-center">
@@ -121,10 +175,94 @@ export function TrendingLookbook({
               style={{ backgroundColor: colors.hairline }}
             />
           </div>
-          <p className="text-sm" style={{ color: colors.boneDim }}>
-            No product available
-          </p>
+          {!isLoadingTrending && trendingProducts.length === 0 && (
+            <p className="text-sm" style={{ color: colors.boneDim }}>
+              No product available
+            </p>
+          )}
         </div>
+
+        {trendingProducts.length > 0 && (
+          <div className="flex flex-col gap-6">
+            {/* Heading row — title left, week/ranking-method + carousel arrows right */}
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <h2
+                className="text-2xl font-medium tracking-tight sm:text-3xl"
+                style={{
+                  color: colors.bone,
+                  fontFamily: fashionDidone.style.fontFamily,
+                }}
+              >
+                Trending in {categorySlug ? humanize(categorySlug) : "Fashion"}
+              </h2>
+              <div className="flex items-center gap-4">
+                <span
+                  className="text-[11px] uppercase tracking-[0.2em]"
+                  style={{
+                    color: colors.boneDim,
+                    fontFamily: fashionInter.style.fontFamily,
+                  }}
+                >
+                  Week {weekNumber} · Ranked by reviews
+                </span>
+                {trendingPageCount > 1 && (
+                  <div className="flex flex-none gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setTrendingPage((p) => Math.max(0, p - 1))}
+                      disabled={!canGoPrev}
+                      aria-label="Previous trending products"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border disabled:opacity-30"
+                      style={{
+                        borderColor: colors.hairline,
+                        color: colors.bone,
+                      }}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setTrendingPage((p) =>
+                          Math.min(trendingPageCount - 1, p + 1),
+                        )
+                      }
+                      disabled={!canGoNext}
+                      aria-label="Next trending products"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border disabled:opacity-30"
+                      style={{
+                        borderColor: colors.hairline,
+                        color: colors.bone,
+                      }}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Ranking timeline — a hairline "ruler" tying the rank numbers
+                together, purely decorative (no real time-series data behind
+                it, just the current snapshot's order). */}
+            <div className="relative">
+              <div
+                className="absolute inset-x-0 top-[13px] h-px"
+                style={{ backgroundColor: colors.hairline }}
+              />
+              <div className="grid grid-cols-5 gap-2">
+                {visibleTrending.map((product, i) => (
+                  <TrendingProductTile
+                    key={product.id}
+                    rank={trendingPage * TRENDING_PAGE_SIZE + i + 1}
+                    product={product}
+                    colors={colors}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </section>
     );
   }
@@ -473,6 +611,75 @@ export function TrendingLookbook({
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * One "Trending in {Category}" tile — rank number, image, a persistent
+ * "Shop This" link (not hover-only, matching this rail's reference design),
+ * name, price. Deliberately doesn't show a rank-change indicator or a
+ * "bagged" count — nothing in this app tracks either (cart is client-only
+ * localStorage, and there's no historical rank snapshot to diff against),
+ * so showing invented numbers there would read as real social proof that
+ * isn't.
+ */
+function TrendingProductTile({
+  rank,
+  product,
+  colors,
+}: {
+  rank: number;
+  product: ProductCardProduct;
+  colors: FashionColors;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div
+        className="text-2xl font-medium"
+        style={{
+          color: colors.brass,
+          fontFamily: fashionDidone.style.fontFamily,
+        }}
+      >
+        {String(rank).padStart(2, "0")}
+      </div>
+      <div className="group relative aspect-[3/4] w-full overflow-hidden rounded-lg">
+        <ImagePlaceholder
+          label={product.imageLabel}
+          imageUrl={product.imageUrl}
+          aspect="3/4"
+          className="h-full w-full transition-transform duration-500 ease-out group-hover:scale-105"
+        />
+        {product.slug && (
+          <Link
+            href={`/products/${product.slug}`}
+            className="absolute inset-x-0 bottom-0 border-t py-2 text-center text-[10px] font-bold uppercase tracking-[0.2em] transition-colors hover:opacity-90"
+            style={{
+              borderColor: colors.hairline,
+              backgroundColor: `${colors.ink}cc`,
+              color: colors.bone,
+              fontFamily: fashionInter.style.fontFamily,
+            }}
+          >
+            Shop This
+          </Link>
+        )}
+      </div>
+      <div>
+        <div
+          className="line-clamp-2 min-h-[2.5em] text-xs font-semibold leading-snug"
+          style={{ color: colors.bone }}
+        >
+          {product.name}
+        </div>
+        <div
+          className="mt-0.5 text-[11px] font-bold"
+          style={{ color: colors.brass }}
+        >
+          ${product.price.toFixed(2)}
+        </div>
+      </div>
+    </div>
   );
 }
 
