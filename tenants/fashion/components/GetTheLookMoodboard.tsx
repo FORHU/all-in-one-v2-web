@@ -80,7 +80,7 @@ export function FashionGetTheLookMoodboard({
 
   return (
     <section
-      className="pb-14 pt-4 sm:pb-24 sm:pt-6"
+      className="pb-6 pt-4 sm:pb-10 sm:pt-6"
       style={{
         backgroundColor: colors.cream,
         backgroundImage: getFashionWardrobePanelBackgroundImage(mode),

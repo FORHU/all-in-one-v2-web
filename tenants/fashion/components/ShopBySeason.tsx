@@ -89,7 +89,9 @@ export function ShopBySeason({ tenantSlug }: { tenantSlug: string }) {
         backgroundImage: getFashionWardrobePanelBackgroundImage(mode),
       }}
     >
-      <div className={`mx-auto max-w-7xl px-6 py-16 ${fashionInter.variable}`}>
+      <div
+        className={`mx-auto max-w-7xl px-6 pb-16 pt-8 ${fashionInter.variable}`}
+      >
         <div className="mb-10">
           <h2
             className="text-2xl font-bold tracking-tight sm:text-3xl"
