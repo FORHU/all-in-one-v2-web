@@ -38,6 +38,8 @@ export function ProductCard({
   onQuickAdd,
   onBuyNow,
   index,
+  objectFit = "cover",
+  aspect = "3/4",
 }: {
   product: ProductCardProduct;
   compact?: boolean;
@@ -53,6 +55,15 @@ export function ProductCard({
    * grid.
    */
   index?: number;
+  /**
+   * "cover" (default) fills the box and crops to it. Some categories'
+   * source photos (e.g. shoes — often on-foot shots or irregularly padded
+   * product-only shots) crop badly under "cover" (cutting off the product
+   * itself); "contain" letterboxes instead so the whole photo stays visible.
+   */
+  objectFit?: "cover" | "contain";
+  /** Image box aspect ratio (CSS aspect-ratio value). Defaults to "3/4". */
+  aspect?: string;
 }) {
   const router = useRouter();
 
@@ -77,7 +88,8 @@ export function ProductCard({
     <ImagePlaceholder
       label={product.imageLabel}
       imageUrl={product.imageUrl}
-      aspect="3/4"
+      aspect={aspect}
+      objectFit={objectFit}
       className="h-full w-full transition-transform duration-500 ease-out group-hover:scale-105"
     />
   );
@@ -134,16 +146,11 @@ export function ProductCard({
   );
 
   return (
-    <div
-      className={`flex flex-col gap-3 rounded-2xl p-2.5 transition-shadow duration-300 hover:shadow-lg ${className}`}
-      style={{
-        border:
-          "1px solid color-mix(in srgb, var(--brand-primary) 8%, transparent)",
-        backgroundColor:
-          "color-mix(in srgb, var(--brand-secondary) 92%, var(--brand-primary) 8%)",
-      }}
-    >
-      <div className="group relative aspect-[3/4] overflow-hidden rounded-xl">
+    <div className={`flex flex-col gap-3 ${className}`}>
+      <div
+        className="group relative overflow-hidden rounded-xl"
+        style={{ aspectRatio: aspect }}
+      >
         {product.slug ? (
           <Link
             href={`/products/${product.slug}`}

@@ -71,6 +71,16 @@ export function FashionCategoryDetailPage({
 
   const categorySlug = CATEGORY_SLUG_ALIASES[slug] ?? slug;
   const label = humanize(slug);
+  // Shoe product photos are frequently on-foot shots or irregularly padded
+  // product-only shots — "cover" (the default everywhere else) crops off
+  // the shoe itself under those source aspect ratios, so this category
+  // letterboxes instead of cropping. The box is also shorter than the
+  // default 3:4 (shoes are wide/short objects, not tall ones), so the
+  // letterboxed photo renders visibly smaller instead of leaving large
+  // empty margins in a tall box.
+  const isShoesCategory = categorySlug === "shoes";
+  const productImageFit = isShoesCategory ? "contain" : "cover";
+  const productImageAspect = isShoesCategory ? "4/3" : "3/4";
 
   const page = Number(searchParams.get("page")) || 1;
 
@@ -194,6 +204,8 @@ export function FashionCategoryDetailPage({
                             onQuickView={setQuickViewProduct}
                             onQuickAdd={quickAddToCart}
                             onBuyNow={buyNow}
+                            objectFit={productImageFit}
+                            aspect={productImageAspect}
                           />
                         );
                       })}
