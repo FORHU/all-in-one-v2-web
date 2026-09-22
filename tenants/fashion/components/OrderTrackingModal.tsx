@@ -134,6 +134,14 @@ export function OrderTrackingModal({
               {TRACKING_STAGES.map((stage, i) => {
                 const stepNum = i + 1;
                 const complete = stepNum <= completedSteps;
+                // PENDING reaches step 1 ("Order Placed") but hasn't actually
+                // moved past it yet — an admin hasn't approved/placed it with
+                // a supplier. A solid "complete" circle here would look
+                // identical to a step that's truly done and moving forward,
+                // contradicting the "Awaiting approval" caption below. Render
+                // it as a distinct amber, still-pending state instead.
+                const isPendingHere =
+                  order.status === "PENDING" && stepNum === completedSteps;
                 return (
                   <div
                     key={stage}
@@ -143,23 +151,34 @@ export function OrderTrackingModal({
                       <div
                         className="flex h-6 w-6 flex-none items-center justify-center rounded-full text-[10px] font-bold"
                         style={{
-                          backgroundColor: complete
-                            ? "var(--brand-primary)"
-                            : "transparent",
-                          color: complete
-                            ? "var(--brand-secondary)"
-                            : "var(--brand-primary)",
-                          border: complete ? "none" : "1px solid currentColor",
-                          opacity: complete ? 1 : 0.35,
+                          backgroundColor: isPendingHere
+                            ? "transparent"
+                            : complete
+                              ? "var(--brand-primary)"
+                              : "transparent",
+                          color: isPendingHere
+                            ? "#f59e0b"
+                            : complete
+                              ? "var(--brand-secondary)"
+                              : "var(--brand-primary)",
+                          border: isPendingHere
+                            ? "2px solid #f59e0b"
+                            : complete
+                              ? "none"
+                              : "1px solid currentColor",
+                          opacity: complete || isPendingHere ? 1 : 0.35,
                         }}
                       >
                         {stepNum}
                       </div>
                       <span
                         className="w-16 text-center text-[10px] font-semibold"
-                        style={{ opacity: complete ? 1 : 0.4 }}
+                        style={{
+                          opacity: complete || isPendingHere ? 1 : 0.4,
+                          color: isPendingHere ? "#f59e0b" : undefined,
+                        }}
                       >
-                        {stage}
+                        {isPendingHere ? "Pending Approval" : stage}
                       </span>
                     </div>
                     {i < TRACKING_STAGES.length - 1 && (
@@ -175,10 +194,17 @@ export function OrderTrackingModal({
                 );
               })}
             </div>
-            <p className="mt-4 text-center text-[11px] opacity-50">
-              Live courier tracking isn&rsquo;t connected yet — this reflects
-              the order&rsquo;s current status.
-            </p>
+            {order.status === "PENDING" ? (
+              <p className="mt-4 text-center text-xs font-semibold text-amber-500">
+                Awaiting approval — we&rsquo;ll start processing your order
+                shortly.
+              </p>
+            ) : (
+              <p className="mt-4 text-center text-[11px] opacity-50">
+                Live courier tracking isn&rsquo;t connected yet — this reflects
+                the order&rsquo;s current status.
+              </p>
+            )}
           </div>
         )}
 

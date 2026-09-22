@@ -8,11 +8,16 @@ import { ImagePlaceholder } from "@/shared/components/ImagePlaceholder";
 import { useLastOrderStore } from "@/features/storefront/stores/lastOrder.store";
 import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
 import { useBuyNowStore } from "@/features/storefront/stores/buyNow.store";
-import { SHIPPING_METHODS } from "../data/checkoutRules";
 import { COLOR_NAMES } from "../utils/colorNames";
 
 const TRACKING_STAGES = ["Order Placed", "Processing", "Shipped", "Delivered"];
 
+/**
+ * Falls back to a generic 5-7 day window only when the order's shipping
+ * snapshot has no `aging` string — the flat-rate fallback quote
+ * (OrderService.FALLBACK_SHIPPING_OPTION) doesn't carry a real delivery
+ * estimate the way a live CJ quote does.
+ */
 function formatDate(date: Date) {
   return date.toLocaleDateString("en-US", {
     weekday: "short",
@@ -92,10 +97,17 @@ export function FashionOrderSuccessPage() {
     );
   }
 
-  const method = SHIPPING_METHODS[order.shippingMethodKey];
   const placedDate = new Date(order.placedAt);
-  const minDate = addDays(placedDate, method.minDays);
-  const maxDate = addDays(placedDate, method.maxDays);
+  // CJ's `aging` string is a free-form range like "7-15 Working Days" — pull
+  // out the two integers if present, otherwise fall back to a generic
+  // 5-7 day window (matches the flat-rate fallback quote, which has no
+  // real delivery estimate of its own).
+  const agingMatch = order.shippingMethod.aging?.match(/(\d+)\D+(\d+)/);
+  const [minDays, maxDays] = agingMatch
+    ? [Number(agingMatch[1]), Number(agingMatch[2])]
+    : [5, 7];
+  const minDate = addDays(placedDate, minDays);
+  const maxDate = addDays(placedDate, maxDays);
 
   return (
     <FashionStorefrontLayout>
@@ -236,7 +248,10 @@ export function FashionOrderSuccessPage() {
               <div>{order.shippingAddress.country}</div>
             </div>
             <div className="mt-2 text-xs opacity-60">
-              {method.label} — {method.eta}
+              {order.shippingMethod.logisticName}
+              {order.shippingMethod.aging
+                ? ` — ${order.shippingMethod.aging}`
+                : ""}
             </div>
           </div>
 

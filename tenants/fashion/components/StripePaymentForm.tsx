@@ -14,6 +14,10 @@ import { getFashionColors, fashionInter } from "../theme";
 
 const paymentElementOptions: StripePaymentElementOptions = {
   layout: "tabs",
+  // Stripe auto-injects a "Save my information" (Link) section with its
+  // own email/phone/name fields unless explicitly turned off — this store
+  // isn't using Link, so it'd just be extra fields shoppers have to skip.
+  wallets: { link: "never" },
 };
 
 interface PaymentFormProps {

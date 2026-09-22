@@ -16,18 +16,16 @@ import { useLatestAddress } from "@/features/storefront/hooks/queries/useLatestA
 import { useSaveAddress } from "@/features/storefront/hooks/mutations/useSaveAddress";
 import { useCheckoutDirect } from "@/features/storefront/hooks/mutations/useCheckoutDirect";
 import { useCreatePaymentIntent } from "@/features/storefront/hooks/mutations/useCreatePaymentIntent";
+import { useShippingQuote } from "@/features/storefront/hooks/mutations/useShippingQuote";
 import type { SaveAddressInput } from "@/features/storefront/contracts/address.contract";
 import type { Order } from "@/features/storefront/contracts/order.contract";
+import type { ShippingOption } from "@/features/storefront/contracts/shipping.contract";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
 import { StripePaymentForm } from "../components/StripePaymentForm";
 import { useFashionColorMode } from "../stores/colorMode.store";
 import { getFashionColors, fashionDidone, fashionInter } from "../theme";
-import {
-  SHIPPING_METHODS,
-  TAX_RATE,
-  PROMO_CODES,
-  type ShippingMethodKey,
-} from "../data/checkoutRules";
+import { TAX_RATE, PROMO_CODES } from "../data/checkoutRules";
+import { COUNTRY_CODES } from "@/features/storefront/constants/countryCodes";
 
 const initialAddressForm: SaveAddressInput = {
   fullName: "",
@@ -37,18 +35,10 @@ const initialAddressForm: SaveAddressInput = {
   city: "",
   state: "",
   postalCode: "",
-  country: "United States",
+  // ISO-2, not a free-form name — CJ Dropshipping's createOrderV2 needs a
+  // real country code for shippingCountryCode (see countryCodes.ts).
+  country: "US",
 };
-
-function formatEtaRange(minDays: number, maxDays: number): string {
-  const fmt = (d: Date) =>
-    d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  const start = new Date();
-  start.setDate(start.getDate() + minDays);
-  const end = new Date();
-  end.setDate(end.getDate() + maxDays);
-  return `${fmt(start)} – ${fmt(end)}`;
-}
 
 /**
  * Fashion — checkout page ("Review Order"). Single-page review, matched
@@ -88,9 +78,14 @@ function formatEtaRange(minDays: number, maxDays: number): string {
  * CommerceOrderItem) is written to useLastOrderStore purely as the hand-off
  * to /order-success. Known gap: the discount-code UI below is cosmetic
  * only — checkoutDirect doesn't accept a coupon code yet, so a locally
- * "applied" code won't reduce the real order's total, and tax/shipping are
- * hardcoded to 0 on the backend (see OrderService's doc comment), so the
- * real order total won't exactly match this page's client-estimated total.
+ * "applied" code won't reduce the real order's total, and tax is still
+ * hardcoded to 0 on the backend, so the real order total won't exactly
+ * match this page's client-estimated total. Shipping, however, is real:
+ * once an address is on file, useShippingQuote asks the API for live CJ
+ * Dropshipping rates (see OrderService.getShippingQuote) and the price the
+ * shopper picks is round-tripped back into checkoutDirect as
+ * shippingQuoteId/shippingLogisticName so the charged order matches what
+ * was shown here.
  *
  * The delivery address IS real, though: GET /v2/addresses/latest and
  * POST /v2/addresses (see hooks/queries/useLatestAddress.ts and
@@ -167,6 +162,8 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
     mutateAsync: createPaymentIntentMutation,
     isPending: isCreatingIntent,
   } = useCreatePaymentIntent(tenantSlug);
+  const { mutateAsync: requestShippingQuote, isPending: isLoadingShipping } =
+    useShippingQuote(tenantSlug);
   const setLastOrder = useLastOrderStore((s) => s.setOrder);
 
   // The order created by "Place Order" — kept here (not just read from the
@@ -174,13 +171,19 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
   // instead of calling checkoutDirect again and placing a second order.
   const [order, setOrder] = useState<Order | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<"card" | "cod">("card");
 
   const [isEditingAddress, setIsEditingAddress] = useState(false);
   const [addressForm, setAddressForm] =
     useState<SaveAddressInput>(initialAddressForm);
-  const [shippingMethod, setShippingMethod] =
-    useState<ShippingMethodKey>("standard");
+
+  // Live shipping options for the current cart + address (see
+  // useShippingQuote) — replaces what used to be a hardcoded flat-rate
+  // table. `quoteId` must be sent back with checkoutDirect so the API
+  // charges exactly the price shown here instead of re-deriving one.
+  const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
+  const [selectedShipping, setSelectedShipping] =
+    useState<ShippingOption | null>(null);
+  const [shippingQuoteId, setShippingQuoteId] = useState<string | null>(null);
   const [isEditingShipping, setIsEditingShipping] = useState(false);
   const [sellerMessage, setSellerMessage] = useState("");
   const [isEditingDiscount, setIsEditingDiscount] = useState(false);
@@ -203,6 +206,55 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
     }
   }, [latestAddress]);
 
+  // Re-quote whenever the destination or the cart contents actually change
+  // (not on every render) — items.length/quantity are enough to detect a
+  // cart edit since the id set otherwise stays the same during checkout.
+  const itemsSignature = items
+    .map((i) => `${i.productId}:${i.size ?? ""}:${i.color ?? ""}:${i.quantity}`)
+    .join("|");
+
+  useEffect(() => {
+    if (!latestAddress || items.length === 0) return;
+
+    // Clear the previous address's quote immediately — otherwise its price
+    // and quoteId linger on screen (and in the checkoutDirect payload) for
+    // the *new* address until this re-fetch resolves, or forever if it
+    // fails. A stale quoteId is a real correctness risk, not just a
+    // cosmetic one: the backend charges whatever price it round-trips
+    // back, without knowing it was quoted for a different address.
+    setShippingOptions([]);
+    setSelectedShipping(null);
+    setShippingQuoteId(null);
+
+    let cancelled = false;
+    requestShippingQuote({
+      items: items.map((item) => ({
+        productId: item.productId,
+        size: item.size,
+        color: item.color,
+        quantity: item.quantity,
+      })),
+      countryCode: latestAddress.country,
+      zip: latestAddress.postalCode,
+    })
+      .then((quote) => {
+        if (cancelled) return;
+        setShippingOptions(quote.options);
+        setShippingQuoteId(quote.quoteId);
+        setSelectedShipping(quote.options[0] ?? null);
+      })
+      .catch(() => {
+        // useSafeMutation's global MutationCache.onError already surfaced a
+        // toast — leave shippingOptions empty so the total simply shows $0
+        // shipping rather than a stale/mismatched price.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- itemsSignature stands in for items' identity.
+  }, [latestAddress?.id, itemsSignature, requestShippingQuote]);
+
   const setQuantity = (item: LocalCartItem, quantity: number) => {
     if (quantity <= 0) return;
     if (isBuyNow) {
@@ -212,7 +264,7 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
     }
   };
 
-  const shippingPrice = SHIPPING_METHODS[shippingMethod].price;
+  const shippingPrice = selectedShipping?.price ?? 0;
   const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
   const discount = appliedDiscount
     ? (subtotal * PROMO_CODES[appliedDiscount].discountPercent) / 100
@@ -248,13 +300,7 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
     setIsEditingAddress(false);
   };
 
-  /**
-   * Takes `method` explicitly rather than reading `paymentMethod` state —
-   * called right from the "Card" tile's onClick (see selectCard below),
-   * which sets that state in the same handler; reading it back from state
-   * in the same tick would risk the pre-update, stale value.
-   */
-  const placeOrder = async (method: "card" | "cod") => {
+  const placeOrder = async () => {
     if (!latestAddress) return;
 
     // Reuse the order already placed on a retry — never call checkoutDirect
@@ -271,6 +317,11 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
             quantity: item.quantity,
           })),
           shippingAddressId: latestAddress.id,
+          // Omitted when no live quote came back (see the shipping-quote
+          // effect above) — the API then falls back to its own pre-existing
+          // "no shipping charge" behavior rather than rejecting checkout.
+          shippingQuoteId: shippingQuoteId ?? undefined,
+          shippingLogisticName: selectedShipping?.logisticName,
         });
       } catch {
         // useSafeMutation's global MutationCache.onError already surfaced a
@@ -284,7 +335,7 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
     try {
       intent = await createPaymentIntentMutation({
         orderId: placedOrder.id,
-        channel: method === "card" ? "CARD" : "CASH_ON_DELIVERY",
+        channel: "CARD",
       });
     } catch {
       // Order stays in state above, so pressing the button again retries
@@ -294,9 +345,7 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
 
     // Written now, before the shopper can even submit a card, because a
     // 3-D Secure confirmation redirects the browser away from this page
-    // entirely — /checkout/payment-return reads this back on return. Also
-    // doubles as the hand-off to /order-success for Cash on Delivery, which
-    // has no confirmation step of its own.
+    // entirely — /checkout/payment-return reads this back on return.
     setLastOrder({
       orderNumber: placedOrder.orderNumber,
       placedAt: placedOrder.createdAt.toISOString(),
@@ -322,7 +371,10 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
         zip: latestAddress.postalCode,
         country: latestAddress.country,
       },
-      shippingMethodKey: shippingMethod,
+      shippingMethod: selectedShipping ?? {
+        logisticName: "Standard Shipping",
+        price: 0,
+      },
       subtotal: placedOrder.subtotal,
       discount: placedOrder.discountAmount,
       shipping: placedOrder.shippingAmount,
@@ -330,43 +382,20 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
       total: placedOrder.totalAmount,
     });
 
-    if (!intent.clientSecret) {
-      // Cash on Delivery — the order is already PROCESSING server-side
-      // (see PaymentService.createPaymentIntent's COD branch), there's
-      // nothing left to confirm online.
-      handlePaymentSuccess();
-      return;
-    }
-
     setClientSecret(intent.clientSecret);
   };
 
   /**
-   * Card's confirmation step IS the card form itself, so selecting the
-   * "Card" tile fires the order+intent flow immediately instead of waiting
-   * for a separate "Place Order" click — Cash on Delivery has no such
-   * further step, so its tile only updates `paymentMethod` and still waits
-   * for an explicit "Place Order" press (see the button below).
+   * Card is the only payment method, so selecting its tile fires the
+   * order+intent flow immediately instead of waiting for a separate
+   * "Place Order" click — its confirmation step IS the card form itself.
    */
   const selectCard = () => {
-    setPaymentMethod("card");
-    // Already showing the form for this order (e.g. switched to COD and
-    // back) — no need to hit the API again, PaymentService.createPaymentIntent
-    // would just hand back the same still-unconfirmed intent anyway.
+    // Already showing the form for this order — no need to hit the API
+    // again, PaymentService.createPaymentIntent would just hand back the
+    // same still-unconfirmed intent anyway.
     if (clientSecret) return;
-    void placeOrder("card");
-  };
-
-  /**
-   * Switching away from Card before ever confirming it is fine — the order
-   * (if one was already placed) stays PENDING since nothing was confirmed,
-   * so it's still payable via COD. Clearing clientSecret just hides the
-   * card form again; the abandoned Stripe PaymentIntent is harmless and
-   * gets reused if the shopper switches back to Card (see selectCard).
-   */
-  const selectCod = () => {
-    setPaymentMethod("cod");
-    setClientSecret(null);
+    void placeOrder();
   };
 
   /**
@@ -602,7 +631,7 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
                       style={fieldLabelStyle}
                     >
                       Country
-                      <input
+                      <select
                         value={addressForm.country}
                         onChange={(e) =>
                           setAddressForm((a) => ({
@@ -612,7 +641,13 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
                         }
                         className="h-10 rounded-lg px-3 text-sm outline-none"
                         style={inputStyle}
-                      />
+                      >
+                        {COUNTRY_CODES.map(({ code, name }) => (
+                          <option key={code} value={code}>
+                            {name}
+                          </option>
+                        ))}
+                      </select>
                     </label>
                   </div>
                   <div className="flex gap-3">
@@ -812,68 +847,75 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="text-xs" style={{ color: colors.boneDim }}>
-                      Shipping option:{" "}
-                      <span
-                        className="font-bold"
-                        style={{ color: colors.bone }}
-                      >
-                        {formatEtaRange(
-                          SHIPPING_METHODS[shippingMethod].minDays,
-                          SHIPPING_METHODS[shippingMethod].maxDays,
-                        )}
-                      </span>
+                      Shipping option
+                      {selectedShipping?.aging ? (
+                        <>
+                          :{" "}
+                          <span
+                            className="font-bold"
+                            style={{ color: colors.bone }}
+                          >
+                            {selectedShipping.aging}
+                          </span>
+                        </>
+                      ) : null}
                     </div>
                     <div className="mt-1 text-sm font-bold">
-                      {SHIPPING_METHODS[shippingMethod].label}
+                      {isLoadingShipping
+                        ? "Calculating shipping…"
+                        : (selectedShipping?.logisticName ??
+                          "Enter an address to see shipping options")}
                     </div>
                   </div>
-                  <div className="flex-none text-right">
-                    <button
-                      type="button"
-                      onClick={() => setIsEditingShipping((v) => !v)}
-                      className="text-sm font-semibold underline"
-                      style={linkButtonStyle}
-                    >
-                      Change
-                    </button>
-                    <div
-                      className="mt-1 text-sm font-bold"
-                      style={{ color: colors.brass }}
-                    >
-                      ${shippingPrice.toFixed(2)}
+                  {shippingOptions.length > 0 && (
+                    <div className="flex-none text-right">
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingShipping((v) => !v)}
+                        className="text-sm font-semibold underline"
+                        style={linkButtonStyle}
+                      >
+                        Change
+                      </button>
+                      <div
+                        className="mt-1 text-sm font-bold"
+                        style={{ color: colors.brass }}
+                      >
+                        ${shippingPrice.toFixed(2)}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
-                {isEditingShipping && (
+                {isEditingShipping && shippingOptions.length > 0 && (
                   <div className="mt-4 flex flex-col gap-2">
-                    {(Object.keys(SHIPPING_METHODS) as ShippingMethodKey[]).map(
-                      (key) => {
-                        const method = SHIPPING_METHODS[key];
-                        const active = shippingMethod === key;
-                        return (
-                          <button
-                            key={key}
-                            type="button"
-                            onClick={() => {
-                              setShippingMethod(key);
-                              setIsEditingShipping(false);
-                            }}
-                            className="flex items-center justify-between rounded-lg border px-3 py-2.5 text-left text-sm"
-                            style={{
-                              borderColor: active
-                                ? colors.brass
-                                : colors.hairline,
-                            }}
-                          >
-                            <span>
-                              {method.label} (
-                              {formatEtaRange(method.minDays, method.maxDays)})
-                            </span>
-                            <span className="font-bold">${method.price}</span>
-                          </button>
-                        );
-                      },
-                    )}
+                    {shippingOptions.map((option) => {
+                      const active =
+                        selectedShipping?.logisticName === option.logisticName;
+                      return (
+                        <button
+                          key={option.logisticName}
+                          type="button"
+                          onClick={() => {
+                            setSelectedShipping(option);
+                            setIsEditingShipping(false);
+                          }}
+                          className="flex items-center justify-between rounded-lg border px-3 py-2.5 text-left text-sm"
+                          style={{
+                            borderColor: active
+                              ? colors.brass
+                              : colors.hairline,
+                          }}
+                        >
+                          <span>
+                            {option.logisticName}
+                            {option.aging ? ` (${option.aging})` : ""}
+                          </span>
+                          <span className="font-bold">
+                            ${option.price.toFixed(2)}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -948,16 +990,13 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
             {/* Payment method */}
             <div className="rounded-2xl p-6" style={cardStyle}>
               <h2 className="text-sm font-bold">Payment Method</h2>
-              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="mt-3">
                 <button
                   type="button"
                   onClick={selectCard}
                   disabled={isPlacingOrder || isCreatingIntent}
-                  className="rounded-lg border px-4 py-3 text-left text-sm disabled:opacity-60"
-                  style={{
-                    borderColor:
-                      paymentMethod === "card" ? colors.brass : colors.hairline,
-                  }}
+                  className="w-full rounded-lg border px-4 py-3 text-left text-sm disabled:opacity-60"
+                  style={{ borderColor: colors.brass }}
                 >
                   <span className="font-semibold">Card</span>
                   <p
@@ -967,33 +1006,13 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
                     Pay now with credit or debit card
                   </p>
                 </button>
-                <button
-                  type="button"
-                  onClick={selectCod}
-                  disabled={isPlacingOrder || isCreatingIntent}
-                  className="rounded-lg border px-4 py-3 text-left text-sm disabled:opacity-60"
-                  style={{
-                    borderColor:
-                      paymentMethod === "cod" ? colors.brass : colors.hairline,
-                  }}
-                >
-                  <span className="font-semibold">Cash on Delivery</span>
-                  <p
-                    className="mt-0.5 text-xs"
-                    style={{ color: colors.boneDim }}
-                  >
-                    Pay in cash when your order arrives
-                  </p>
-                </button>
               </div>
 
-              {paymentMethod === "card" &&
-                !clientSecret &&
-                isCreatingIntent && (
-                  <p className="mt-4 text-sm" style={{ color: colors.boneDim }}>
-                    Preparing payment form...
-                  </p>
-                )}
+              {!clientSecret && isCreatingIntent && (
+                <p className="mt-4 text-sm" style={{ color: colors.boneDim }}>
+                  Preparing payment form...
+                </p>
+              )}
 
               {clientSecret && order && (
                 <div className="mt-4">
@@ -1063,9 +1082,15 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
                 <>
                   <button
                     type="button"
-                    onClick={() => placeOrder(paymentMethod)}
+                    onClick={() => placeOrder()}
                     disabled={
-                      !latestAddress || isPlacingOrder || isCreatingIntent
+                      !latestAddress ||
+                      isPlacingOrder ||
+                      isCreatingIntent ||
+                      // A quote for the current address must resolve first —
+                      // otherwise checkoutDirect gets no shippingQuoteId and
+                      // silently falls back to $0 shipping (see placeOrder).
+                      (!order && (isLoadingShipping || !shippingQuoteId))
                     }
                     className="mt-4 h-12 w-full rounded-xl text-sm font-bold uppercase transition-colors hover:bg-[#CBA470] disabled:opacity-40"
                     style={{
@@ -1078,9 +1103,11 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
                       ? "Placing Order..."
                       : isCreatingIntent
                         ? "Please wait..."
-                        : order && paymentMethod === "card"
-                          ? "Continue to Payment"
-                          : "Place Order"}
+                        : !order && isLoadingShipping
+                          ? "Calculating shipping..."
+                          : order
+                            ? "Continue to Payment"
+                            : "Place Order"}
                   </button>
                   {!latestAddress && (
                     <p

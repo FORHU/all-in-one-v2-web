@@ -2,6 +2,14 @@
 
 const nextConfig = {
   reactStrictMode: true,
+  // jsdom (used by isomorphic-dompurify's SSR path — see
+  // shared/lib/sanitizeHtml.ts) reads its own default-stylesheet.css off
+  // disk at runtime using a path relative to its own folder. Bundling it
+  // into a single webpack chunk breaks that relative path (jsdom ends up
+  // looking for the file inside the project root instead of inside
+  // node_modules), throwing ENOENT during SSR. Marking it (and its caller)
+  // external keeps them as plain Node `require`s so the real path resolves.
+  serverExternalPackages: ["jsdom", "isomorphic-dompurify"],
   images: {
     remotePatterns: [
       {

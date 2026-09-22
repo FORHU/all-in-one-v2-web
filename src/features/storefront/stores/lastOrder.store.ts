@@ -25,12 +25,19 @@ export interface LastOrderShippingAddress {
   country: string;
 }
 
+export interface LastOrderShippingMethod {
+  logisticName: string;
+  price: number;
+  /** CJ's own delivery-time string (e.g. "7-15 Working Days") when this came from a live quote; absent for the flat fallback rate. */
+  aging?: string;
+}
+
 export interface LastOrder {
   orderNumber: string;
   placedAt: string;
   items: LastOrderItem[];
   shippingAddress: LastOrderShippingAddress;
-  shippingMethodKey: "standard" | "express";
+  shippingMethod: LastOrderShippingMethod;
   subtotal: number;
   discount: number;
   shipping: number;

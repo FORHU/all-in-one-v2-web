@@ -23,6 +23,8 @@ import { useLastOrderStore } from "@/features/storefront/stores/lastOrder.store"
 import { useMyOrders } from "@/features/storefront/hooks/queries/useMyOrders";
 import { useNotifications } from "@/features/storefront/hooks/queries/useNotifications";
 import { useMarkNotificationRead } from "@/features/storefront/hooks/mutations/useMarkNotificationRead";
+import { useCancelOrder } from "@/features/storefront/hooks/mutations/useCancelOrder";
+import { ApiError } from "@/shared/errors/api-error";
 import type {
   Order,
   OrderStatus,
@@ -83,15 +85,36 @@ function formatDate(date: Date | string) {
 function OrderCard({
   order,
   onTrack,
+  tenantSlug,
 }: {
   order: Order;
   onTrack: (order: Order) => void;
+  tenantSlug: string;
 }) {
   const itemCount = order.items.reduce((n, i) => n + i.quantity, 0);
   const itemSummary =
     order.items.length > 1
       ? `${order.items[0]?.productTitle} + ${order.items.length - 1} more`
       : (order.items[0]?.productTitle ?? "");
+
+  const { mutate: cancelOrder, isPending: isCancelling } =
+    useCancelOrder(tenantSlug);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
+
+  const handleCancel = () => {
+    cancelOrder(order.id, {
+      onSuccess: () => {
+        toast.success(`Order #${order.orderNumber} cancelled.`);
+        setConfirmingCancel(false);
+      },
+      onError: (err) => {
+        // Most likely a 409: already placed with a supplier, or already
+        // paid — the API's own wording (surfaced via the global error
+        // toast) explains why, so no extra message needed here.
+        if (!(err instanceof ApiError)) setConfirmingCancel(false);
+      },
+    });
+  };
 
   return (
     <div className="flex flex-col gap-4 rounded-2xl border border-current/10 p-5 sm:flex-row sm:items-center sm:justify-between">
@@ -123,17 +146,61 @@ function OrderCard({
           </div>
         </div>
       </div>
-      <button
-        type="button"
-        onClick={() => onTrack(order)}
-        className="self-start rounded-xl border px-4 py-2.5 text-xs font-semibold sm:self-center"
-        style={{
-          borderColor:
-            "color-mix(in srgb, var(--brand-primary) 20%, transparent)",
-        }}
-      >
-        Track Package
-      </button>
+      <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
+        <button
+          type="button"
+          onClick={() => onTrack(order)}
+          className="self-start rounded-xl border px-4 py-2.5 text-xs font-semibold sm:self-center"
+          style={{
+            borderColor:
+              "color-mix(in srgb, var(--brand-primary) 20%, transparent)",
+          }}
+        >
+          Track Package
+        </button>
+        {/* Only while PENDING — once an admin has approved/placed it with a
+            supplier, the order advances to PROCESSING (see the API's
+            createSupplierOrderWithItems) and can no longer be cancelled
+            here; the same rule the backend enforces (see cancelOrder's
+            409s), mirrored here so the button doesn't offer an action
+            that's guaranteed to fail. */}
+        {order.status === "PENDING" &&
+          (confirmingCancel ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-red-600">
+                Cancel this order?
+              </span>
+              <button
+                type="button"
+                onClick={() => setConfirmingCancel(false)}
+                disabled={isCancelling}
+                className="rounded-xl border px-3 py-2 text-xs font-semibold disabled:opacity-40"
+                style={{
+                  borderColor:
+                    "color-mix(in srgb, var(--brand-primary) 20%, transparent)",
+                }}
+              >
+                Keep it
+              </button>
+              <button
+                type="button"
+                onClick={handleCancel}
+                disabled={isCancelling}
+                className="rounded-xl bg-red-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-40"
+              >
+                {isCancelling ? "Cancelling…" : "Confirm"}
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmingCancel(true)}
+              className="self-start rounded-xl border border-red-600/30 px-4 py-2.5 text-xs font-semibold text-red-600 sm:self-center"
+            >
+              Cancel Order
+            </button>
+          ))}
+      </div>
     </div>
   );
 }
@@ -346,6 +413,7 @@ export function FashionAccountPage({ tenantSlug }: { tenantSlug: string }) {
                           key={order.id}
                           order={order}
                           onTrack={setTrackingOrder}
+                          tenantSlug={tenantSlug}
                         />
                       ))
                   )}
@@ -394,6 +462,7 @@ export function FashionAccountPage({ tenantSlug }: { tenantSlug: string }) {
                       key={order.id}
                       order={order}
                       onTrack={setTrackingOrder}
+                      tenantSlug={tenantSlug}
                     />
                   ))
                 )}
