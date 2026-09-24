@@ -46,6 +46,24 @@ export const getOrderById = async (
 };
 
 /**
+ * Cancels an order — only allowed while it's still PENDING (see the API's
+ * OrderService.cancelOrder): once a payment is captured, or the order has
+ * already been placed with a supplier, the API 409s and this rejects. The
+ * caller (useCancelOrder) doesn't need to special-case that — the global
+ * mutation-error toast surfaces it automatically.
+ */
+export const cancelOrder = async (
+  tenantSlug: string,
+  orderId: string,
+): Promise<Order> => {
+  const raw = await fetcher<unknown>(`/api/v2/orders/${orderId}/cancel`, {
+    method: "POST",
+    headers: { "x-tenant-slug": tenantSlug },
+  });
+  return OrderApiEnvelopeSchema.parse(raw).data;
+};
+
+/**
  * Checkout without a persisted backend cart — see the API's
  * OrderService.checkoutDirect doc comment for why this exists (the
  * storefront cart is currently client-only/localStorage).

@@ -13,6 +13,7 @@ export const OrderStatusSchema = z.enum([
   "FULFILLED",
   "CANCELLED",
   "REFUNDED",
+  "REJECTED",
 ]);
 
 export const OrderItemSchema = z.object({
@@ -67,6 +68,9 @@ export const CheckoutDirectInputSchema = z.object({
   items: z.array(CheckoutDirectItemInputSchema).min(1),
   shippingAddressId: z.string().optional(),
   currency: z.string().optional(),
+  /** From POST /v2/orders/shipping-quote — see shipping.contract.ts. Omitting these keeps the pre-existing "no real shipping charge" behavior. */
+  shippingQuoteId: z.string().optional(),
+  shippingLogisticName: z.string().optional(),
 });
 
 export const CheckoutDirectApiEnvelopeSchema = z.object({

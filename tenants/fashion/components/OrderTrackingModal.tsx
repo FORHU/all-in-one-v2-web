@@ -11,8 +11,9 @@ import type {
 const TRACKING_STAGES = ["Order Placed", "Processing", "Shipped", "Delivered"];
 
 // How many of TRACKING_STAGES are complete for a given order status.
-// CANCELLED/REFUNDED get their own banner instead of a partially-filled
-// tracker, since "shipped" wouldn't be an honest thing to imply for either.
+// CANCELLED/REFUNDED/REJECTED get their own banner instead of a
+// partially-filled tracker, since "shipped" wouldn't be an honest thing to
+// imply for any of them.
 const STATUS_STEP: Record<OrderStatus, number> = {
   PENDING: 1,
   PROCESSING: 2,
@@ -20,6 +21,7 @@ const STATUS_STEP: Record<OrderStatus, number> = {
   FULFILLED: 4,
   CANCELLED: 0,
   REFUNDED: 0,
+  REJECTED: 0,
 };
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
@@ -29,6 +31,7 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   FULFILLED: "Fulfilled",
   CANCELLED: "Cancelled",
   REFUNDED: "Refunded",
+  REJECTED: "Rejected",
 };
 
 function formatDate(date: Date) {
@@ -67,7 +70,13 @@ export function OrderTrackingModal({
   if (!order) return null;
 
   const isTerminalNegative =
-    order.status === "CANCELLED" || order.status === "REFUNDED";
+    order.status === "CANCELLED" ||
+    order.status === "REFUNDED" ||
+    order.status === "REJECTED";
+  // REJECTED reads like CANCELLED (red) rather than REFUNDED (neutral) —
+  // it's the seller declining the order, not a customer-initiated return.
+  const isRedBanner =
+    order.status === "CANCELLED" || order.status === "REJECTED";
   const completedSteps = STATUS_STEP[order.status];
 
   return (
@@ -115,14 +124,10 @@ export function OrderTrackingModal({
           <div
             className="flex items-center gap-3 rounded-xl border p-4 text-sm font-semibold"
             style={{
-              borderColor:
-                order.status === "CANCELLED"
-                  ? "#dc2626"
-                  : "color-mix(in srgb, var(--brand-primary) 20%, transparent)",
-              color:
-                order.status === "CANCELLED"
-                  ? "#dc2626"
-                  : "var(--brand-primary)",
+              borderColor: isRedBanner
+                ? "#dc2626"
+                : "color-mix(in srgb, var(--brand-primary) 20%, transparent)",
+              color: isRedBanner ? "#dc2626" : "var(--brand-primary)",
             }}
           >
             <Ban className="h-5 w-5 flex-none" />
@@ -134,6 +139,14 @@ export function OrderTrackingModal({
               {TRACKING_STAGES.map((stage, i) => {
                 const stepNum = i + 1;
                 const complete = stepNum <= completedSteps;
+                // PENDING reaches step 1 ("Order Placed") but hasn't actually
+                // moved past it yet — an admin hasn't approved/placed it with
+                // a supplier. A solid "complete" circle here would look
+                // identical to a step that's truly done and moving forward,
+                // contradicting the "Awaiting approval" caption below. Render
+                // it as a distinct amber, still-pending state instead.
+                const isPendingHere =
+                  order.status === "PENDING" && stepNum === completedSteps;
                 return (
                   <div
                     key={stage}
@@ -143,23 +156,34 @@ export function OrderTrackingModal({
                       <div
                         className="flex h-6 w-6 flex-none items-center justify-center rounded-full text-[10px] font-bold"
                         style={{
-                          backgroundColor: complete
-                            ? "var(--brand-primary)"
-                            : "transparent",
-                          color: complete
-                            ? "var(--brand-secondary)"
-                            : "var(--brand-primary)",
-                          border: complete ? "none" : "1px solid currentColor",
-                          opacity: complete ? 1 : 0.35,
+                          backgroundColor: isPendingHere
+                            ? "transparent"
+                            : complete
+                              ? "var(--brand-primary)"
+                              : "transparent",
+                          color: isPendingHere
+                            ? "#f59e0b"
+                            : complete
+                              ? "var(--brand-secondary)"
+                              : "var(--brand-primary)",
+                          border: isPendingHere
+                            ? "2px solid #f59e0b"
+                            : complete
+                              ? "none"
+                              : "1px solid currentColor",
+                          opacity: complete || isPendingHere ? 1 : 0.35,
                         }}
                       >
                         {stepNum}
                       </div>
                       <span
                         className="w-16 text-center text-[10px] font-semibold"
-                        style={{ opacity: complete ? 1 : 0.4 }}
+                        style={{
+                          opacity: complete || isPendingHere ? 1 : 0.4,
+                          color: isPendingHere ? "#f59e0b" : undefined,
+                        }}
                       >
-                        {stage}
+                        {isPendingHere ? "Pending Approval" : stage}
                       </span>
                     </div>
                     {i < TRACKING_STAGES.length - 1 && (
@@ -175,10 +199,17 @@ export function OrderTrackingModal({
                 );
               })}
             </div>
-            <p className="mt-4 text-center text-[11px] opacity-50">
-              Live courier tracking isn&rsquo;t connected yet — this reflects
-              the order&rsquo;s current status.
-            </p>
+            {order.status === "PENDING" ? (
+              <p className="mt-4 text-center text-xs font-semibold text-amber-500">
+                Awaiting approval — we&rsquo;ll start processing your order
+                shortly.
+              </p>
+            ) : (
+              <p className="mt-4 text-center text-[11px] opacity-50">
+                Live courier tracking isn&rsquo;t connected yet — this reflects
+                the order&rsquo;s current status.
+              </p>
+            )}
           </div>
         )}
 

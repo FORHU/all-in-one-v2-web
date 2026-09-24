@@ -125,6 +125,15 @@ export function TrendingLookbook({
   useEffect(() => setHasMounted(true), []);
   const mode = hasMounted ? colorMode : "dark";
   const colors = getFashionColors(mode);
+  // Shoe product photos are frequently on-foot shots or irregularly padded
+  // product-only shots — "cover" crops off the shoe itself under those
+  // source aspect ratios, so this category letterboxes instead of cropping.
+  // The box is also shorter than the default 3:4 (shoes are wide/short
+  // objects), so the photo renders visibly smaller (same fix as
+  // pages/CategoryDetailPage.tsx's grid below).
+  const isShoesCategory = categorySlug === "shoes";
+  const trendingImageFit = isShoesCategory ? "contain" : "cover";
+  const trendingImageAspect = isShoesCategory ? "4/3" : "3/4";
 
   // Closing the overlay (Escape, backdrop click, X) only hides it — the
   // last-viewed look stays selected so reopening (or navigating prev/next
@@ -257,6 +266,8 @@ export function TrendingLookbook({
                     rank={trendingPage * TRENDING_PAGE_SIZE + i + 1}
                     product={product}
                     colors={colors}
+                    objectFit={trendingImageFit}
+                    aspect={trendingImageAspect}
                   />
                 ))}
               </div>
@@ -627,10 +638,14 @@ function TrendingProductTile({
   rank,
   product,
   colors,
+  objectFit = "cover",
+  aspect = "3/4",
 }: {
   rank: number;
   product: ProductCardProduct;
   colors: FashionColors;
+  objectFit?: "cover" | "contain";
+  aspect?: string;
 }) {
   return (
     <div className="flex flex-col gap-2">
@@ -643,11 +658,15 @@ function TrendingProductTile({
       >
         {String(rank).padStart(2, "0")}
       </div>
-      <div className="group relative aspect-[3/4] w-full overflow-hidden rounded-lg">
+      <div
+        className="group relative w-full overflow-hidden rounded-lg"
+        style={{ aspectRatio: aspect }}
+      >
         <ImagePlaceholder
           label={product.imageLabel}
           imageUrl={product.imageUrl}
-          aspect="3/4"
+          aspect={aspect}
+          objectFit={objectFit}
           className="h-full w-full transition-transform duration-500 ease-out group-hover:scale-105"
         />
         {product.slug && (
