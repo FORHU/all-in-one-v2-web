@@ -11,8 +11,9 @@ import type {
 const TRACKING_STAGES = ["Order Placed", "Processing", "Shipped", "Delivered"];
 
 // How many of TRACKING_STAGES are complete for a given order status.
-// CANCELLED/REFUNDED get their own banner instead of a partially-filled
-// tracker, since "shipped" wouldn't be an honest thing to imply for either.
+// CANCELLED/REFUNDED/REJECTED get their own banner instead of a
+// partially-filled tracker, since "shipped" wouldn't be an honest thing to
+// imply for any of them.
 const STATUS_STEP: Record<OrderStatus, number> = {
   PENDING: 1,
   PROCESSING: 2,
@@ -20,6 +21,7 @@ const STATUS_STEP: Record<OrderStatus, number> = {
   FULFILLED: 4,
   CANCELLED: 0,
   REFUNDED: 0,
+  REJECTED: 0,
 };
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
@@ -29,6 +31,7 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   FULFILLED: "Fulfilled",
   CANCELLED: "Cancelled",
   REFUNDED: "Refunded",
+  REJECTED: "Rejected",
 };
 
 function formatDate(date: Date) {
@@ -67,7 +70,13 @@ export function OrderTrackingModal({
   if (!order) return null;
 
   const isTerminalNegative =
-    order.status === "CANCELLED" || order.status === "REFUNDED";
+    order.status === "CANCELLED" ||
+    order.status === "REFUNDED" ||
+    order.status === "REJECTED";
+  // REJECTED reads like CANCELLED (red) rather than REFUNDED (neutral) —
+  // it's the seller declining the order, not a customer-initiated return.
+  const isRedBanner =
+    order.status === "CANCELLED" || order.status === "REJECTED";
   const completedSteps = STATUS_STEP[order.status];
 
   return (
@@ -115,14 +124,10 @@ export function OrderTrackingModal({
           <div
             className="flex items-center gap-3 rounded-xl border p-4 text-sm font-semibold"
             style={{
-              borderColor:
-                order.status === "CANCELLED"
-                  ? "#dc2626"
-                  : "color-mix(in srgb, var(--brand-primary) 20%, transparent)",
-              color:
-                order.status === "CANCELLED"
-                  ? "#dc2626"
-                  : "var(--brand-primary)",
+              borderColor: isRedBanner
+                ? "#dc2626"
+                : "color-mix(in srgb, var(--brand-primary) 20%, transparent)",
+              color: isRedBanner ? "#dc2626" : "var(--brand-primary)",
             }}
           >
             <Ban className="h-5 w-5 flex-none" />

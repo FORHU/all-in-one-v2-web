@@ -13,6 +13,7 @@ export const OrderStatusSchema = z.enum([
   "FULFILLED",
   "CANCELLED",
   "REFUNDED",
+  "REJECTED",
 ]);
 
 export const OrderItemSchema = z.object({

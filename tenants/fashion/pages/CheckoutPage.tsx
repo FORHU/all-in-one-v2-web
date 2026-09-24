@@ -216,12 +216,19 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
   useEffect(() => {
     if (!latestAddress || items.length === 0) return;
 
-    // Clear the previous address's quote immediately — otherwise its price
-    // and quoteId linger on screen (and in the checkoutDirect payload) for
-    // the *new* address until this re-fetch resolves, or forever if it
-    // fails. A stale quoteId is a real correctness risk, not just a
-    // cosmetic one: the backend charges whatever price it round-trips
-    // back, without knowing it was quoted for a different address.
+    // Preserve *which method* the shopper picked (e.g. DHL for speed)
+    // across a requote (address or quantity change) — carriers reprice
+    // differently as quantity/weight changes, so re-selecting by name
+    // against the fresh options keeps their choice instead of silently
+    // snapping back to "cheapest" every time the cart changes.
+    const previousLogisticName = selectedShipping?.logisticName ?? null;
+
+    // Clear the previous quote immediately — otherwise its price and
+    // quoteId linger on screen (and in the checkoutDirect payload) until
+    // this re-fetch resolves, or forever if it fails. A stale quoteId is a
+    // real correctness risk, not just a cosmetic one: the backend charges
+    // whatever price it round-trips back, without knowing it was quoted
+    // for a different address/quantity.
     setShippingOptions([]);
     setSelectedShipping(null);
     setShippingQuoteId(null);
@@ -241,7 +248,13 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
         if (cancelled) return;
         setShippingOptions(quote.options);
         setShippingQuoteId(quote.quoteId);
-        setSelectedShipping(quote.options[0] ?? null);
+        // Same carrier, repriced for the new quantity/destination — falls
+        // back to the new default only if that carrier isn't offered this
+        // time (e.g. it doesn't ship this quantity, or to this address).
+        const stillAvailable = previousLogisticName
+          ? quote.options.find((o) => o.logisticName === previousLogisticName)
+          : undefined;
+        setSelectedShipping(stillAvailable ?? quote.options[0] ?? null);
       })
       .catch(() => {
         // useSafeMutation's global MutationCache.onError already surfaced a
@@ -252,7 +265,7 @@ export function FashionCheckoutPage({ tenantSlug }: { tenantSlug: string }) {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- itemsSignature stands in for items' identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- itemsSignature stands in for items' identity; selectedShipping is read once at effect-start on purpose, not a reactive dependency.
   }, [latestAddress?.id, itemsSignature, requestShippingQuote]);
 
   const setQuantity = (item: LocalCartItem, quantity: number) => {

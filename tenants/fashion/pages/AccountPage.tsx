@@ -63,6 +63,7 @@ const STATUS_CLASSES: Record<OrderStatus, string> = {
   FULFILLED: "bg-green-100 text-green-800",
   CANCELLED: "bg-red-100 text-red-800",
   REFUNDED: "bg-slate-100 text-slate-500",
+  REJECTED: "bg-red-100 text-red-800",
 };
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
@@ -72,6 +73,7 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   FULFILLED: "Fulfilled",
   CANCELLED: "Cancelled",
   REFUNDED: "Refunded",
+  REJECTED: "Rejected",
 };
 
 function formatDate(date: Date | string) {
