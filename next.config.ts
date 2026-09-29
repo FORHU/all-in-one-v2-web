@@ -33,6 +33,14 @@ const nextConfig = {
         protocol: "https",
         hostname: "forhu-marketplace-dev.s3.ap-southeast-1.amazonaws.com",
       },
+      // Local dev's S3-compatible storage (SeaweedFS via docker-compose's
+      // `minio` profile — see the API's docker-compose.yml) while there's no
+      // real AWS S3 bucket to point at. Never matches in staging/prod.
+      {
+        protocol: "http",
+        hostname: "localhost",
+        port: "9000",
+      },
     ],
   },
   // Next picks the next free port (3001, 3002...) whenever 3000 is taken,

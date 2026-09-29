@@ -3,9 +3,11 @@ import {
   MyOrdersApiEnvelopeSchema,
   CheckoutDirectApiEnvelopeSchema,
   OrderApiEnvelopeSchema,
+  OrderTrackingApiEnvelopeSchema,
   type MyOrdersResponse,
   type CheckoutDirectInput,
   type Order,
+  type OrderTracking,
 } from "../contracts/order.contract";
 
 /**
@@ -43,6 +45,22 @@ export const getOrderById = async (
     headers: { "x-tenant-slug": tenantSlug },
   });
   return OrderApiEnvelopeSchema.parse(raw).data;
+};
+
+/**
+ * Real, live CJ Dropshipping courier status for a single order — see the
+ * API's OrderService.getOrderTracking doc comment for the response shape.
+ * Same ownership rule as getOrderById (optionalAuthenticate, guest-by-session
+ * or the signed-in owner).
+ */
+export const getOrderTracking = async (
+  tenantSlug: string,
+  orderId: string,
+): Promise<OrderTracking> => {
+  const raw = await fetcher<unknown>(`/api/v2/orders/${orderId}/tracking`, {
+    headers: { "x-tenant-slug": tenantSlug },
+  });
+  return OrderTrackingApiEnvelopeSchema.parse(raw).data;
 };
 
 /**

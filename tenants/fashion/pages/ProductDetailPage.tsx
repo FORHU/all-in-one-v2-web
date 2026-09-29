@@ -155,11 +155,13 @@ export function FashionProductDetailPage({
   const selectedColorLabel = product.colors.find(
     (c) => c.value === selectedColor,
   )?.label;
-  // A color with no real swatchColor renders as an identical flat grey
-  // regardless of what the color actually is (CJ often doesn't map one) —
-  // showing that swatch just teaches the shopper "grey" is a real, pickable
-  // color, which it isn't. Only show swatches CJ actually gave us a color for.
-  const swatchedColors = product.colors.filter((c) => c.swatchColor);
+  // A round swatch with no real swatchColor would render as an identical
+  // flat grey regardless of what the color actually is (CJ's import
+  // pipeline often doesn't map one) — teaching the shopper "grey" is a
+  // real, pickable color, which it isn't. Those get a plain labeled chip
+  // instead (see the Colour section below) rather than being hidden
+  // entirely — a product with real color options shouldn't look like it
+  // has none just because CJ never gave us a hex for them.
   const activeImage =
     product.images[selectedImage] ?? product.thumbnailUrl ?? undefined;
 
@@ -463,7 +465,7 @@ export function FashionProductDetailPage({
                 />
               )}
 
-              {swatchedColors.length > 0 && (
+              {product.colors.length > 0 && (
                 <div
                   className="mt-6 border-t pt-5"
                   style={{ borderColor: colors.hairline }}
@@ -480,35 +482,61 @@ export function FashionProductDetailPage({
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-2.5">
-                    {swatchedColors.map((color) => {
+                    {product.colors.map((color) => {
                       const active = selectedColor === color.value;
+                      // Round swatch when CJ gave us a real hex; otherwise a
+                      // plain labeled chip (matching the size selector's
+                      // active/inactive border treatment) so the color is
+                      // still pickable instead of invisible.
+                      if (color.swatchColor) {
+                        return (
+                          <button
+                            key={color.value}
+                            type="button"
+                            onClick={() => setSelectedColor(color.value)}
+                            aria-label={color.label}
+                            aria-pressed={active}
+                            className="relative h-8 w-8 rounded-full border"
+                            style={{
+                              backgroundColor: color.swatchColor,
+                              borderColor: colors.hairline,
+                            }}
+                          >
+                            {active && (
+                              <span className="absolute inset-0 flex items-center justify-center">
+                                <span
+                                  className="flex h-4 w-4 items-center justify-center rounded-full"
+                                  style={{ backgroundColor: colors.bone }}
+                                >
+                                  <Check
+                                    className="h-2.5 w-2.5"
+                                    style={{ color: colors.ink }}
+                                    strokeWidth={3}
+                                  />
+                                </span>
+                              </span>
+                            )}
+                          </button>
+                        );
+                      }
                       return (
                         <button
                           key={color.value}
                           type="button"
                           onClick={() => setSelectedColor(color.value)}
-                          aria-label={color.label}
                           aria-pressed={active}
-                          className="relative h-8 w-8 rounded-full border"
+                          className="h-8 rounded-full border px-3 text-xs font-semibold"
                           style={{
-                            backgroundColor: color.swatchColor!,
-                            borderColor: colors.hairline,
+                            borderColor: active
+                              ? colors.brass
+                              : colors.hairline,
+                            backgroundColor: active
+                              ? `${colors.brass}1f`
+                              : "transparent",
+                            color: colors.bone,
                           }}
                         >
-                          {active && (
-                            <span className="absolute inset-0 flex items-center justify-center">
-                              <span
-                                className="flex h-4 w-4 items-center justify-center rounded-full"
-                                style={{ backgroundColor: colors.bone }}
-                              >
-                                <Check
-                                  className="h-2.5 w-2.5"
-                                  style={{ color: colors.ink }}
-                                  strokeWidth={3}
-                                />
-                              </span>
-                            </span>
-                          )}
+                          {color.label}
                         </button>
                       );
                     })}

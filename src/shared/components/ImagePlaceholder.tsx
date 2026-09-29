@@ -10,6 +10,9 @@ const ALLOWED_IMAGE_HOSTS = [
   /^images\.unsplash\.com$/,
   /^([\w-]+\.)*cjdropshipping\.com$/,
   /^forhu-marketplace-dev\.s3\.ap-southeast-1\.amazonaws\.com$/,
+  // Local dev's S3-compatible storage (SeaweedFS via docker-compose's `minio`
+  // profile) — matches next.config.ts's localhost:9000 remotePattern.
+  /^localhost$/,
 ];
 
 export function isAllowedImageHost(url: string): boolean {

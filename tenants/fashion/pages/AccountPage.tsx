@@ -849,6 +849,7 @@ export function FashionAccountPage({ tenantSlug }: { tenantSlug: string }) {
 
       <OrderTrackingModal
         order={trackingOrder}
+        tenantSlug={tenantSlug}
         onClose={() => setTrackingOrder(null)}
       />
     </FashionStorefrontLayout>

@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect } from "react";
-import { X, Ban } from "lucide-react";
+import { X, Ban, Truck } from "lucide-react";
 import { ImagePlaceholder } from "@/shared/components/ImagePlaceholder";
+import { useOrderTracking } from "@/features/storefront/hooks/queries/useOrderTracking";
 import type {
   Order,
   OrderStatus,
+  ShipmentStatus,
 } from "@/features/storefront/contracts/order.contract";
 
 const TRACKING_STAGES = ["Order Placed", "Processing", "Shipped", "Delivered"];
@@ -34,6 +36,20 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   REJECTED: "Rejected",
 };
 
+// CJ's raw courier status, translated to a customer-facing label. Doesn't
+// include CJ's own jargon (e.g. "UNPAID", "CREATED") — those describe our
+// supplier account state, not something a customer should see.
+const SHIPMENT_STATUS_LABELS: Record<ShipmentStatus, string> = {
+  PENDING: "Preparing your order",
+  LABEL_CREATED: "Shipping label created",
+  PICKED_UP: "Picked up by courier",
+  IN_TRANSIT: "In transit",
+  OUT_FOR_DELIVERY: "Out for delivery",
+  DELIVERED: "Delivered",
+  FAILED: "Delivery issue — we're looking into it",
+  RETURNED: "Returned to sender",
+};
+
 function formatDate(date: Date) {
   return new Date(date).toLocaleDateString("en-US", {
     weekday: "short",
@@ -53,9 +69,11 @@ function formatDate(date: Date) {
  */
 export function OrderTrackingModal({
   order,
+  tenantSlug,
   onClose,
 }: {
   order: Order | null;
+  tenantSlug: string;
   onClose: () => void;
 }) {
   useEffect(() => {
@@ -67,12 +85,21 @@ export function OrderTrackingModal({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [order, onClose]);
 
-  if (!order) return null;
-
   const isTerminalNegative =
-    order.status === "CANCELLED" ||
-    order.status === "REFUNDED" ||
-    order.status === "REJECTED";
+    order?.status === "CANCELLED" ||
+    order?.status === "REFUNDED" ||
+    order?.status === "REJECTED";
+
+  // Real CJ Dropshipping lookup — only worth firing once there's a chance a
+  // supplier order exists (PENDING orders haven't been placed with CJ yet,
+  // and terminal-negative orders will never be).
+  const { data: tracking, isLoading: isLoadingTracking } = useOrderTracking(
+    tenantSlug,
+    order?.id,
+    !!order && order.status !== "PENDING" && !isTerminalNegative,
+  );
+
+  if (!order) return null;
   // REJECTED reads like CANCELLED (red) rather than REFUNDED (neutral) —
   // it's the seller declining the order, not a customer-initiated return.
   const isRedBanner =
@@ -204,11 +231,44 @@ export function OrderTrackingModal({
                 Awaiting approval — we&rsquo;ll start processing your order
                 shortly.
               </p>
-            ) : (
+            ) : isLoadingTracking ? (
               <p className="mt-4 text-center text-[11px] opacity-50">
-                Live courier tracking isn&rsquo;t connected yet — this reflects
-                the order&rsquo;s current status.
+                Checking courier status…
               </p>
+            ) : !tracking?.hasSupplierOrder ? (
+              <p className="mt-4 text-center text-[11px] opacity-50">
+                Your order hasn&rsquo;t been placed with our supplier yet —
+                check back soon.
+              </p>
+            ) : (
+              <div
+                className="mt-4 flex items-center gap-3 rounded-xl border p-3"
+                style={{
+                  borderColor:
+                    "color-mix(in srgb, var(--brand-primary) 15%, transparent)",
+                }}
+              >
+                <Truck className="h-5 w-5 flex-none opacity-70" />
+                <div className="min-w-0 flex-1 text-left">
+                  <div className="text-xs font-bold">
+                    {tracking.shipmentStatus
+                      ? SHIPMENT_STATUS_LABELS[tracking.shipmentStatus]
+                      : "Placed with our supplier"}
+                  </div>
+                  {tracking.trackingNumber && (
+                    <div className="mt-0.5 truncate text-[11px] opacity-60">
+                      {tracking.carrier ? `${tracking.carrier} · ` : ""}
+                      Tracking # {tracking.trackingNumber}
+                    </div>
+                  )}
+                  {tracking.stale && (
+                    <div className="mt-0.5 text-[11px] text-amber-500">
+                      Live status unavailable right now — showing our last
+                      recorded update.
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
           </div>
         )}
