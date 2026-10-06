@@ -1,0 +1,215 @@
+name: Deploy Dev
+
+# FORHU/all-in-one-v2-web → the shared dev host (ap-southeast-1).
+#
+# Replaces deploy-staging.yml, which could never have worked: it pushes to ECR
+# repository all-in-one-v2-web, and that repository does not exist. ECR does not
+# create one on demand, so the push fails. Terraform now declares it
+# (forhu-dev/cicd.tf) — apply that before the first run of this workflow.
+#
+# BEFORE THE FIRST RUN
+#   1. Repository variable:
+#        AWS_DEV_DEPLOY_ROLE_ARN = arn:aws:iam::617163942417:role/forhu-deploy
+#   2. Set NEXT_PUBLIC_API_URL and NEXT_PUBLIC_SITE_URL as dev-environment
+#      variables. They are baked into the client bundle at build time, so a
+#      wrong value needs a rebuild, not a restart — the build fails below
+#      rather than shipping a page that silently calls the wrong host.
+#   3. This app is multi-tenant and resolves a tenant from the subdomain. Caddy
+#      on the dev host serves only the apex dev.addictstyle.com: its Caddy has
+#      no DNS-provider module, so it cannot answer the DNS-01 challenge a
+#      wildcard certificate needs. Per-tenant subdomains have to be listed in
+#      the vhost, or Caddy rebuilt with the Cloudflare DNS plugin.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, tag or SHA to deploy"
+        required: true
+        default: main
+
+concurrency:
+  group: forhu-dev-all-in-one-web
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-southeast-1
+  ACCOUNT_ID: "617163942417"
+  INSTANCE_ID: i-0f95a93145ea25e7a
+  ECR_REPOSITORY: all-in-one-v2-web
+  CONTAINER: all-in-one-web
+  NETWORK: forhu-dev
+  HOST_PORT: "4070"
+  APP_PORT: "5001"
+  ENV_PARAM: /forhu-dev/all-in-one-web/env
+  SHARED_ENV: /opt/forhu-dev/credentials/all-in-one.env
+  MERGED_ENV: /opt/forhu-dev/all-in-one-web.env
+
+jobs:
+  deploy:
+    name: Build and deploy (all-in-one web dev)
+    # Native arm64: the host is Graviton. A Next.js build under QEMU takes
+    # hours and looks hung, so never cross-build this one.
+    runs-on: ubuntu-24.04-arm
+    environment: dev
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref_name }}
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEV_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Check the build-time values are set
+        env:
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+        run: |
+          set -euo pipefail
+          # An empty NEXT_PUBLIC_API_URL compiles, deploys and serves a page
+          # that fails every call, with nothing in any server log to say why.
+          # The old workflow defaulted these to https://staging-api.example.com,
+          # which is worse: it builds clean and points at nothing.
+          fail=0
+          for k in NEXT_PUBLIC_API_URL NEXT_PUBLIC_SITE_URL; do
+            if [ -z "${!k:-}" ]; then
+              echo "::error::$k is empty. It is baked into the client bundle at build time."
+              echo "::error::Set it as a dev-environment variable before deploying."
+              fail=1
+            fi
+          done
+          [ "$fail" = "0" ] || exit 1
+
+      - name: Resolve image tag
+        id: tag
+        run: |
+          echo "tag=dev-$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "registry=${{ env.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com" >> "$GITHUB_OUTPUT"
+
+      - name: Login to Amazon ECR
+        run: |
+          aws ecr get-login-password --region "${{ env.AWS_REGION }}" \
+            | docker login --username AWS --password-stdin "${{ steps.tag.outputs.registry }}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # NEXT_PUBLIC_* are build args, not runtime env: the Dockerfile's builder
+      # stage turns them into ENV and `pnpm build` inlines them into the client
+      # bundle. Changing one needs a rebuild.
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          platforms: linux/arm64
+          provenance: false
+          tags: ${{ steps.tag.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.tag.outputs.tag }}
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}
+            NEXT_PUBLIC_SITE_URL=${{ vars.NEXT_PUBLIC_SITE_URL }}
+            NEXT_PUBLIC_APP_ENV=development
+            NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+            NEXT_PUBLIC_GOOGLE_CLIENT_ID=${{ vars.NEXT_PUBLIC_GOOGLE_CLIENT_ID || secrets.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
+
+      # The same values again as runtime env, for anything read server-side.
+      - name: Publish project env to Parameter Store
+        env:
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+          NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${{ vars.NEXT_PUBLIC_GOOGLE_CLIENT_ID || secrets.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
+          ROOT_DOMAIN: ${{ vars.ROOT_DOMAIN }}
+          DEFAULT_TENANT_SLUG: ${{ vars.DEFAULT_TENANT_SLUG }}
+        run: |
+          set -euo pipefail
+          umask 077
+          {
+            printf 'NODE_ENV=production\n'
+            printf 'PORT=%s\n' "${{ env.APP_PORT }}"
+            printf 'NEXT_PUBLIC_APP_ENV=development\n'
+          } > env.tmp
+
+          for k in NEXT_PUBLIC_API_URL NEXT_PUBLIC_SITE_URL \
+                   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY \
+                   NEXT_PUBLIC_GOOGLE_CLIENT_ID ROOT_DOMAIN DEFAULT_TENANT_SLUG; do
+            v="${!k:-}"
+            if [ -n "$v" ]; then printf '%s=%s\n' "$k" "$v" >> env.tmp; fi
+          done
+
+          aws ssm put-parameter \
+            --name "${{ env.ENV_PARAM }}" \
+            --type SecureString --overwrite \
+            --value "file://env.tmp" \
+            --region "${{ env.AWS_REGION }}" > /dev/null
+          rm -f env.tmp
+
+      - name: Deploy via SSM
+        id: send
+        env:
+          REGISTRY: ${{ steps.tag.outputs.registry }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          IMAGE="${REGISTRY}/${{ env.ECR_REPOSITORY }}:${TAG}"
+
+          COMMANDS=(
+            "set -euo pipefail"
+            "cat ${{ env.SHARED_ENV }} > ${{ env.MERGED_ENV }}"
+            "aws ssm get-parameter --name ${{ env.ENV_PARAM }} --with-decryption --region ${{ env.AWS_REGION }} --query Parameter.Value --output text >> ${{ env.MERGED_ENV }}"
+            "chmod 600 ${{ env.MERGED_ENV }}"
+            "aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${REGISTRY}"
+            "docker container prune -f || true"
+            "docker image prune -af || true"
+            "docker pull --platform linux/arm64 ${IMAGE}"
+            "docker rm -f ${{ env.CONTAINER }} 2>/dev/null || true"
+            "docker run -d --name ${{ env.CONTAINER }} --restart unless-stopped --platform linux/arm64 --network ${{ env.NETWORK }} --env-file ${{ env.MERGED_ENV }} -p 127.0.0.1:${{ env.HOST_PORT }}:${{ env.APP_PORT }} --log-opt max-size=10m --log-opt max-file=3 ${IMAGE}"
+            "ok=0; for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do if curl -sf -o /dev/null http://127.0.0.1:${{ env.HOST_PORT }}/; then ok=1; echo 'web healthy'; break; fi; sleep 3; done; if [ \$ok = 0 ]; then echo 'web did NOT come up'; docker logs --tail 60 ${{ env.CONTAINER }}; exit 1; fi"
+          )
+
+          PARAMS=$(printf '%s\n' "${COMMANDS[@]}" | jq -R . | jq -sc '{commands: .}')
+
+          CMD_ID=$(aws ssm send-command \
+            --region "${{ env.AWS_REGION }}" \
+            --instance-ids "${{ env.INSTANCE_ID }}" \
+            --document-name AWS-RunShellScript \
+            --comment "deploy ${{ env.CONTAINER }} ${TAG}" \
+            --timeout-seconds 1200 \
+            --parameters "${PARAMS}" \
+            --query Command.CommandId --output text)
+
+          echo "command_id=$CMD_ID" >> "$GITHUB_OUTPUT"
+          echo "SSM command: $CMD_ID"
+
+      - name: Wait for the deploy
+        run: |
+          set -uo pipefail
+          STATUS=Pending
+          for i in $(seq 1 120); do
+            STATUS=$(aws ssm get-command-invocation \
+              --region "${{ env.AWS_REGION }}" \
+              --command-id "${{ steps.send.outputs.command_id }}" \
+              --instance-id "${{ env.INSTANCE_ID }}" \
+              --query Status --output text 2>/dev/null || echo Pending)
+            echo "status: $STATUS"
+            case "$STATUS" in Success|Failed|Cancelled|TimedOut) break ;; esac
+            sleep 10
+          done
+
+          aws ssm get-command-invocation \
+            --region "${{ env.AWS_REGION }}" \
+            --command-id "${{ steps.send.outputs.command_id }}" \
+            --instance-id "${{ env.INSTANCE_ID }}" \
+            --query '[StandardOutputContent,StandardErrorContent]' --output text
+
+          [ "$STATUS" = "Success" ] || { echo "::error::deploy $STATUS"; exit 1; }
