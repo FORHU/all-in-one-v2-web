@@ -30,7 +30,7 @@ RUN pnpm build
 
 FROM node:20-alpine AS runner
 WORKDIR /app
-
+RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
 ENV NODE_ENV=production \
     PORT=5001
 
