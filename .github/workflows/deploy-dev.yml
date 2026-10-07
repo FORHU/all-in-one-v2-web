@@ -51,7 +51,7 @@ jobs:
     # Native arm64: the host is Graviton. A Next.js build under QEMU takes
     # hours and looks hung, so never cross-build this one.
     runs-on: ubuntu-24.04-arm
-    environment: dev
+    environment: staging
 
     permissions:
       id-token: write
@@ -66,13 +66,13 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ vars.AWS_DEV_DEPLOY_ROLE_ARN }}
+          role-to-assume: ${{ vars.AWS_DEV_DEPLOY_ROLE_ARN || 'arn:aws:iam::617163942417:role/forhu-deploy' }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Check the build-time values are set
         env:
-          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
-          NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL || secrets.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL || secrets.NEXT_PUBLIC_SITE_URL }}
         run: |
           set -euo pipefail
           # An empty NEXT_PUBLIC_API_URL compiles, deploys and serves a page
@@ -116,8 +116,8 @@ jobs:
           provenance: false
           tags: ${{ steps.tag.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.tag.outputs.tag }}
           build-args: |
-            NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}
-            NEXT_PUBLIC_SITE_URL=${{ vars.NEXT_PUBLIC_SITE_URL }}
+            NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL || secrets.NEXT_PUBLIC_API_URL }}
+            NEXT_PUBLIC_SITE_URL=${{ vars.NEXT_PUBLIC_SITE_URL || secrets.NEXT_PUBLIC_SITE_URL }}
             NEXT_PUBLIC_APP_ENV=development
             NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
             NEXT_PUBLIC_GOOGLE_CLIENT_ID=${{ vars.NEXT_PUBLIC_GOOGLE_CLIENT_ID || secrets.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
@@ -125,12 +125,12 @@ jobs:
       # The same values again as runtime env, for anything read server-side.
       - name: Publish project env to Parameter Store
         env:
-          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
-          NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL || secrets.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL || secrets.NEXT_PUBLIC_SITE_URL }}
           NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
           NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${{ vars.NEXT_PUBLIC_GOOGLE_CLIENT_ID || secrets.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
-          ROOT_DOMAIN: ${{ vars.ROOT_DOMAIN }}
-          DEFAULT_TENANT_SLUG: ${{ vars.DEFAULT_TENANT_SLUG }}
+          ROOT_DOMAIN: ${{ vars.ROOT_DOMAIN || secrets.ROOT_DOMAIN }}
+          DEFAULT_TENANT_SLUG: ${{ vars.DEFAULT_TENANT_SLUG || secrets.DEFAULT_TENANT_SLUG }}
         run: |
           set -euo pipefail
           umask 077
