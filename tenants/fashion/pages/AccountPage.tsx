@@ -18,10 +18,13 @@ import { FashionStorefrontLayout } from "../layouts/StorefrontLayout";
 import { ImagePlaceholder } from "@/shared/components/ImagePlaceholder";
 import { ProductCard } from "@/shared/components/ProductCard";
 import { OrderTrackingModal } from "../components/OrderTrackingModal";
+import { RequestRefundModal } from "../components/RequestRefundModal";
+import { RequestStatusModal } from "../components/RequestStatusModal";
 import { useAuthStore } from "@/features/auth/stores/auth.store";
 import { useLastOrderStore } from "@/features/storefront/stores/lastOrder.store";
 import { useMyOrders } from "@/features/storefront/hooks/queries/useMyOrders";
 import { useNotifications } from "@/features/storefront/hooks/queries/useNotifications";
+import { useMyReturnRequests } from "@/features/storefront/hooks/queries/useMyReturnRequests";
 import { useMarkNotificationRead } from "@/features/storefront/hooks/mutations/useMarkNotificationRead";
 import { useCancelOrder } from "@/features/storefront/hooks/mutations/useCancelOrder";
 import { ApiError } from "@/shared/errors/api-error";
@@ -29,6 +32,7 @@ import type {
   Order,
   OrderStatus,
 } from "@/features/storefront/contracts/order.contract";
+import type { MyReturnRequest } from "@/features/storefront/contracts/order-request.contract";
 import { fashionProducts } from "../data/products";
 import { quickAddToCart } from "../utils/quickAddToCart";
 import { useBuyNow } from "../hooks/useBuyNow";
@@ -76,6 +80,14 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   REJECTED: "Rejected",
 };
 
+// A terminal request no longer blocks a fresh one on the same order — see
+// ReturnRepository.findActiveReturnsForOrderItems on the API side, same list.
+const TERMINAL_REQUEST_STATUSES = new Set([
+  "REJECTED",
+  "CANCELLED",
+  "COMPLETED",
+]);
+
 function formatDate(date: Date | string) {
   return new Date(date).toLocaleDateString("en-US", {
     month: "short",
@@ -87,10 +99,18 @@ function formatDate(date: Date | string) {
 function OrderCard({
   order,
   onTrack,
+  onRequestRefund,
+  onViewRequestStatus,
+  activeRequest,
+  lastRequest,
   tenantSlug,
 }: {
   order: Order;
   onTrack: (order: Order) => void;
+  onRequestRefund: (order: Order) => void;
+  onViewRequestStatus: (requestId: string) => void;
+  activeRequest?: MyReturnRequest;
+  lastRequest?: MyReturnRequest;
   tenantSlug: string;
 }) {
   const itemCount = order.items.reduce((n, i) => n + i.quantity, 0);
@@ -98,6 +118,11 @@ function OrderCard({
     order.items.length > 1
       ? `${order.items[0]?.productTitle} + ${order.items.length - 1} more`
       : (order.items[0]?.productTitle ?? "");
+
+  // Active takes priority; otherwise fall back to the most recent (terminal)
+  // one so a rejected/cancelled/completed request still has somewhere to
+  // surface its final status instead of the card reverting to a blank slate.
+  const effectiveRequest = activeRequest ?? lastRequest;
 
   const { mutate: cancelOrder, isPending: isCancelling } =
     useCancelOrder(tenantSlug);
@@ -149,17 +174,50 @@ function OrderCard({
         </div>
       </div>
       <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
-        <button
-          type="button"
-          onClick={() => onTrack(order)}
-          className="self-start rounded-xl border px-4 py-2.5 text-xs font-semibold sm:self-center"
-          style={{
-            borderColor:
-              "color-mix(in srgb, var(--brand-primary) 20%, transparent)",
-          }}
-        >
-          Track Package
-        </button>
+        {/* Once any request exists for this order — active or terminal —
+            it's the one thing this card is about: Track Package and Request
+            Refund/Return step aside for a single status button, rather than
+            sitting next to a now-irrelevant "request again" affordance. */}
+        {effectiveRequest ? (
+          <button
+            type="button"
+            onClick={() => onViewRequestStatus(effectiveRequest.id)}
+            className="self-start rounded-xl border px-4 py-2.5 text-xs font-semibold sm:self-center"
+            style={{
+              borderColor:
+                "color-mix(in srgb, var(--brand-primary) 20%, transparent)",
+            }}
+          >
+            Check Request Status
+          </button>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => onTrack(order)}
+              className="self-start rounded-xl border px-4 py-2.5 text-xs font-semibold sm:self-center"
+              style={{
+                borderColor:
+                  "color-mix(in srgb, var(--brand-primary) 20%, transparent)",
+              }}
+            >
+              Track Package
+            </button>
+            {order.status === "FULFILLED" && (
+              <button
+                type="button"
+                onClick={() => onRequestRefund(order)}
+                className="self-start rounded-xl border px-4 py-2.5 text-xs font-semibold sm:self-center"
+                style={{
+                  borderColor:
+                    "color-mix(in srgb, var(--brand-primary) 20%, transparent)",
+                }}
+              >
+                Request Refund/Return
+              </button>
+            )}
+          </>
+        )}
         {/* Only while PENDING — once an admin has approved/placed it with a
             supplier, the order advances to PROCESSING (see the API's
             createSupplierOrderWithItems) and can no longer be cancelled
@@ -229,6 +287,10 @@ export function FashionAccountPage({ tenantSlug }: { tenantSlug: string }) {
   const logoutToken = useAuthStore((s) => s.setToken);
   const [activeSection, setActiveSection] = useState<SectionKey>("dashboard");
   const [trackingOrder, setTrackingOrder] = useState<Order | null>(null);
+  const [refundRequestOrder, setRefundRequestOrder] = useState<Order | null>(
+    null,
+  );
+  const [viewingRequestId, setViewingRequestId] = useState<string | null>(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const buyNow = useBuyNow();
 
@@ -260,6 +322,35 @@ export function FashionAccountPage({ tenantSlug }: { tenantSlug: string }) {
     useNotifications(tenantSlug, hasMounted && !!token);
   const { mutate: markNotificationRead, isPending: isMarkingNotificationRead } =
     useMarkNotificationRead(tenantSlug);
+
+  // Lightweight (status + type only) — just enough to decide, per order,
+  // whether to show "Request Refund/Return" or an existing request's status.
+  const { data: myReturnRequestsData } = useMyReturnRequests(
+    tenantSlug,
+    hasMounted && !!token,
+  );
+  // Most recently created active request per order — an order could in
+  // theory have more than one across different items, but today's
+  // duplicate-active-request guard (ReturnRepository.findActiveReturnsForOrderItems)
+  // means there's realistically at most one non-terminal request per order
+  // at a time, so "most recent" is an unambiguous pick.
+  const activeRequestByOrderId = new Map<string, MyReturnRequest>();
+  // Most recent request per order regardless of status — lets a rejected/
+  // cancelled request still surface as a small badge once it's no longer
+  // "active" (see TERMINAL_STATUS_BADGE below), instead of disappearing
+  // silently the moment a fresh request becomes possible on the same order.
+  const lastRequestByOrderId = new Map<string, MyReturnRequest>();
+  for (const req of myReturnRequestsData ?? []) {
+    const existingLast = lastRequestByOrderId.get(req.orderId);
+    if (!existingLast || req.createdAt > existingLast.createdAt) {
+      lastRequestByOrderId.set(req.orderId, req);
+    }
+    if (TERMINAL_REQUEST_STATUSES.has(req.status)) continue;
+    const existing = activeRequestByOrderId.get(req.orderId);
+    if (!existing || req.createdAt > existing.createdAt) {
+      activeRequestByOrderId.set(req.orderId, req);
+    }
+  }
 
   if (!hasMounted || !token) {
     return (
@@ -415,6 +506,10 @@ export function FashionAccountPage({ tenantSlug }: { tenantSlug: string }) {
                           key={order.id}
                           order={order}
                           onTrack={setTrackingOrder}
+                          onRequestRefund={setRefundRequestOrder}
+                          onViewRequestStatus={setViewingRequestId}
+                          activeRequest={activeRequestByOrderId.get(order.id)}
+                          lastRequest={lastRequestByOrderId.get(order.id)}
                           tenantSlug={tenantSlug}
                         />
                       ))
@@ -464,6 +559,10 @@ export function FashionAccountPage({ tenantSlug }: { tenantSlug: string }) {
                       key={order.id}
                       order={order}
                       onTrack={setTrackingOrder}
+                      onRequestRefund={setRefundRequestOrder}
+                      onViewRequestStatus={setViewingRequestId}
+                      activeRequest={activeRequestByOrderId.get(order.id)}
+                      lastRequest={lastRequestByOrderId.get(order.id)}
                       tenantSlug={tenantSlug}
                     />
                   ))
@@ -851,6 +950,18 @@ export function FashionAccountPage({ tenantSlug }: { tenantSlug: string }) {
         order={trackingOrder}
         tenantSlug={tenantSlug}
         onClose={() => setTrackingOrder(null)}
+      />
+
+      <RequestRefundModal
+        order={refundRequestOrder}
+        tenantSlug={tenantSlug}
+        onClose={() => setRefundRequestOrder(null)}
+      />
+
+      <RequestStatusModal
+        requestId={viewingRequestId}
+        tenantSlug={tenantSlug}
+        onClose={() => setViewingRequestId(null)}
       />
     </FashionStorefrontLayout>
   );

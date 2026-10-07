@@ -10,6 +10,8 @@ export * from "./address.client";
 export * from "./address.keys";
 export * from "./orders.client";
 export * from "./orders.keys";
+export * from "./order-requests.client";
+export * from "./order-requests.keys";
 export * from "./shipping.client";
 export * from "./payments.client";
 export * from "./notifications.client";

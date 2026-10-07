@@ -70,10 +70,15 @@ export async function fetcher<T>(
 ): Promise<T> {
   try {
     const token = getToken();
+    // FormData (multipart uploads, e.g. return-evidence photos) must NOT get
+    // a manual Content-Type — the browser sets its own with the multipart
+    // boundary. Every other caller still gets application/json as before.
+    const isFormData =
+      typeof FormData !== "undefined" && options?.body instanceof FormData;
     const res = await fetch(`${env.NEXT_PUBLIC_API_URL}${url}`, {
       ...options,
       headers: {
-        "Content-Type": "application/json",
+        ...(isFormData ? {} : { "Content-Type": "application/json" }),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(options?.headers || {}),
       },

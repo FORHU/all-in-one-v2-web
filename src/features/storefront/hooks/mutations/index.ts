@@ -6,3 +6,6 @@ export * from "./useShippingQuote";
 export * from "./useCancelOrder";
 export * from "./useCreatePaymentIntent";
 export * from "./useMarkNotificationRead";
+export * from "./useCreateReturnRequest";
+export * from "./useUploadReturnEvidence";
+export * from "./useAddCustomerEvidence";

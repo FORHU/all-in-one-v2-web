@@ -64,17 +64,20 @@ export const getOrderTracking = async (
 };
 
 /**
- * Cancels an order — only allowed while it's still PENDING (see the API's
- * OrderService.cancelOrder): once a payment is captured, or the order has
- * already been placed with a supplier, the API 409s and this rejects. The
- * caller (useCancelOrder) doesn't need to special-case that — the global
- * mutation-error toast surfaces it automatically.
+ * Cancels the signed-in customer's own order — only allowed while it's
+ * still PENDING (see the API's OrderService.cancelOrder): once a payment is
+ * captured, or the order has already been placed with a supplier, the API
+ * 409s and this rejects. The caller (useCancelOrder) doesn't need to
+ * special-case that — the global mutation-error toast surfaces it
+ * automatically. Hits the customer-scoped /my/:id/cancel route (ownership
+ * enforced server-side), not the admin-only /:id/cancel one — a plain
+ * customer account has no orders:write permission to pass that gate.
  */
 export const cancelOrder = async (
   tenantSlug: string,
   orderId: string,
 ): Promise<Order> => {
-  const raw = await fetcher<unknown>(`/api/v2/orders/${orderId}/cancel`, {
+  const raw = await fetcher<unknown>(`/api/v2/orders/my/${orderId}/cancel`, {
     method: "POST",
     headers: { "x-tenant-slug": tenantSlug },
   });
