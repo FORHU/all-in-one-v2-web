@@ -77,6 +77,43 @@ export const CheckoutDirectApiEnvelopeSchema = z.object({
   data: OrderSchema,
 });
 
+/**
+ * Real CJ Dropshipping courier status — GET /v2/orders/:id/tracking. Mirrors
+ * the API's OrderService.getOrderTracking response shape exactly: no
+ * supplier order exists yet, or one does and this is what CJ (or, if `stale`,
+ * our last saved copy) reports for it.
+ */
+export const ShipmentStatusSchema = z.enum([
+  "PENDING",
+  "LABEL_CREATED",
+  "PICKED_UP",
+  "IN_TRANSIT",
+  "OUT_FOR_DELIVERY",
+  "DELIVERED",
+  "FAILED",
+  "RETURNED",
+]);
+
+export const OrderTrackingSchema = z.discriminatedUnion("hasSupplierOrder", [
+  z.object({ hasSupplierOrder: z.literal(false) }),
+  z.object({
+    hasSupplierOrder: z.literal(true),
+    externalOrderId: z.string(),
+    rawStatus: z.string().nullable(),
+    trackingNumber: z.string().nullable(),
+    carrier: z.string().nullable(),
+    shipmentStatus: ShipmentStatusSchema.nullable(),
+    // True when CJ's live API couldn't be reached/found the order (e.g. it
+    // was placed under a since-rotated CJ account) — the fields above are
+    // then our last saved copy, not a fresh live read.
+    stale: z.boolean(),
+  }),
+]);
+
+export const OrderTrackingApiEnvelopeSchema = z.object({
+  data: OrderTrackingSchema,
+});
+
 export type OrderStatus = z.infer<typeof OrderStatusSchema>;
 export type OrderItem = z.infer<typeof OrderItemSchema>;
 export type Order = z.infer<typeof OrderSchema>;
@@ -85,3 +122,5 @@ export type CheckoutDirectItemInput = z.infer<
   typeof CheckoutDirectItemInputSchema
 >;
 export type CheckoutDirectInput = z.infer<typeof CheckoutDirectInputSchema>;
+export type ShipmentStatus = z.infer<typeof ShipmentStatusSchema>;
+export type OrderTracking = z.infer<typeof OrderTrackingSchema>;

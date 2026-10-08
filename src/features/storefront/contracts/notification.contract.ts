@@ -12,6 +12,7 @@ export const NotificationTypeSchema = z.enum([
   "SHIPMENT_TRACKING",
   "SYSTEM_ALERT",
   "PROMOTION",
+  "RETURN_REQUEST_STATUS",
 ]);
 
 export const NotificationSchema = z.object({

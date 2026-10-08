@@ -3,9 +3,11 @@ import {
   MyOrdersApiEnvelopeSchema,
   CheckoutDirectApiEnvelopeSchema,
   OrderApiEnvelopeSchema,
+  OrderTrackingApiEnvelopeSchema,
   type MyOrdersResponse,
   type CheckoutDirectInput,
   type Order,
+  type OrderTracking,
 } from "../contracts/order.contract";
 
 /**
@@ -46,17 +48,36 @@ export const getOrderById = async (
 };
 
 /**
- * Cancels an order — only allowed while it's still PENDING (see the API's
- * OrderService.cancelOrder): once a payment is captured, or the order has
- * already been placed with a supplier, the API 409s and this rejects. The
- * caller (useCancelOrder) doesn't need to special-case that — the global
- * mutation-error toast surfaces it automatically.
+ * Real, live CJ Dropshipping courier status for a single order — see the
+ * API's OrderService.getOrderTracking doc comment for the response shape.
+ * Same ownership rule as getOrderById (optionalAuthenticate, guest-by-session
+ * or the signed-in owner).
+ */
+export const getOrderTracking = async (
+  tenantSlug: string,
+  orderId: string,
+): Promise<OrderTracking> => {
+  const raw = await fetcher<unknown>(`/api/v2/orders/${orderId}/tracking`, {
+    headers: { "x-tenant-slug": tenantSlug },
+  });
+  return OrderTrackingApiEnvelopeSchema.parse(raw).data;
+};
+
+/**
+ * Cancels the signed-in customer's own order — only allowed while it's
+ * still PENDING (see the API's OrderService.cancelOrder): once a payment is
+ * captured, or the order has already been placed with a supplier, the API
+ * 409s and this rejects. The caller (useCancelOrder) doesn't need to
+ * special-case that — the global mutation-error toast surfaces it
+ * automatically. Hits the customer-scoped /my/:id/cancel route (ownership
+ * enforced server-side), not the admin-only /:id/cancel one — a plain
+ * customer account has no orders:write permission to pass that gate.
  */
 export const cancelOrder = async (
   tenantSlug: string,
   orderId: string,
 ): Promise<Order> => {
-  const raw = await fetcher<unknown>(`/api/v2/orders/${orderId}/cancel`, {
+  const raw = await fetcher<unknown>(`/api/v2/orders/my/${orderId}/cancel`, {
     method: "POST",
     headers: { "x-tenant-slug": tenantSlug },
   });
