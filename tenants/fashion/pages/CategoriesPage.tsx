@@ -12,8 +12,15 @@ import { getFashionWardrobePanelBackgroundImage } from "../theme";
  * Fashion — full category listing page.
  * Same static data as components/CategoryGrid.tsx (see
  * tenants/fashion/data/categories.ts) until useCategories() is real.
+ * Accepts `tenantSlug` only so the /categories route can pass the same
+ * props shape to every tenant's CategoriesPage (see beauty's, which does
+ * use it) — unused here since this page's data is still static.
  */
-export function FashionCategoriesPage() {
+export function FashionCategoriesPage({
+  tenantSlug: _tenantSlug,
+}: {
+  tenantSlug: string;
+}) {
   const colorMode = useFashionColorMode((s) => s.mode);
   // useFashionColorMode persists to localStorage, unavailable during SSR —
   // gate behind a mount flag so the server-rendered first paint doesn't

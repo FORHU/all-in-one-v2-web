@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { tenantScopedStorage } from "@/shared/lib/tenantScopedStorage";
 import type { LocalCartItem } from "./localCart.store";
 
 type BuyNowState = {
@@ -18,6 +19,10 @@ type BuyNowState = {
  * back/forward button — doesn't drop the selection and land on "No item
  * selected"; `clear()` is still called once the order is actually placed,
  * so it doesn't linger past that purchase.
+ * Namespaced via tenantScopedStorage (same pattern as localCart.store.ts)
+ * so a fashion Buy Now and a beauty Buy Now never collide — `name:
+ * "buy-now"` resolves to the same literal "fashion-buy-now" key fashion
+ * already used, so this is a no-op for fashion's existing data.
  */
 export const useBuyNowStore = create<BuyNowState>()(
   persist(
@@ -26,6 +31,6 @@ export const useBuyNowStore = create<BuyNowState>()(
       setItem: (item) => set({ item }),
       clear: () => set({ item: null }),
     }),
-    { name: "fashion-buy-now" },
+    { name: "buy-now", storage: tenantScopedStorage() },
   ),
 );

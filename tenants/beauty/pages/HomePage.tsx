@@ -13,7 +13,7 @@ import { MirrorShelfHero } from "../components/MirrorShelfHero";
  */
 export function BeautyHomePage({ tenantSlug }: { tenantSlug: string }) {
   return (
-    <BeautyStorefrontLayout>
+    <BeautyStorefrontLayout hideFooter>
       <MirrorShelfHero tenantSlug={tenantSlug} />
     </BeautyStorefrontLayout>
   );

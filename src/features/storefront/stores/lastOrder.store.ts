@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { tenantScopedStorage } from "@/shared/lib/tenantScopedStorage";
 
 export interface LastOrderItem {
   id: string;
@@ -54,11 +55,14 @@ type LastOrderState = {
 /**
  * Snapshot of the most recently "placed" order, persisted to localStorage
  * purely so it survives the client-side navigation from /checkout to
- * /order-success (and a refresh of the confirmation page). There is no
- * real orders backend — /v2/orders is unimplemented — so this is not a
- * durable order history, just a hand-off between those two pages. See
- * pages/CheckoutPage.tsx (writes it) and pages/OrderSuccessPage.tsx
- * (reads it).
+ * /order-success (and a refresh of the confirmation page) — not a durable
+ * order history (see hooks/queries/useMyOrders.ts for that), just a
+ * hand-off between CheckoutPage.tsx (writes it) and OrderSuccessPage.tsx
+ * (reads it), per tenant.
+ * Namespaced via tenantScopedStorage (same pattern as localCart.store.ts)
+ * so a fashion checkout and a beauty checkout never share one snapshot —
+ * `name: "last-order"` resolves to the same literal "fashion-last-order"
+ * key fashion already used, so this is a no-op for fashion's existing data.
  */
 export const useLastOrderStore = create<LastOrderState>()(
   persist(
@@ -67,6 +71,6 @@ export const useLastOrderStore = create<LastOrderState>()(
       setOrder: (order) => set({ order }),
       clearOrder: () => set({ order: null }),
     }),
-    { name: "fashion-last-order" },
+    { name: "last-order", storage: tenantScopedStorage() },
   ),
 );
