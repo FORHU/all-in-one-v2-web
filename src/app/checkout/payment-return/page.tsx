@@ -1,9 +1,11 @@
 import { headers } from "next/headers";
 import { getTenantConfig } from "@/tenants/registry";
 import { FashionPaymentReturnPage } from "@/tenants/fashion/pages/PaymentReturnPage";
+import { BeautyPaymentReturnPage } from "@/tenants/beauty/pages/PaymentReturnPage";
 
 const paymentReturnPagesBySlug = {
   fashion: FashionPaymentReturnPage,
+  beauty: BeautyPaymentReturnPage,
 } as const;
 
 /**

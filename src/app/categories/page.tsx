@@ -21,5 +21,5 @@ export default async function CategoriesPage() {
 
   if (!tenant || !TenantCategoriesPage) return null;
 
-  return <TenantCategoriesPage />;
+  return <TenantCategoriesPage tenantSlug={slug} />;
 }

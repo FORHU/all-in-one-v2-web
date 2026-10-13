@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { tenantScopedStorage } from "@/shared/lib/tenantScopedStorage";
 
 export interface LocalCartItem {
   id: string;
@@ -31,7 +32,9 @@ export function makeLineId(item: NewCartItem) {
 }
 
 /**
- * Client-only cart state, persisted to localStorage.
+ * Client-only cart state, persisted to localStorage, namespaced per tenant
+ * via tenantScopedStorage (each tenant gets its own "<slug>-local-cart" key
+ * — see that helper's doc comment for why).
  * TODO: replace with server-backed state (features/storefront/hooks/useCart)
  * once /v2/cart is implemented — this exists purely so the cart
  * drawer/page/header badge have something real to operate on until then.
@@ -73,6 +76,6 @@ export const useLocalCartStore = create<LocalCartState>()(
         })),
       clear: () => set({ items: [] }),
     }),
-    { name: "fashion-local-cart" },
+    { name: "local-cart", storage: tenantScopedStorage() },
   ),
 );

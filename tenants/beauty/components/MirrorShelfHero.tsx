@@ -8,61 +8,113 @@ import { useAuthStore } from "@/features/auth/stores/auth.store";
 import { useWishlistStore } from "@/features/storefront/stores/wishlist.store";
 import { useCategories } from "@/features/storefront/hooks/queries/useCategories";
 import type { Category } from "@/features/storefront/contracts/categories.contract";
-import { BEAUTY_MIRROR_COLORS as COLORS, beautyPlexMono } from "../theme";
+import { BEAUTY_MIRROR_COLORS as COLORS } from "../theme";
 import {
   MirrorShelfCategoryCard,
   MirrorShelfCategoryCardView,
+  type MirrorShelfPreviewProduct,
 } from "./MirrorShelfCategoryCard";
 import {
   SAMPLE_SKINCARE,
   SAMPLE_MAKEUP,
 } from "../data/mirrorShelfSampleCategories";
 
-const TABS = ["DAILY", "EVENING", "MY SHELF"] as const;
-type Tab = (typeof TABS)[number];
+// "Ask me anything" suggestion chips — each links straight to a real,
+// currently-seeded category slug (see categories.seeder.ts) rather than
+// being decorative/unlinked text, so a tap actually lands somewhere useful
+// instead of just being a visual prompt. Concern -> category is a
+// reasonable, not algorithmic, mapping (there's no real skin-concern
+// taxonomy in this data model to query against).
+const ASK_SUGGESTIONS: { label: string; categorySlug: string }[] = [
+  { label: "Dry skin?", categorySlug: "skincare-moisturizers" },
+  { label: "Oily skin?", categorySlug: "skincare-cleansers" },
+  { label: "Acne-prone?", categorySlug: "skincare-serums" },
+  { label: "Dull skin?", categorySlug: "skincare-masks" },
+  { label: "Fine lines?", categorySlug: "skincare" },
+  { label: "Hair damage?", categorySlug: "haircare" },
+];
 
-function monoStyle(extra?: React.CSSProperties): React.CSSProperties {
+// No explicit fontFamily here — the Manrope `.variable` class lives on
+// BeautyStorefrontLayout's root div (fontFamily: "var(--font-body)"),
+// which every descendant already inherits normally. Re-reading
+// beautyManrope.style.fontFamily directly in JS here previously caused a
+// real, reproducible SSR/client hydration mismatch in dev mode (Next's
+// font-loader object can resolve to a different literal value on the
+// server vs. the client on a cold compile) — plain CSS inheritance has no
+// such race.
+function labelStyle(extra?: React.CSSProperties): React.CSSProperties {
   return {
-    fontFamily: beautyPlexMono.style.fontFamily,
-    letterSpacing: "0.16em",
+    fontWeight: 700,
+    letterSpacing: "0.1em",
+    textTransform: "uppercase",
     ...extra,
   };
 }
 
+// Frosted-glass backdrop blur, matching Main.dc.html's `.glass` class —
+// paired with a translucent `COLORS.glassBg` background wherever this
+// hero renders a card/pill over the layout's blurred-photo backdrop.
+const glassBlur: React.CSSProperties = {
+  backdropFilter: "blur(26px) saturate(170%)",
+  WebkitBackdropFilter: "blur(26px) saturate(170%)",
+};
+
 /**
- * Beauty — "Mirror Shelf" landing hero. Adapts Mirror Shelf.dc.html's dark,
- * glossy dashboard-style design into a normal responsive page (no literal
- * fixed-size device-frame bezel) — see the approved plan for the full
- * rationale on what's real vs. decorative here:
+ * Beauty — "Mirror Shelf" landing hero. Re-matched to Main.dc.html's warm
+ * terracotta *glass* revision (Instrument Serif/Manrope, blurred photo
+ * backdrop + frosted translucent cards — supersedes the earlier flat
+ * cream/white-card pass). No opaque section background here on purpose —
+ * BeautyStorefrontLayout now renders the blurred-photo backdrop behind
+ * every page, and this hero's own cards are deliberately translucent
+ * (`COLORS.glassBg` + backdrop-blur) so that backdrop shows through them,
+ * matching the reference's `.glass`/`.glass-strong` treatment. What's real
+ * vs. decorative hasn't changed from the previous visual pass, only the
+ * skin:
  *   - Clock/date: real, live, client-side (gated behind hasMounted to avoid
  *     an SSR/hydration mismatch, same pattern as CheckoutPage.tsx).
  *   - Greeting: real signed-in user (useAuthStore), generic when signed out.
- *   - Top-left "weather" slot: swapped for something actually real instead
- *     of fabricated weather data a viewer could mistake for live — the
- *     signed-in user's real wishlist count ("shelf" saved-items), which
- *     fits the Mirror Shelf branding better anyway.
- *   - DAILY/EVENING/MY SHELF tabs: visual-only toggle — there's no
- *     "routine" concept in this data model, so switching tabs doesn't
- *     change anything else on the page.
- *   - Ambient portrait: no real asset exists, so this is ImagePlaceholder's
- *     own dashed-border fallback with a descriptive label.
+ *   - "Mirror Shelf / N Saved" eyebrow: the signed-in user's real wishlist
+ *     count, not fabricated — fits the branding better than invented
+ *     "weather" data a viewer could mistake for live.
+ *   - Center panel image: clicking a *specific* product thumbnail inside a
+ *     Skincare/Makeup & Others card (each thumbnail is its own button —
+ *     see MirrorShelfCategoryCardView) mirrors that exact product into
+ *     this panel — real thumbnail, title and price — instead of always
+ *     showing the category's first item regardless of which thumbnail was
+ *     clicked. The preview itself is the thing that links through to the
+ *     real PDP; it stays showing until another thumbnail is clicked (no
+ *     auto-revert — a click is a deliberate choice, unlike an earlier
+ *     hover-based version, which also only ever showed one representative
+ *     product per category rather than the one actually picked). This
+ *     whole mechanism replaced an earlier Daily/Evening/My Shelf tab
+ *     toggle that didn't change anything real when clicked.
+ *   - Ambient portrait (the panel's resting state, nothing picked yet): a
+ *     curated editorial stock photo (same ImagePlaceholder-via-Unsplash
+ *     treatment as the category cards' product thumbnails) — not tied to
+ *     any product/order data, so this is the one spot on the page where
+ *     "real" just means "an honest, non-fabricated mood photo," not
+ *     "backend-sourced."
  *   - "Ask me anything": a real, typeable input; submitting navigates to
  *     /categories, the closest real destination — there's no product
  *     search feature anywhere in this codebase yet (frontend or usably
  *     from the backend), same as the fashion header's own decorative
- *     search box.
+ *     search box. The suggestion chips below it (ASK_SUGGESTIONS) are real
+ *     links straight to a specific, currently-seeded category each,
+ *     rather than decorative prompt text — a more useful shortcut than
+ *     the free-text input can offer today.
  *   - Category columns: real data via useCategories(tenantSlug) +
  *     MirrorShelfCategoryCard's per-category useProducts(...).total, split
- *     Skincare vs. everything else. Beauty's catalog is currently empty (by
- *     explicit choice, not seeded), so each column falls back to
- *     data/mirrorShelfSampleCategories.ts's static sample content (taken
- *     from the Mirror Shelf.dc.html reference itself) rather than a bare
- *     "no product" line — once beauty has real categories, useCategories()
- *     returns real rows and this fallback stops being used automatically.
- *   - Bottom quick-nav: only items with a real destination are links
- *     (HOME, SHELVES → /categories, BAG → /cart) — CONSULTATION and SAVED
- *     have no backing feature/page yet, so they're label-only, not fake
- *     links to nowhere.
+ *     Skincare vs. everything else. Beauty's catalog is now seeded (10
+ *     categories, 50 products — see imported-products.seeder.ts), so these
+ *     columns render real categories in practice; data/
+ *     mirrorShelfSampleCategories.ts's static sample content only remains
+ *     as a fallback for if/when useCategories() ever returns zero rows.
+ *   - No bottom quick-nav row — removed along with HomePage.tsx's
+ *     `hideFooter` (see BeautyStorefrontLayout) so the home route ends
+ *     right after this 3-column area, matching Main.dc.html's own
+ *     single-screen "Mirror Mode" dashboard, which has no footer/nav row
+ *     of its own either. Home/Shelves/Bag/Account are still reachable via
+ *     the real header (logo, nav, Account icon, Bag button).
  */
 export function MirrorShelfHero({ tenantSlug }: { tenantSlug: string }) {
   const [hasMounted, setHasMounted] = useState(false);
@@ -78,8 +130,9 @@ export function MirrorShelfHero({ tenantSlug }: { tenantSlug: string }) {
     return () => clearInterval(id);
   }, []);
 
-  const [activeTab, setActiveTab] = useState<Tab>("DAILY");
   const [askInput, setAskInput] = useState("");
+  const [previewProduct, setPreviewProduct] =
+    useState<MirrorShelfPreviewProduct | null>(null);
   const router = useRouter();
 
   const { data: categories, isLoading: isLoadingCategories } =
@@ -103,254 +156,359 @@ export function MirrorShelfHero({ tenantSlug }: { tenantSlug: string }) {
     hasMounted && user ? `Hello, ${user.name || user.username}` : "Welcome";
 
   return (
-    <section
-      className="px-4 pb-10 pt-6 sm:px-8"
-      style={{
-        background:
-          "radial-gradient(120% 90% at 50% 0%, #1b1d21 0%, #14161a 55%, #0e0f11 100%)",
-      }}
-    >
+    <section className="px-4 pb-16 pt-6 sm:px-10">
       <div className="mx-auto flex max-w-7xl flex-col gap-8">
-        {/* Top strip — shelf status / clock / greeting */}
-        <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-3 sm:items-baseline">
-          <div className="flex items-baseline gap-3">
+        {/* Status row — shelf status / clock / ritual, matching the
+            reference's spark-icon eyebrow + glass "N saved" pill + centered
+            giant clock + right-side glass pill, instead of the earlier
+            flat-text layout. */}
+        <div className="flex flex-wrap items-end justify-between gap-4 px-1.5">
+          <div className="flex flex-col gap-1.5">
             <span
-              className="text-2xl font-light"
-              style={{ color: COLORS.inkSoft }}
+              className="flex items-center gap-2 text-xs"
+              style={labelStyle({ color: COLORS.ink })}
             >
-              ✦
+              <svg
+                className="h-3.5 w-3.5 flex-none"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke={COLORS.accent}
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6" />
+              </svg>
+              Mirror Shelf
             </span>
-            <div
-              className="text-[11px] leading-relaxed"
-              style={monoStyle({ color: COLORS.mutedSoft })}
+            <span
+              className="self-start rounded-full px-3 py-1.5 text-xs font-semibold"
+              style={{
+                backgroundColor: COLORS.glassBg,
+                border: `1px solid ${COLORS.glassBorder}`,
+                color: COLORS.ink,
+                ...glassBlur,
+              }}
             >
-              <div>MIRROR SHELF</div>
-              <div>{hasMounted ? `${wishlistCount} SAVED` : "— SAVED"}</div>
-            </div>
+              {hasMounted ? `${wishlistCount} saved` : "— saved"}
+            </span>
           </div>
 
-          <div className="text-center">
-            <div
-              className="mx-auto mb-2 h-[7px] w-[7px] rounded-full"
-              style={{
-                background:
-                  "radial-gradient(circle at 30% 30%, #ffffff, #7d858d)",
-              }}
-            />
-            <div
-              className="text-4xl font-light sm:text-5xl"
-              style={{ color: COLORS.inkSoft, lineHeight: 1 }}
+          <div className="flex flex-col items-center gap-0.5">
+            <span
+              className="text-6xl font-extralight leading-none tracking-tight tabular-nums sm:text-7xl"
+              style={{ color: COLORS.ink }}
             >
               {timeLabel}
-            </div>
-            <div
-              className="mt-2 text-[11px]"
-              style={monoStyle({
-                color: COLORS.mutedSoft,
-                letterSpacing: "0.2em",
+            </span>
+            <span
+              className="text-xs"
+              style={labelStyle({
+                color: COLORS.muted,
+                letterSpacing: "0.22em",
               })}
             >
               {dateLabel}
-            </div>
+            </span>
           </div>
 
-          <div className="text-left sm:text-right">
-            <div
-              className="text-[17px] font-light"
-              style={{ color: COLORS.inkSoft }}
+          <div className="flex flex-col items-end gap-1.5">
+            <span
+              className="text-xs"
+              style={labelStyle({ color: COLORS.muted })}
             >
               {greeting}
-            </div>
+            </span>
             <div
-              className="mt-2 flex gap-4 text-[11px] sm:justify-end"
-              style={monoStyle({ color: COLORS.mutedSoft })}
+              className="flex gap-1 rounded-full px-1 py-1 text-[11px]"
+              style={{
+                backgroundColor: COLORS.glassBg,
+                border: `1px solid ${COLORS.glassBorder}`,
+                ...glassBlur,
+              }}
             >
-              <span>SAVED</span>
               <Link
                 href="/account"
-                className="hover:opacity-100"
-                style={{ opacity: 0.9 }}
+                className="rounded-full px-3 py-1.5 font-semibold transition-colors hover:text-current"
+                style={{ color: COLORS.ink }}
               >
-                ACCOUNT
+                Account
               </Link>
               <Link
                 href="/cart"
-                className="hover:opacity-100"
-                style={{ opacity: 0.9 }}
+                className="rounded-full px-3 py-1.5 font-semibold transition-colors hover:text-current"
+                style={{ color: COLORS.ink }}
               >
-                BAG
+                Bag
               </Link>
             </div>
           </div>
         </div>
 
-        {/* Main 3-column area */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,1fr)] lg:gap-8">
-          {/* Skincare column */}
-          <div className="flex flex-col gap-3">
-            <div
-              className="text-[11px]"
-              style={monoStyle({ color: COLORS.muted, letterSpacing: "0.2em" })}
-            >
-              SKINCARE
+        {/* Main 3-column area. Center track is minmax(0,1fr) — it fills
+            whatever width is left of the max-w-7xl container after the two
+            fixed 340px side columns, so the grid itself uses the full page
+            width with no dead margin on either side. 340px (vs. an earlier
+            280px) brings the card columns closer in width to the center
+            panel's own max-w-sm (384px) cap, so the three columns read as
+            comparable blocks instead of two narrow strips flanking a much
+            wider center. */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[340px_minmax(0,1fr)_340px] lg:gap-9">
+          {/* Skincare column — label pinned at top (matches the mockup),
+              but the card stack itself centers vertically in whatever
+              space is left: real category counts are asymmetric per side
+              (unlike the old fixed 5-sample-items-per-side mock data), so
+              a short side flush-top would otherwise leave dead space below
+              its last card instead of balancing against the taller side. */}
+          <div className="flex h-full flex-col gap-4">
+            <p className="text-xs" style={labelStyle({ color: COLORS.muted })}>
+              Skincare
+            </p>
+            <div className="flex flex-1 flex-col justify-center gap-4">
+              {isLoadingCategories ? (
+                <p className="text-sm" style={{ color: COLORS.muted }}>
+                  Loading…
+                </p>
+              ) : skincareCategories.length > 0 ? (
+                skincareCategories.map((c) => (
+                  <MirrorShelfCategoryCard
+                    key={c.id}
+                    tenantSlug={tenantSlug}
+                    category={c}
+                    onPreview={setPreviewProduct}
+                  />
+                ))
+              ) : (
+                SAMPLE_SKINCARE.map((sample) => (
+                  <MirrorShelfCategoryCardView
+                    key={sample.name}
+                    name={sample.name}
+                    count={sample.count}
+                    href={`/products/${sample.productSlug}`}
+                  />
+                ))
+              )}
             </div>
-            {isLoadingCategories ? (
-              <p className="text-sm" style={{ color: COLORS.muted }}>
-                Loading…
-              </p>
-            ) : skincareCategories.length > 0 ? (
-              skincareCategories.map((c) => (
-                <MirrorShelfCategoryCard
-                  key={c.id}
-                  tenantSlug={tenantSlug}
-                  category={c}
-                />
-              ))
-            ) : (
-              SAMPLE_SKINCARE.map((sample) => (
-                <MirrorShelfCategoryCardView
-                  key={sample.name}
-                  name={sample.name}
-                  count={sample.count}
-                  seed={sample.name}
-                />
-              ))
-            )}
           </div>
 
-          {/* Mirror Mode center panel */}
-          <div className="flex flex-col items-center gap-5 py-2">
+          {/* Mirror Mode center panel — anchored to the top (not
+              justify-center) so it lines up with the side columns' own
+              labels instead of floating mid-row. With real, often
+              multi-row category data the side columns can run much taller
+              than this panel's fixed content; centering just splits that
+              leftover height into two visible gaps (above AND below)
+              instead of removing it — top-aligning keeps the one
+              unavoidable gap below the panel, where it reads as normal
+              column-height variance rather than broken layout. */}
+          <div className="flex flex-col items-center gap-[18px] py-2">
+            <h1
+              className="mb-1 text-center text-5xl leading-none tracking-tight sm:text-[56px]"
+              style={{ color: COLORS.ink, fontFamily: "var(--font-heading)" }}
+            >
+              Mirror{" "}
+              <span style={{ fontStyle: "italic", color: COLORS.accent }}>
+                Mode
+              </span>
+            </h1>
+
+            {/* Default: the curated ambient portrait. Clicking a Skincare or
+                Makeup & Others card (see MirrorShelfCategoryCard's
+                onPreview) swaps this for that card's real representative
+                product — real thumbnail, title, price, clickable through to
+                its own PDP. Same glass-framed rounded-[34px]/[26px] box
+                either way (the reference's own padded `.glass` photo
+                frame), so switching the preview never shifts the
+                surrounding layout. */}
             <div
-              className="text-3xl sm:text-4xl"
+              className="w-full max-w-[440px] rounded-[34px] p-2.5"
               style={{
-                fontFamily: "var(--font-heading)",
-                letterSpacing: "0.08em",
-                color: COLORS.inkSoft,
+                backgroundColor: COLORS.glassBg,
+                border: `1px solid ${COLORS.glassBorder}`,
+                boxShadow:
+                  "0 1px 0 rgba(255,255,255,.7) inset, 0 18px 40px -18px rgba(70,35,20,.28)",
+                ...glassBlur,
               }}
             >
-              Mirror Mode
-            </div>
-
-            <div className="flex flex-wrap justify-center gap-3">
-              {TABS.map((tab) => {
-                const active = tab === activeTab;
-                return (
-                  <button
-                    key={tab}
-                    type="button"
-                    onClick={() => setActiveTab(tab)}
-                    className="rounded-full px-5 py-2 text-[11px] transition-colors"
-                    style={
-                      active
-                        ? monoStyle({
-                            background:
-                              "linear-gradient(180deg, #f7f9fb 0%, #cdd5db 55%, #eef2f5 100%)",
-                            color: COLORS.accentInk,
-                            border: "1px solid rgba(255,255,255,.5)",
-                            boxShadow: "0 6px 18px rgba(0,0,0,.35)",
-                          })
-                        : monoStyle({
-                            background: "rgba(255,255,255,.04)",
-                            color: COLORS.mutedSoft,
-                            border: `1px solid ${COLORS.panelBorder}`,
-                          })
-                    }
+              <div className="relative aspect-[290/391] overflow-hidden rounded-[26px]">
+                {previewProduct ? (
+                  <Link
+                    href={`/products/${previewProduct.slug}`}
+                    className="group relative block h-full w-full"
                   >
-                    {tab}
-                  </button>
-                );
-              })}
+                    <ImagePlaceholder
+                      imageUrl={previewProduct.thumbnailUrl}
+                      label={previewProduct.title}
+                      aspect="3/4"
+                      className="h-full w-full text-current"
+                    />
+                    <div
+                      className="absolute inset-x-0 bottom-0 px-5 py-4"
+                      style={{
+                        background:
+                          "linear-gradient(to top, rgba(0,0,0,.65), transparent)",
+                      }}
+                    >
+                      <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/70">
+                        In the Mirror
+                      </div>
+                      <div className="mt-0.5 text-sm font-semibold text-white">
+                        {previewProduct.title}
+                      </div>
+                      {previewProduct.price != null && (
+                        <div className="text-xs text-white/80">
+                          ${previewProduct.price.toFixed(2)}
+                        </div>
+                      )}
+                    </div>
+                  </Link>
+                ) : (
+                  <>
+                    <ImagePlaceholder
+                      imageUrl="https://images.unsplash.com/photo-1709477542170-f11ee7d471a0?w=800&q=80"
+                      label="Ambient portrait — model applying makeup"
+                      aspect="3/4"
+                      className="h-full w-full text-current"
+                    />
+                    <span
+                      className="absolute left-3.5 top-3.5 flex items-center gap-2 rounded-full px-3 py-[7px] text-xs font-semibold text-white"
+                      style={{
+                        backgroundColor: COLORS.glassDarkBg,
+                        border: `1px solid ${COLORS.glassDarkBorder}`,
+                        ...glassBlur,
+                      }}
+                    >
+                      <span
+                        className="h-[7px] w-[7px] rounded-full"
+                        style={{
+                          backgroundColor: "#ffb68a",
+                          boxShadow: "0 0 0 3px rgba(255,182,138,.35)",
+                        }}
+                        aria-hidden="true"
+                      />
+                      Live
+                    </span>
+                  </>
+                )}
+              </div>
             </div>
 
-            <ImagePlaceholder
-              label="Ambient portrait — model applying makeup"
-              imageUrl={null}
-              aspect="3/4"
-              className="w-full max-w-xs text-current"
-              objectFit="cover"
-            />
-
-            <form onSubmit={submitAsk} className="w-full max-w-sm">
+            <form onSubmit={submitAsk} className="w-full max-w-[440px]">
               <label className="sr-only" htmlFor="mirror-ask">
                 Ask me anything
               </label>
               <div
-                className="flex items-center gap-3 rounded-full px-4 py-2.5"
+                className="flex items-center gap-2.5 rounded-full py-1.5 pl-[18px] pr-1.5 transition-colors focus-within:border-current"
                 style={{
-                  border: `1px solid ${COLORS.panelBorder}`,
-                  background:
-                    "linear-gradient(150deg, rgba(255,255,255,.1), rgba(255,255,255,.03))",
-                  boxShadow:
-                    "inset 0 1px 0 rgba(255,255,255,.2), 0 10px 26px rgba(0,0,0,.35)",
+                  backgroundColor: COLORS.glassBg,
+                  border: `1px solid ${COLORS.glassBorder}`,
+                  color: COLORS.ink,
+                  ...glassBlur,
                 }}
               >
-                <div
-                  className="h-4 w-[9px] flex-none rounded-full"
-                  style={{
-                    background: "linear-gradient(180deg, #ffffff, #a6aeb5)",
-                  }}
-                />
+                <svg
+                  className="h-[18px] w-[18px] flex-none"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke={COLORS.accent}
+                  strokeWidth="1.7"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" />
+                </svg>
                 <input
                   id="mirror-ask"
                   type="text"
                   value={askInput}
                   onChange={(e) => setAskInput(e.target.value)}
-                  placeholder="Ask me anything"
-                  className="w-full bg-transparent text-sm font-light outline-none"
-                  style={{ color: COLORS.inkSoft }}
+                  placeholder="Ask me anything about your skin or hair"
+                  className="h-11 w-full min-w-0 flex-1 bg-transparent text-sm outline-none"
+                  style={{ color: COLORS.ink }}
                 />
+                <button
+                  type="submit"
+                  aria-label="Send"
+                  className="flex h-11 w-11 flex-none items-center justify-center rounded-full"
+                  style={{
+                    backgroundColor: COLORS.ink,
+                    color: COLORS.accentInk,
+                  }}
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M5 12h14M13 6l6 6-6 6" />
+                  </svg>
+                </button>
               </div>
             </form>
+
+            <div className="flex w-full max-w-[460px] flex-wrap justify-center gap-2">
+              {ASK_SUGGESTIONS.map((s) => (
+                <Link
+                  key={s.label}
+                  href={`/categories/${s.categorySlug}`}
+                  className="rounded-full px-[18px] py-2.5 text-[13px] font-semibold transition-colors hover:text-current"
+                  style={{
+                    border: `1px solid ${COLORS.glassBorder}`,
+                    color: COLORS.ink,
+                    backgroundColor: COLORS.glassBg,
+                    ...glassBlur,
+                  }}
+                >
+                  {s.label}
+                </Link>
+              ))}
+            </div>
           </div>
 
           {/* Makeup & Others column */}
-          <div className="flex flex-col gap-3">
-            <div
-              className="text-right text-[11px]"
-              style={monoStyle({ color: COLORS.muted, letterSpacing: "0.2em" })}
+          <div className="flex h-full flex-col gap-4">
+            <p
+              className="text-right text-xs"
+              style={labelStyle({ color: COLORS.muted })}
             >
-              MAKEUP &amp; OTHERS
+              Makeup &amp; Others
+            </p>
+            <div className="flex flex-1 flex-col justify-center gap-4">
+              {isLoadingCategories ? (
+                <p
+                  className="text-right text-sm"
+                  style={{ color: COLORS.muted }}
+                >
+                  Loading…
+                </p>
+              ) : otherCategories.length > 0 ? (
+                otherCategories.map((c) => (
+                  <MirrorShelfCategoryCard
+                    key={c.id}
+                    tenantSlug={tenantSlug}
+                    category={c}
+                    onPreview={setPreviewProduct}
+                  />
+                ))
+              ) : (
+                SAMPLE_MAKEUP.map((sample) => (
+                  <MirrorShelfCategoryCardView
+                    key={sample.name}
+                    name={sample.name}
+                    count={sample.count}
+                    href={`/products/${sample.productSlug}`}
+                  />
+                ))
+              )}
             </div>
-            {isLoadingCategories ? (
-              <p className="text-right text-sm" style={{ color: COLORS.muted }}>
-                Loading…
-              </p>
-            ) : otherCategories.length > 0 ? (
-              otherCategories.map((c) => (
-                <MirrorShelfCategoryCard
-                  key={c.id}
-                  tenantSlug={tenantSlug}
-                  category={c}
-                />
-              ))
-            ) : (
-              SAMPLE_MAKEUP.map((sample) => (
-                <MirrorShelfCategoryCardView
-                  key={sample.name}
-                  name={sample.name}
-                  count={sample.count}
-                  seed={sample.name}
-                />
-              ))
-            )}
           </div>
-        </div>
-
-        {/* Bottom quick-nav */}
-        <div
-          className="flex flex-wrap justify-center gap-8 border-t pt-5 text-[11px] sm:gap-11"
-          style={{
-            borderColor: COLORS.hairline,
-            ...monoStyle({ color: COLORS.mutedSoft }),
-          }}
-        >
-          <Link href="/" style={{ color: COLORS.inkSoft }}>
-            HOME
-          </Link>
-          <Link href="/categories">SHELVES</Link>
-          <span style={{ opacity: 0.5 }}>CONSULTATION</span>
-          <span style={{ opacity: 0.5 }}>SAVED</span>
-          <Link href="/cart">BAG</Link>
         </div>
       </div>
     </section>
