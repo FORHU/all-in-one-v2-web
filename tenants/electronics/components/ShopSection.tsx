@@ -1,0 +1,798 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
+import { useCategories } from "@/features/storefront/hooks/queries/useCategories";
+import { useProducts } from "@/features/storefront/hooks/queries/useProducts";
+import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
+import { useWishlistStore } from "@/features/storefront/stores/wishlist.store";
+import type { Product } from "@/features/storefront/contracts/products.contract";
+import {
+  DIGITFRIEND_COLORS as COLORS,
+  DIGITFRIEND_CATEGORY_META as CATEGORY_META,
+} from "../theme";
+
+type SortKey = "featured" | "low" | "high" | "name";
+type PriceKey = "any" | "u50" | "50to80" | "o80";
+type ViewKey = "grid" | "list";
+
+const PRICE_BUCKETS: {
+  id: PriceKey;
+  label: string;
+  test: (v: number) => boolean;
+}[] = [
+  { id: "any", label: "Any", test: () => true },
+  { id: "u50", label: "Under $50", test: (v) => v < 50 },
+  { id: "50to80", label: "$50 – $80", test: (v) => v >= 50 && v <= 80 },
+  { id: "o80", label: "Over $80", test: (v) => v > 80 },
+];
+
+function finalPriceOf(p: Product): number {
+  return p.salePrice ?? p.price ?? 0;
+}
+
+/** The reference's own hand-drawn line icon per category, at a caller-chosen size/stroke. */
+function CategoryIconPaths({ slug }: { slug: string }) {
+  switch (slug) {
+    case "audio":
+      return (
+        <>
+          <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
+          <path d="M21 19a2 2 0 0 1-2 2h-1v-6h3zM3 19a2 2 0 0 0 2 2h1v-6H3z" />
+        </>
+      );
+    case "cameras-optics":
+      return (
+        <>
+          <path d="M22 18a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h3l2-3h6l2 3h3a2 2 0 0 1 2 2z" />
+          <circle cx="12" cy="13" r="3.5" />
+        </>
+      );
+    case "computer-peripherals":
+      return (
+        <>
+          <rect x="2" y="6" width="20" height="12" rx="2" />
+          <path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10" />
+        </>
+      );
+    case "gaming-accessories":
+      return (
+        <>
+          <path d="M12 2a6 6 0 0 1 6 6v8a6 6 0 0 1-12 0V8a6 6 0 0 1 6-6z" />
+          <path d="M12 2v7M6 9h12" />
+        </>
+      );
+    case "smart-home":
+      return (
+        <path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" />
+      );
+    case "wearable-tech":
+      return (
+        <>
+          <rect x="6" y="6" width="12" height="12" rx="3" />
+          <path d="M9 6l1-4h4l1 4M9 18l1 4h4l1-4M12 10v2l1.5 1.5" />
+        </>
+      );
+    default:
+      return null;
+  }
+}
+
+/**
+ * The design's own illustration system in place of product photography —
+ * a flat per-category tint field with a centered line icon. Shared between
+ * grid and list cards (different sizes), and also by CategoriesPage.tsx/
+ * CategoryDetailPage.tsx for visual consistency across the tenant.
+ */
+export function CategoryTile({
+  slug,
+  size,
+  className = "",
+}: {
+  slug: string;
+  size: number;
+  className?: string;
+}) {
+  const meta = CATEGORY_META[slug];
+  return (
+    <div
+      className={`flex items-center justify-center ${className}`}
+      style={{ backgroundColor: meta?.tint ?? COLORS.border }}
+    >
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke={COLORS.ink}
+        strokeWidth={size >= 70 ? 1.3 : 1.4}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <CategoryIconPaths slug={slug} />
+      </svg>
+    </div>
+  );
+}
+
+export function WishlistHeart({
+  productId,
+  variant,
+}: {
+  productId: string;
+  variant: "overlay" | "outline";
+}) {
+  const saved = useWishlistStore((s) => s.ids.includes(productId));
+  const toggle = useWishlistStore((s) => s.toggle);
+  const base =
+    variant === "overlay"
+      ? "absolute right-2 top-2 flex h-11 w-11 items-center justify-center rounded-full"
+      : "flex h-11 w-11 items-center justify-center rounded-xl";
+  return (
+    <button
+      type="button"
+      aria-label={saved ? "Remove from wishlist" : "Save to wishlist"}
+      aria-pressed={saved}
+      onClick={() => toggle(productId)}
+      className={base}
+      style={{
+        backgroundColor: "#ffffff",
+        border:
+          variant === "outline" ? `1px solid ${COLORS.border}` : undefined,
+      }}
+    >
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill={saved ? COLORS.wishlist : "none"}
+        stroke={saved ? COLORS.wishlist : COLORS.ink}
+        strokeWidth="2"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z" />
+      </svg>
+    </button>
+  );
+}
+
+export function CartControl({ product }: { product: Product }) {
+  const cartItems = useLocalCartStore((s) => s.items);
+  const addItem = useLocalCartStore((s) => s.addItem);
+  const setQuantity = useLocalCartStore((s) => s.setQuantity);
+  const existing = cartItems.find((i) => i.productId === product.id);
+  const qty = existing?.quantity ?? 0;
+
+  // Two distinct actions that used to share one handler: adding the item
+  // for the first time (fires the "Added to cart" toast) vs. bumping the
+  // quantity of a line already in the cart (silent — it's not a new add,
+  // and firing the toast on every "+" click spammed it on each increment).
+  const addNew = () => {
+    addItem({
+      productId: product.id,
+      name: product.title,
+      brand: product.brand ?? "",
+      price: finalPriceOf(product),
+      imageLabel: product.title,
+      imageUrl: product.thumbnailUrl,
+      quantity: 1,
+    });
+    toast.success(`Added ${product.title} to cart`);
+  };
+  const increment = () =>
+    existing && setQuantity(existing.id, existing.quantity + 1);
+  const dec = () => existing && setQuantity(existing.id, existing.quantity - 1);
+
+  if (qty === 0) {
+    return (
+      <button
+        type="button"
+        onClick={addNew}
+        aria-label={`Add ${product.title} to cart`}
+        className="flex h-11 items-center gap-2 rounded-xl px-3.5 text-sm font-bold text-white"
+        style={{ backgroundColor: COLORS.ink }}
+      >
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#ffffff"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+          aria-hidden="true"
+        >
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+        Add
+      </button>
+    );
+  }
+  return (
+    <div
+      className="flex h-11 items-center rounded-xl"
+      style={{ backgroundColor: COLORS.accent }}
+    >
+      <button
+        type="button"
+        onClick={dec}
+        aria-label={`Remove one ${product.title}`}
+        className="h-11 w-10 text-xl font-bold"
+        style={{ color: COLORS.accentInk }}
+      >
+        −
+      </button>
+      <span
+        aria-live="polite"
+        className="min-w-[20px] text-center text-[15px] font-bold"
+        style={{ color: COLORS.accentInk }}
+      >
+        {qty}
+      </span>
+      <button
+        type="button"
+        onClick={increment}
+        aria-label={`Add one more ${product.title}`}
+        className="h-11 w-10 text-xl font-bold"
+        style={{ color: COLORS.accentInk }}
+      >
+        +
+      </button>
+    </div>
+  );
+}
+
+function GridCard({
+  product,
+  categorySlug,
+}: {
+  product: Product;
+  categorySlug: string;
+}) {
+  const meta = CATEGORY_META[categorySlug];
+  return (
+    <article
+      className="flex flex-col overflow-hidden rounded-[22px]"
+      style={{
+        backgroundColor: COLORS.cardBg,
+        border: `1px solid ${COLORS.border}`,
+      }}
+    >
+      <div className="relative aspect-[4/3]">
+        <CategoryTile
+          slug={categorySlug}
+          size={84}
+          className="absolute inset-0"
+        />
+        <span
+          className="absolute left-3 top-3 rounded-md px-2 py-1 text-[11px] font-medium uppercase tracking-wide"
+          style={{
+            backgroundColor: "#ffffff",
+            color: COLORS.ink,
+            fontFamily: "var(--font-mono)",
+          }}
+        >
+          {meta?.short ?? categorySlug}
+        </span>
+        <WishlistHeart productId={product.id} variant="overlay" />
+        <span
+          className="absolute bottom-2.5 left-3 text-[11px]"
+          style={{ color: "#4a4f59", fontFamily: "var(--font-mono)" }}
+        >
+          [Product photo]
+        </span>
+      </div>
+      <div className="flex flex-1 flex-col gap-3.5 p-4">
+        <h3 className="m-0 min-h-[43px] text-base font-bold leading-snug">
+          {product.title}
+        </h3>
+        <div className="mt-auto flex items-center justify-between gap-3">
+          <div className="flex flex-col gap-0.5">
+            <span
+              className="text-2xl font-bold tracking-tight"
+              style={{ fontFamily: "var(--font-heading)" }}
+            >
+              ${finalPriceOf(product).toFixed(2)}
+            </span>
+            <span
+              className="text-xs font-medium"
+              style={{ color: COLORS.success }}
+            >
+              In stock · Free shipping
+            </span>
+          </div>
+          <CartControl product={product} />
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function ListCard({
+  product,
+  categorySlug,
+}: {
+  product: Product;
+  categorySlug: string;
+}) {
+  const meta = CATEGORY_META[categorySlug];
+  return (
+    <article
+      className="flex flex-wrap items-center gap-5 rounded-[20px] p-3"
+      style={{
+        backgroundColor: COLORS.cardBg,
+        border: `1px solid ${COLORS.border}`,
+      }}
+    >
+      <CategoryTile
+        slug={categorySlug}
+        size={56}
+        className="h-[132px] w-[132px] flex-none rounded-[14px]"
+      />
+      <div
+        className="flex min-w-0 flex-1 flex-col gap-1.5"
+        style={{ flexBasis: "240px" }}
+      >
+        <span
+          className="text-[11px] font-medium uppercase tracking-wide"
+          style={{ color: COLORS.muted, fontFamily: "var(--font-mono)" }}
+        >
+          {meta?.short ?? categorySlug}
+        </span>
+        <h3 className="m-0 text-lg font-bold leading-snug">{product.title}</h3>
+        <span
+          className="text-[13px] font-medium"
+          style={{ color: COLORS.success }}
+        >
+          In stock · Free 2-day shipping
+        </span>
+      </div>
+      <div className="flex items-center gap-3 pr-2">
+        <span
+          className="text-2xl font-bold"
+          style={{ fontFamily: "var(--font-heading)" }}
+        >
+          ${finalPriceOf(product).toFixed(2)}
+        </span>
+        <WishlistHeart productId={product.id} variant="outline" />
+        <CartControl product={product} />
+      </div>
+    </article>
+  );
+}
+
+/**
+ * DigitFriend — the "Shop" section: breadcrumb, sort/view controls, a
+ * category + price filter sidebar, and a grid/list product listing.
+ * Replaces the earlier hero + CategoryGrid + bento FeaturedProducts with a
+ * single filterable browse surface, matching the "digitfriend ui.html"
+ * design reference. Real data: useCategories/useProducts fetched once
+ * (the catalog is small — 7 products), then every filter/sort/view switch
+ * is a client-side recompute, same model as the reference's own static
+ * in-memory product list. Wishlist/cart are real (useWishlistStore/
+ * useLocalCartStore) — this is the one place on the tenant where "Add to
+ * cart" actually mutates the same cart state the header badge reads.
+ */
+export function ShopSection({ tenantSlug }: { tenantSlug: string }) {
+  const [category, setCategory] = useState<string>("all");
+  const [price, setPrice] = useState<PriceKey>("any");
+  const [sort, setSort] = useState<SortKey>("featured");
+  const [view, setView] = useState<ViewKey>("grid");
+
+  const { data: categoriesData, isLoading: loadingCategories } =
+    useCategories(tenantSlug);
+  const { data: productsData, isLoading: loadingProducts } = useProducts(
+    tenantSlug,
+    {
+      limit: 50,
+      sort: "newest",
+    },
+  );
+
+  const categories = useMemo(
+    () => categoriesData?.items ?? [],
+    [categoriesData],
+  );
+  const allProducts = useMemo(() => productsData?.items ?? [], [productsData]);
+  const idToSlug = useMemo(() => {
+    const map: Record<string, string> = {};
+    categories.forEach((c) => (map[c.id] = c.slug));
+    return map;
+  }, [categories]);
+
+  const priceBucket = PRICE_BUCKETS.find((b) => b.id === price)!;
+
+  const filtered = useMemo(() => {
+    let list = allProducts.filter((p) => {
+      const slug = p.categoryId ? idToSlug[p.categoryId] : undefined;
+      const matchesCategory = category === "all" || slug === category;
+      return matchesCategory && priceBucket.test(finalPriceOf(p));
+    });
+    if (sort === "low")
+      list = list.slice().sort((a, b) => finalPriceOf(a) - finalPriceOf(b));
+    if (sort === "high")
+      list = list.slice().sort((a, b) => finalPriceOf(b) - finalPriceOf(a));
+    if (sort === "name")
+      list = list.slice().sort((a, b) => a.title.localeCompare(b.title));
+    return list;
+  }, [allProducts, idToSlug, category, priceBucket, sort]);
+
+  const isLoading = loadingCategories || loadingProducts;
+  const activeCategory = categories.find((c) => c.slug === category);
+  const heading =
+    category === "all" ? "Shop all gear" : (activeCategory?.name ?? category);
+  const chips: { label: string; clear: () => void }[] = [];
+  if (category !== "all")
+    chips.push({
+      label: activeCategory?.name ?? category,
+      clear: () => setCategory("all"),
+    });
+  if (price !== "any")
+    chips.push({ label: priceBucket.label, clear: () => setPrice("any") });
+  const clearAll = () => {
+    setCategory("all");
+    setPrice("any");
+  };
+
+  return (
+    <main
+      id="shop"
+      className="mx-auto flex max-w-7xl flex-col gap-6 px-6 pb-6 pt-7"
+    >
+      <div className="flex flex-col gap-2">
+        <nav
+          aria-label="Breadcrumb"
+          className="flex gap-2 text-[13px]"
+          style={{ color: COLORS.muted }}
+        >
+          <a
+            href="#shop"
+            className="no-underline"
+            style={{ color: COLORS.muted }}
+          >
+            Home
+          </a>
+          <span aria-hidden="true">/</span>
+          <span style={{ color: COLORS.ink }}>
+            {category === "all" ? "All products" : heading}
+          </span>
+        </nav>
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div className="flex flex-wrap items-baseline gap-3.5">
+            <h1
+              className="m-0 text-4xl font-bold tracking-tight"
+              style={{ fontFamily: "var(--font-heading)" }}
+            >
+              {heading}
+            </h1>
+            <span
+              className="text-[13px]"
+              style={{ color: COLORS.muted, fontFamily: "var(--font-mono)" }}
+            >
+              {isLoading ? "…" : `${filtered.length} items`}
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <label
+              htmlFor="df-sort"
+              className="text-sm"
+              style={{ color: COLORS.muted }}
+            >
+              Sort by
+            </label>
+            <select
+              id="df-sort"
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortKey)}
+              className="h-11 rounded-xl px-3.5 text-sm font-medium"
+              style={{
+                border: `1px solid ${COLORS.borderStrong}`,
+                backgroundColor: "#ffffff",
+                color: COLORS.ink,
+              }}
+            >
+              <option value="featured">Featured</option>
+              <option value="low">Price: low to high</option>
+              <option value="high">Price: high to low</option>
+              <option value="name">Name: A–Z</option>
+            </select>
+            <div
+              role="group"
+              aria-label="Layout"
+              className="flex gap-0.5 rounded-xl p-[3px]"
+              style={{
+                backgroundColor: "#ffffff",
+                border: `1px solid ${COLORS.borderStrong}`,
+              }}
+            >
+              <button
+                type="button"
+                aria-label="Grid view"
+                aria-pressed={view === "grid"}
+                onClick={() => setView("grid")}
+                className="flex h-9 w-10 items-center justify-center rounded-[9px]"
+                style={{
+                  backgroundColor: view === "grid" ? COLORS.ink : "transparent",
+                }}
+              >
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke={view === "grid" ? "#ffffff" : COLORS.ink}
+                  strokeWidth="2"
+                  aria-hidden="true"
+                >
+                  <rect x="3" y="3" width="7" height="7" rx="1.5" />
+                  <rect x="14" y="3" width="7" height="7" rx="1.5" />
+                  <rect x="3" y="14" width="7" height="7" rx="1.5" />
+                  <rect x="14" y="14" width="7" height="7" rx="1.5" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                aria-label="List view"
+                aria-pressed={view === "list"}
+                onClick={() => setView("list")}
+                className="flex h-9 w-10 items-center justify-center rounded-[9px]"
+                style={{
+                  backgroundColor: view === "list" ? COLORS.ink : "transparent",
+                }}
+              >
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke={view === "list" ? "#ffffff" : COLORS.ink}
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  aria-hidden="true"
+                >
+                  <rect x="3" y="4" width="5" height="5" rx="1" />
+                  <rect x="3" y="15" width="5" height="5" rx="1" />
+                  <path d="M12 6.5h9M12 17.5h9" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-start gap-8">
+        <aside
+          aria-label="Filters"
+          className="flex max-w-full flex-1 flex-col gap-7"
+          style={{ flexBasis: "230px" }}
+        >
+          <div className="flex flex-col gap-1">
+            <h2
+              className="m-0 mb-2 text-xs font-medium uppercase tracking-wide"
+              style={{ color: COLORS.muted, fontFamily: "var(--font-mono)" }}
+            >
+              Category
+            </h2>
+            <button
+              type="button"
+              onClick={() => setCategory("all")}
+              aria-pressed={category === "all"}
+              className="flex min-h-[44px] items-center justify-between gap-2.5 rounded-xl px-3 text-left text-[15px]"
+              style={{
+                backgroundColor:
+                  category === "all" ? COLORS.ink : "transparent",
+                color: category === "all" ? "#ffffff" : COLORS.ink,
+                fontWeight: category === "all" ? 700 : 500,
+              }}
+            >
+              <span>All products</span>
+              <span
+                className="text-xs opacity-75"
+                style={{ fontFamily: "var(--font-mono)" }}
+              >
+                {allProducts.length}
+              </span>
+            </button>
+            {categories.map((c) => {
+              const on = c.slug === category;
+              const count = allProducts.filter(
+                (p) => p.categoryId && idToSlug[p.categoryId] === c.slug,
+              ).length;
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setCategory(c.slug)}
+                  aria-pressed={on}
+                  className="flex min-h-[44px] items-center justify-between gap-2.5 rounded-xl px-3 text-left text-[15px]"
+                  style={{
+                    backgroundColor: on ? COLORS.ink : "transparent",
+                    color: on ? "#ffffff" : COLORS.ink,
+                    fontWeight: on ? 700 : 500,
+                  }}
+                >
+                  <span>{c.name}</span>
+                  <span
+                    className="text-xs opacity-75"
+                    style={{ fontFamily: "var(--font-mono)" }}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <h2
+              className="m-0 mb-1 text-xs font-medium uppercase tracking-wide"
+              style={{ color: COLORS.muted, fontFamily: "var(--font-mono)" }}
+            >
+              Price
+            </h2>
+            <div className="flex flex-wrap gap-2">
+              {PRICE_BUCKETS.map((r) => {
+                const on = r.id === price;
+                return (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => setPrice(r.id)}
+                    aria-pressed={on}
+                    className="h-10 rounded-full px-3.5 text-sm font-medium"
+                    style={{
+                      border: `1px solid ${on ? COLORS.ink : COLORS.borderStrong}`,
+                      backgroundColor: on ? COLORS.ink : "#ffffff",
+                      color: on ? "#ffffff" : COLORS.ink,
+                    }}
+                  >
+                    {r.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div
+            className="flex flex-col gap-2.5 rounded-[18px] p-4.5 text-white"
+            style={{ backgroundColor: COLORS.ink, colorScheme: "dark" }}
+          >
+            <span className="flex items-center gap-2.5 text-[15px] font-bold">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke={COLORS.accent}
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M1 6h13v10H1zM14 10h4l3 3v3h-7" />
+                <circle cx="5.5" cy="18" r="1.8" />
+                <circle cx="17.5" cy="18" r="1.8" />
+              </svg>
+              Ships in 2 days
+            </span>
+            <span
+              className="text-sm leading-relaxed"
+              style={{ color: "#b8bcc6" }}
+            >
+              Every order ships free, with extended warranty and 30-day returns.
+            </span>
+          </div>
+        </aside>
+
+        <section
+          aria-label="Products"
+          className="flex min-w-0 flex-[999_1_560px] flex-col gap-4"
+        >
+          {chips.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              {chips.map((ch) => (
+                <button
+                  key={ch.label}
+                  type="button"
+                  onClick={ch.clear}
+                  aria-label={`Remove filter ${ch.label}`}
+                  className="flex h-9 items-center gap-2 rounded-full pl-3.5 pr-2.5 text-sm font-medium"
+                  style={{
+                    backgroundColor: COLORS.accent,
+                    color: COLORS.accentInk,
+                  }}
+                >
+                  {ch.label}
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke={COLORS.accentInk}
+                    strokeWidth="2.6"
+                    strokeLinecap="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M6 6l12 12M18 6 6 18" />
+                  </svg>
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={clearAll}
+                className="h-9 px-2.5 text-sm underline"
+                style={{ color: COLORS.ink }}
+              >
+                Clear all
+              </button>
+            </div>
+          )}
+
+          {isLoading ? (
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="aspect-[4/3] animate-pulse rounded-[22px]"
+                  style={{ backgroundColor: COLORS.border }}
+                />
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
+            <div
+              className="flex flex-col items-center gap-3 rounded-[22px] px-6 py-14 text-center"
+              style={{
+                backgroundColor: "#ffffff",
+                border: `1px dashed ${COLORS.borderStrong}`,
+              }}
+            >
+              <span
+                className="text-[22px] font-bold"
+                style={{ fontFamily: "var(--font-heading)" }}
+              >
+                Nothing matches those filters
+              </span>
+              <span className="text-[15px]" style={{ color: COLORS.muted }}>
+                Try another price range or category.
+              </span>
+              <button
+                type="button"
+                onClick={clearAll}
+                className="h-11 rounded-xl px-5 text-sm font-bold text-white"
+                style={{ backgroundColor: COLORS.ink }}
+              >
+                Clear filters
+              </button>
+            </div>
+          ) : view === "grid" ? (
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
+              {filtered.map((p) => (
+                <GridCard
+                  key={p.id}
+                  product={p}
+                  categorySlug={
+                    p.categoryId ? (idToSlug[p.categoryId] ?? "") : ""
+                  }
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {filtered.map((p) => (
+                <ListCard
+                  key={p.id}
+                  product={p}
+                  categorySlug={
+                    p.categoryId ? (idToSlug[p.categoryId] ?? "") : ""
+                  }
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+    </main>
+  );
+}

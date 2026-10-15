@@ -1,29 +1,31 @@
 import type { TenantConfig } from "../types";
 
 /**
- * TODO: replace placeholder branding with real values (colors, fonts, logo,
- * nav, SEO) once the Electronics storefront's design is finalized.
+ * DigitFriend (electronics) brand config. Nav matches the "digitfriend
+ * ui.html" design reference's header exactly: "Shop"/"New arrivals" both
+ * anchor to #shop (the one product-browsing section — there's no separate
+ * "new arrivals" route or filter wired), "Support" anchors to #help (the
+ * value-props section). None of these are real routes in the reference
+ * either — it's a single-page shop design.
  */
 export const electronicsConfig: TenantConfig = {
   slug: "electronics",
-  name: "Electronics",
+  name: "DigitFriend",
   domain: "digitfriend.com",
   theme: {
-    colorPrimary: "#2563EB",
-    colorSecondary: "#F8FAFC",
-    fontHeading: "sans-serif",
-    fontBody: "sans-serif",
+    colorPrimary: "#0F1115",
+    colorSecondary: "#F3F3EF",
+    fontHeading: "var(--font-space-grotesk)",
+    fontBody: "var(--font-dm-sans)",
   },
   logoUrl: "/tenants/electronics/logo.svg",
   nav: [
-    { label: "Phones", href: "/categories/phones" },
-    { label: "Laptops", href: "/categories/laptops" },
-    { label: "Audio", href: "/categories/audio" },
-    { label: "Wearables", href: "/categories/wearables" },
+    { label: "Shop", href: "#shop" },
+    { label: "New arrivals", href: "#shop" },
+    { label: "Support", href: "#help" },
   ],
   seo: {
-    title: "Electronics",
-    description:
-      "The latest tech at honest prices — phones, laptops, audio, and everything in between.",
+    title: "DigitFriend — Shop",
+    description: "Tech that just works — curated gear, shipped fast.",
   },
 };

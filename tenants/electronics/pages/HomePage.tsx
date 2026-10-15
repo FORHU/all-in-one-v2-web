@@ -1,20 +1,22 @@
 import { ElectronicsStorefrontLayout } from "../layouts/StorefrontLayout";
-import { HeroBanner } from "../components/HeroBanner";
+import { ShopSection } from "../components/ShopSection";
+import { TrustBadges } from "../components/TrustBadges";
+import { Newsletter } from "../components/Newsletter";
 
 /**
- * Electronics — storefront home page presentation.
- * Rendered by src/app/page.tsx once tenant routing resolves this slug.
- * Consumes shared hooks (features/storefront, features/cms) — no
- * data-fetching or business logic of its own.
- * Kept intentionally minimal (hero only) for now — components/CategoryGrid.tsx,
- * components/FeaturedProducts.tsx, and components/TrustBadges.tsx exist and
- * are ready to compose back in once the storefront moves past this initial
- * landing page.
+ * DigitFriend — storefront home page, matching the "digitfriend ui.html"
+ * design reference: no separate hero — the page opens directly on the
+ * filterable shop grid, followed by value props and a newsletter signup.
+ * Replaces the earlier hero + CategoryGrid + bento FeaturedProducts
+ * composition (components/HeroBanner.tsx, CategoryGrid.tsx,
+ * FeaturedProducts.tsx — now deleted, superseded by ShopSection.tsx).
  */
-export function ElectronicsHomePage() {
+export function ElectronicsHomePage({ tenantSlug }: { tenantSlug: string }) {
   return (
     <ElectronicsStorefrontLayout>
-      <HeroBanner />
+      <ShopSection tenantSlug={tenantSlug} />
+      <TrustBadges />
+      <Newsletter />
     </ElectronicsStorefrontLayout>
   );
 }

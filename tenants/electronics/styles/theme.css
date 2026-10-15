@@ -3,11 +3,13 @@
  * Consumed by shared/components and features/storefront/components, which
  * must theme themselves only via these variables — never via tenant checks
  * in component code.
- * Palette: electric blue on cool white — dark, tech-forward look.
+ * Palette: warm cream storefront, near-black header/footer/CTA ink, lime
+ * accent — matches the "digitfriend ui.html" design reference.
  */
 :root[data-tenant="electronics"] {
-  --brand-primary: #2563eb;
-  --brand-secondary: #f8fafc;
-  --font-heading: sans-serif;
-  --font-body: sans-serif;
+  --brand-primary: #0f1115;
+  --brand-secondary: #f3f3ef;
+  --font-heading: var(--font-space-grotesk), sans-serif;
+  --font-body: var(--font-dm-sans), sans-serif;
+  --font-mono: var(--font-jetbrains-mono), monospace;
 }
