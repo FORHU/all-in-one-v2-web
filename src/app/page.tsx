@@ -7,7 +7,6 @@ import { LivingHomePage } from "@/tenants/living/pages/HomePage";
 import { OutdoorHomePage } from "@/tenants/outdoor/pages/HomePage";
 
 const homePagesBySlug = {
-  electronics: ElectronicsHomePage,
   living: LivingHomePage,
   outdoor: OutdoorHomePage,
 } as const;
@@ -17,13 +16,15 @@ export default async function RootPage() {
   const tenant = getTenantConfig(slug);
   if (!tenant) return null;
 
-  // Fashion and beauty are special-cased since their home pages need
-  // tenantSlug (fashion's hero fetches real "Get the Look" data; beauty's
-  // Mirror Shelf hero fetches real category data) — the other tenant home
-  // pages are still static, matching /products' single-tenant pattern
-  // until they get real data too.
+  // Fashion, beauty and electronics are special-cased since their home
+  // pages need tenantSlug (fashion's hero fetches real "Get the Look" data;
+  // beauty's Mirror Shelf hero fetches real category data; electronics'
+  // CategoryGrid/FeaturedProducts fetch real category/product data) — the
+  // other tenant home pages are still static, matching /products'
+  // single-tenant pattern until they get real data too.
   if (slug === "fashion") return <FashionHomePage tenantSlug={slug} />;
   if (slug === "beauty") return <BeautyHomePage tenantSlug={slug} />;
+  if (slug === "electronics") return <ElectronicsHomePage tenantSlug={slug} />;
 
   const HomePage = homePagesBySlug[slug as keyof typeof homePagesBySlug];
   if (!HomePage) return null;
