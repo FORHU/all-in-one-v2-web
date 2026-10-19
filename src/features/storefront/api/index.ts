@@ -1,5 +1,7 @@
 export * from "./products.client";
 export * from "./products.keys";
+export * from "./electronics-products.client";
+export * from "./electronics-products.keys";
 export * from "./categories.client";
 export * from "./categories.keys";
 export * from "./collections.client";
