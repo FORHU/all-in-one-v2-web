@@ -7,9 +7,11 @@ import { useCategories } from "@/features/storefront/hooks/queries/useCategories
 import type { ProductListingParams } from "@/features/storefront/api";
 import { ElectronicsStorefrontLayout } from "../layouts/StorefrontLayout";
 import {
-  CategoryTile,
+  ProductMedia,
+  StockNote,
   WishlistHeart,
   CartControl,
+  productHref,
 } from "../components/ShopSection";
 import { DIGITFRIEND_COLORS as COLORS } from "../theme";
 
@@ -24,8 +26,9 @@ const SORT_OPTIONS: { value: ProductListingParams["sort"]; label: string }[] = [
  * DigitFriend — one category's product listing, restyled to the
  * "digitfriend ui.html" light cream/near-black/lime palette. Real data via
  * useProducts(tenantSlug, { categorySlug }); sort re-fires the query.
- * Cards reuse CategoryTile/WishlistHeart/CartControl from ShopSection.tsx
- * (same art + the same real wishlist/cart wiring, not a separate copy).
+ * Cards reuse ProductMedia/StockNote/WishlistHeart/CartControl from
+ * ShopSection.tsx (same photo/art + the same real wishlist/cart wiring, not
+ * a separate copy).
  */
 export function ElectronicsCategoryDetailPage({
   slug,
@@ -135,16 +138,27 @@ export function ElectronicsCategoryDetailPage({
                 }}
               >
                 <div className="relative aspect-[4/3]">
-                  <CategoryTile
-                    slug={slug}
-                    size={84}
+                  <Link
+                    href={productHref(p)}
+                    tabIndex={-1}
+                    aria-hidden="true"
                     className="absolute inset-0"
-                  />
+                  >
+                    <ProductMedia
+                      product={p}
+                      categorySlug={slug}
+                      iconSize={84}
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                      className="h-full w-full"
+                    />
+                  </Link>
                   <WishlistHeart productId={p.id} variant="overlay" />
                 </div>
                 <div className="flex flex-1 flex-col gap-3.5 p-4">
                   <h3 className="m-0 min-h-[43px] text-base font-bold leading-snug">
-                    {p.title}
+                    <Link href={productHref(p)} className="hover:underline">
+                      {p.title}
+                    </Link>
                   </h3>
                   <div className="mt-auto flex items-center justify-between gap-3">
                     <div className="flex flex-col gap-0.5">
@@ -154,12 +168,10 @@ export function ElectronicsCategoryDetailPage({
                       >
                         ${(p.salePrice ?? p.price ?? 0).toFixed(2)}
                       </span>
-                      <span
+                      <StockNote
+                        inStock={p.inStock}
                         className="text-xs font-medium"
-                        style={{ color: COLORS.success }}
-                      >
-                        In stock · Free shipping
-                      </span>
+                      />
                     </div>
                     <CartControl product={p} />
                   </div>

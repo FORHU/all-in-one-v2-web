@@ -2,8 +2,8 @@ import { DIGITFRIEND_COLORS as COLORS } from "../theme";
 
 const badges: { title: string; detail: string; path: React.ReactNode }[] = [
   {
-    title: "Free 2-day shipping",
-    detail: "On every order, no minimum spend.",
+    title: "Shipping at checkout",
+    detail: "Live rates for your address, shown before you pay.",
     path: (
       <>
         <path d="M1 6h13v10H1zM14 10h4l3 3v3h-7" />
@@ -37,9 +37,10 @@ const badges: { title: string; detail: string; path: React.ReactNode }[] = [
 /**
  * DigitFriend — value props, matching the "digitfriend ui.html" reference's
  * section id="help" exactly (same id, since the header's "Support" nav
- * anchors here). Same 3 claims the old dark-theme TrustBadges had, restyled
- * to the light cream palette with the reference's black icon circle +
- * lime-stroke icon treatment.
+ * anchors here), restyled to the light cream palette with the reference's
+ * black icon circle + lime-stroke icon treatment. The shipping badge states
+ * what checkout actually does (a live CJ freight quote) — the reference's
+ * "Free 2-day shipping" isn't true for CJ-fulfilled orders.
  */
 export function TrustBadges() {
   return (

@@ -1,7 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { toast } from "sonner";
+import { isAllowedImageHost } from "@/shared/components/ImagePlaceholder";
 import { useCategories } from "@/features/storefront/hooks/queries/useCategories";
 import { useProducts } from "@/features/storefront/hooks/queries/useProducts";
 import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
@@ -29,6 +32,11 @@ const PRICE_BUCKETS: {
 
 function finalPriceOf(p: Product): number {
   return p.salePrice ?? p.price ?? 0;
+}
+
+/** The product's detail page (ProductDetailPage.tsx). */
+export function productHref(p: Pick<Product, "slug">): string {
+  return `/products/${p.slug}`;
 }
 
 /** The reference's own hand-drawn line icon per category, at a caller-chosen size/stroke. */
@@ -79,10 +87,9 @@ function CategoryIconPaths({ slug }: { slug: string }) {
 }
 
 /**
- * The design's own illustration system in place of product photography —
- * a flat per-category tint field with a centered line icon. Shared between
- * grid and list cards (different sizes), and also by CategoriesPage.tsx/
- * CategoryDetailPage.tsx for visual consistency across the tenant.
+ * The design's own illustration system — a flat per-category tint field
+ * with a centered line icon. Used for category tiles (CategoriesPage.tsx),
+ * and as ProductMedia's fallback for a product with no usable photo.
  */
 export function CategoryTile({
   slug,
@@ -113,6 +120,78 @@ export function CategoryTile({
         <CategoryIconPaths slug={slug} />
       </svg>
     </div>
+  );
+}
+
+/**
+ * A product card's image area: the product's real thumbnail when it has one
+ * on an allowed host (next/image throws on any other — see
+ * isAllowedImageHost), otherwise the category's CategoryTile art. The tint
+ * sits behind the photo too, so letterboxed/transparent images still match
+ * the category colour.
+ */
+export function ProductMedia({
+  product,
+  categorySlug,
+  iconSize,
+  sizes,
+  className = "",
+}: {
+  product: Product;
+  categorySlug: string;
+  iconSize: number;
+  sizes: string;
+  className?: string;
+}) {
+  const url = product.thumbnailUrl;
+  if (!url || !isAllowedImageHost(url)) {
+    return (
+      <CategoryTile slug={categorySlug} size={iconSize} className={className} />
+    );
+  }
+  // `className` carries the caller's own positioning (e.g. `absolute
+  // inset-0`), so next/image's required `relative` parent is a separate
+  // inner box — on the same element, Tailwind's `relative` would override
+  // `absolute` and collapse the box to zero height.
+  return (
+    <div className={`overflow-hidden ${className}`}>
+      <div
+        className="relative h-full w-full"
+        style={{
+          backgroundColor: CATEGORY_META[categorySlug]?.tint ?? COLORS.border,
+        }}
+      >
+        <Image
+          src={url}
+          alt={product.title}
+          fill
+          sizes={sizes}
+          className="object-cover"
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Real availability line — `inStock` is any variant with stock left. No
+ * shipping promise here: shipping is a live CJ quote charged at checkout,
+ * never free unless a FREE_SHIPPING promotion applies.
+ */
+export function StockNote({
+  inStock,
+  className,
+}: {
+  inStock: boolean;
+  className: string;
+}) {
+  return (
+    <span
+      className={className}
+      style={{ color: inStock ? COLORS.success : COLORS.muted }}
+    >
+      {inStock ? "In stock" : "Out of stock"}
+    </span>
   );
 }
 
@@ -190,8 +269,9 @@ export function CartControl({ product }: { product: Product }) {
       <button
         type="button"
         onClick={addNew}
+        disabled={!product.inStock}
         aria-label={`Add ${product.title} to cart`}
-        className="flex h-11 items-center gap-2 rounded-xl px-3.5 text-sm font-bold text-white"
+        className="flex h-11 items-center gap-2 rounded-xl px-3.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
         style={{ backgroundColor: COLORS.ink }}
       >
         <svg
@@ -261,11 +341,20 @@ function GridCard({
       }}
     >
       <div className="relative aspect-[4/3]">
-        <CategoryTile
-          slug={categorySlug}
-          size={84}
+        <Link
+          href={productHref(product)}
+          tabIndex={-1}
+          aria-hidden="true"
           className="absolute inset-0"
-        />
+        >
+          <ProductMedia
+            product={product}
+            categorySlug={categorySlug}
+            iconSize={84}
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+            className="h-full w-full"
+          />
+        </Link>
         <span
           className="absolute left-3 top-3 rounded-md px-2 py-1 text-[11px] font-medium uppercase tracking-wide"
           style={{
@@ -277,16 +366,12 @@ function GridCard({
           {meta?.short ?? categorySlug}
         </span>
         <WishlistHeart productId={product.id} variant="overlay" />
-        <span
-          className="absolute bottom-2.5 left-3 text-[11px]"
-          style={{ color: "#4a4f59", fontFamily: "var(--font-mono)" }}
-        >
-          [Product photo]
-        </span>
       </div>
       <div className="flex flex-1 flex-col gap-3.5 p-4">
         <h3 className="m-0 min-h-[43px] text-base font-bold leading-snug">
-          {product.title}
+          <Link href={productHref(product)} className="hover:underline">
+            {product.title}
+          </Link>
         </h3>
         <div className="mt-auto flex items-center justify-between gap-3">
           <div className="flex flex-col gap-0.5">
@@ -296,12 +381,10 @@ function GridCard({
             >
               ${finalPriceOf(product).toFixed(2)}
             </span>
-            <span
+            <StockNote
+              inStock={product.inStock}
               className="text-xs font-medium"
-              style={{ color: COLORS.success }}
-            >
-              In stock · Free shipping
-            </span>
+            />
           </div>
           <CartControl product={product} />
         </div>
@@ -326,11 +409,20 @@ function ListCard({
         border: `1px solid ${COLORS.border}`,
       }}
     >
-      <CategoryTile
-        slug={categorySlug}
-        size={56}
-        className="h-[132px] w-[132px] flex-none rounded-[14px]"
-      />
+      <Link
+        href={productHref(product)}
+        tabIndex={-1}
+        aria-hidden="true"
+        className="flex-none"
+      >
+        <ProductMedia
+          product={product}
+          categorySlug={categorySlug}
+          iconSize={56}
+          sizes="132px"
+          className="h-[132px] w-[132px] rounded-[14px]"
+        />
+      </Link>
       <div
         className="flex min-w-0 flex-1 flex-col gap-1.5"
         style={{ flexBasis: "240px" }}
@@ -341,13 +433,15 @@ function ListCard({
         >
           {meta?.short ?? categorySlug}
         </span>
-        <h3 className="m-0 text-lg font-bold leading-snug">{product.title}</h3>
-        <span
+        <h3 className="m-0 text-lg font-bold leading-snug">
+          <Link href={productHref(product)} className="hover:underline">
+            {product.title}
+          </Link>
+        </h3>
+        <StockNote
+          inStock={product.inStock}
           className="text-[13px] font-medium"
-          style={{ color: COLORS.success }}
-        >
-          In stock · Free 2-day shipping
-        </span>
+        />
       </div>
       <div className="flex items-center gap-3 pr-2">
         <span
@@ -368,10 +462,13 @@ function ListCard({
  * category + price filter sidebar, and a grid/list product listing.
  * Replaces the earlier hero + CategoryGrid + bento FeaturedProducts with a
  * single filterable browse surface, matching the "digitfriend ui.html"
- * design reference. Real data: useCategories/useProducts fetched once
- * (the catalog is small — 7 products), then every filter/sort/view switch
- * is a client-side recompute, same model as the reference's own static
- * in-memory product list. Wishlist/cart are real (useWishlistStore/
+ * design reference. Real data from the electronics tenant (CJ-sourced, see
+ * the API's modules/electronics): categories via useCategories, products
+ * via useProducts. Picking a category re-queries the API with
+ * `categorySlug` (the backend also includes that category's
+ * subcategories); the unfiltered list stays cached for "All products" and
+ * the sidebar counts. Price/sort/view stay a client-side recompute over
+ * whichever list is showing. Wishlist/cart are real (useWishlistStore/
  * useLocalCartStore) — this is the one place on the tenant where "Add to
  * cart" actually mutates the same cart state the header badge reads.
  */
@@ -390,12 +487,23 @@ export function ShopSection({ tenantSlug }: { tenantSlug: string }) {
       sort: "newest",
     },
   );
+  const { data: categoryProductsData, isLoading: loadingCategoryProducts } =
+    useProducts(
+      tenantSlug,
+      { categorySlug: category, limit: 50, sort: "newest" },
+      category !== "all",
+    );
 
   const categories = useMemo(
     () => categoriesData?.items ?? [],
     [categoriesData],
   );
   const allProducts = useMemo(() => productsData?.items ?? [], [productsData]);
+  const shownProducts = useMemo(
+    () =>
+      category === "all" ? allProducts : (categoryProductsData?.items ?? []),
+    [category, allProducts, categoryProductsData],
+  );
   const idToSlug = useMemo(() => {
     const map: Record<string, string> = {};
     categories.forEach((c) => (map[c.id] = c.slug));
@@ -405,11 +513,7 @@ export function ShopSection({ tenantSlug }: { tenantSlug: string }) {
   const priceBucket = PRICE_BUCKETS.find((b) => b.id === price)!;
 
   const filtered = useMemo(() => {
-    let list = allProducts.filter((p) => {
-      const slug = p.categoryId ? idToSlug[p.categoryId] : undefined;
-      const matchesCategory = category === "all" || slug === category;
-      return matchesCategory && priceBucket.test(finalPriceOf(p));
-    });
+    let list = shownProducts.filter((p) => priceBucket.test(finalPriceOf(p)));
     if (sort === "low")
       list = list.slice().sort((a, b) => finalPriceOf(a) - finalPriceOf(b));
     if (sort === "high")
@@ -417,9 +521,15 @@ export function ShopSection({ tenantSlug }: { tenantSlug: string }) {
     if (sort === "name")
       list = list.slice().sort((a, b) => a.title.localeCompare(b.title));
     return list;
-  }, [allProducts, idToSlug, category, priceBucket, sort]);
+  }, [shownProducts, priceBucket, sort]);
 
-  const isLoading = loadingCategories || loadingProducts;
+  const isLoading =
+    loadingCategories || loadingProducts || loadingCategoryProducts;
+  // A product in a subcategory isn't in the root `categories` list — fall
+  // back to the selected category so its card still gets that category's art.
+  const cardCategorySlug = (p: Product) =>
+    (p.categoryId ? idToSlug[p.categoryId] : undefined) ??
+    (category === "all" ? "" : category);
   const activeCategory = categories.find((c) => c.slug === category);
   const heading =
     category === "all" ? "Shop all gear" : (activeCategory?.name ?? category);
@@ -675,13 +785,13 @@ export function ShopSection({ tenantSlug }: { tenantSlug: string }) {
                 <circle cx="5.5" cy="18" r="1.8" />
                 <circle cx="17.5" cy="18" r="1.8" />
               </svg>
-              Ships in 2 days
+              Shipping calculated at checkout
             </span>
             <span
               className="text-sm leading-relaxed"
               style={{ color: "#b8bcc6" }}
             >
-              Every order ships free, with extended warranty and 30-day returns.
+              Live shipping rates for your address, shown before you pay.
             </span>
           </div>
         </aside>
@@ -772,9 +882,7 @@ export function ShopSection({ tenantSlug }: { tenantSlug: string }) {
                 <GridCard
                   key={p.id}
                   product={p}
-                  categorySlug={
-                    p.categoryId ? (idToSlug[p.categoryId] ?? "") : ""
-                  }
+                  categorySlug={cardCategorySlug(p)}
                 />
               ))}
             </div>
@@ -784,9 +892,7 @@ export function ShopSection({ tenantSlug }: { tenantSlug: string }) {
                 <ListCard
                   key={p.id}
                   product={p}
-                  categorySlug={
-                    p.categoryId ? (idToSlug[p.categoryId] ?? "") : ""
-                  }
+                  categorySlug={cardCategorySlug(p)}
                 />
               ))}
             </div>
