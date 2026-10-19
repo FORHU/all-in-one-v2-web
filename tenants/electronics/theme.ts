@@ -38,11 +38,10 @@ export const DIGITFRIEND_COLORS = {
 
 /**
  * Flat per-category tint + line-icon treatment — the design's own
- * illustration system in place of product photography (see the "[Product
- * photo]" placeholder label in the reference; the flat-color-field look is
- * the shipped aesthetic, not a stand-in). Keyed by the real seeded category
- * slugs (categories.seeder.ts), which map 1:1 onto the reference's 6
- * categories.
+ * illustration system, used for category tiles and behind/instead of a
+ * product's photo (ShopSection.tsx's ProductMedia). Keyed by the real
+ * seeded category slugs (categories.seeder.ts), which map 1:1 onto the
+ * reference's 6 categories.
  */
 export const DIGITFRIEND_CATEGORY_META: Record<
   string,

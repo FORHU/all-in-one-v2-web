@@ -57,6 +57,9 @@ export const ProductVariantStockSchema = z.object({
   color: z.string().nullable(),
   size: z.string().nullable(),
   stock: z.number(),
+  /** This variant's own selling price (what checkout charges for it) — may differ from the product's "from" price. */
+  price: z.number().nullable().optional(),
+  compareAtPrice: z.number().nullable().optional(),
 });
 
 export const ProductDetailSchema = ProductSchema.extend({

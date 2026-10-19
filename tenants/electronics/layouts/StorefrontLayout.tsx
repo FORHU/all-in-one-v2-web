@@ -57,10 +57,6 @@ export function ElectronicsStorefrontLayout({
           colorScheme: "dark",
         }}
       >
-        <span>Free 2-day shipping on every order</span>
-        <span style={{ color: COLORS.headerMutedSoft }} aria-hidden="true">
-          /
-        </span>
         <span>Extended warranty included</span>
         <span style={{ color: COLORS.headerMutedSoft }} aria-hidden="true">
           /
