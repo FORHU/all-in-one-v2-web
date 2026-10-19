@@ -21,6 +21,8 @@ name: Deploy Dev
 #      the vhost, or Caddy rebuilt with the Cloudflare DNS plugin.
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       ref:
