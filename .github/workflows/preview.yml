@@ -9,6 +9,10 @@ jobs:
     name: Deploy Preview to Vercel
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # `secrets` can't be used in `if:` conditions, which made GitHub reject this whole file.
+    # Expose it as an env var and test that instead.
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
     steps:
       - name: Checkout repository
@@ -27,7 +31,7 @@ jobs:
 
       - name: Deploy to Vercel (Preview)
         id: deploy
-        if: ${{ secrets.VERCEL_TOKEN != '' }}
+        if: ${{ env.VERCEL_TOKEN != '' }}
         run: |
           npm install -g vercel
           DEPLOY_URL=$(vercel --token ${{ secrets.VERCEL_TOKEN }} \
