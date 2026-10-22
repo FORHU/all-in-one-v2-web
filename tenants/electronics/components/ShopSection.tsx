@@ -5,29 +5,43 @@ import Image from "next/image";
 import Link from "next/link";
 import { toast } from "sonner";
 import { isAllowedImageHost } from "@/shared/components/ImagePlaceholder";
-import { useCategories } from "@/features/storefront/hooks/queries/useCategories";
-import { useProducts } from "@/features/storefront/hooks/queries/useProducts";
+import { useElectronicsProducts } from "@/features/storefront/hooks/queries/useElectronicsProducts";
 import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
 import { useWishlistStore } from "@/features/storefront/stores/wishlist.store";
 import type { Product } from "@/features/storefront/contracts/products.contract";
+import type {
+  ElectronicsProductSort,
+  ElectronicsProductsParams,
+} from "@/features/storefront/api/electronics-products.client";
 import {
   DIGITFRIEND_COLORS as COLORS,
   DIGITFRIEND_CATEGORY_META as CATEGORY_META,
 } from "../theme";
 
-type SortKey = "featured" | "low" | "high" | "name";
 type PriceKey = "any" | "u50" | "50to80" | "o80";
 type ViewKey = "grid" | "list";
 
+/** Products per page — the API pages the catalog; the browser holds one page. */
+export const ELECTRONICS_PAGE_SIZE = 12;
+
+export const SORT_OPTIONS: { value: ElectronicsProductSort; label: string }[] =
+  [
+    { value: "newest", label: "Newest" },
+    { value: "price-asc", label: "Price: low to high" },
+    { value: "price-desc", label: "Price: high to low" },
+    { value: "name-asc", label: "Name: A–Z" },
+  ];
+
+/** Sent to the API as priceMin/priceMax (inclusive; prices have 2 decimals). */
 const PRICE_BUCKETS: {
   id: PriceKey;
   label: string;
-  test: (v: number) => boolean;
+  range: Pick<ElectronicsProductsParams, "priceMin" | "priceMax">;
 }[] = [
-  { id: "any", label: "Any", test: () => true },
-  { id: "u50", label: "Under $50", test: (v) => v < 50 },
-  { id: "50to80", label: "$50 – $80", test: (v) => v >= 50 && v <= 80 },
-  { id: "o80", label: "Over $80", test: (v) => v > 80 },
+  { id: "any", label: "Any", range: {} },
+  { id: "u50", label: "Under $50", range: { priceMax: 49.99 } },
+  { id: "50to80", label: "$50 – $80", range: { priceMin: 50, priceMax: 80 } },
+  { id: "o80", label: "Over $80", range: { priceMin: 80.01 } },
 ];
 
 function finalPriceOf(p: Product): number {
@@ -457,74 +471,159 @@ function ListCard({
   );
 }
 
+/** Page numbers to show: first, last and current±1, with gaps collapsed to "…". */
+function pageItems(page: number, totalPages: number): (number | "gap")[] {
+  const keep = new Set([1, totalPages, page - 1, page, page + 1]);
+  const items: (number | "gap")[] = [];
+  for (let p = 1; p <= totalPages; p++) {
+    if (keep.has(p)) items.push(p);
+    else if (items[items.length - 1] !== "gap") items.push("gap");
+  }
+  return items;
+}
+
+/**
+ * Previous / numbered pages / Next for a server-paginated list — `onChange`
+ * just sets the page the API is asked for. Shared with
+ * CategoryDetailPage.tsx.
+ */
+export function Pagination({
+  page,
+  totalPages,
+  onChange,
+  disabled = false,
+}: {
+  page: number;
+  totalPages: number;
+  onChange: (page: number) => void;
+  disabled?: boolean;
+}) {
+  const edgeButton =
+    "flex h-11 items-center gap-1.5 rounded-xl px-3.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40";
+  const edgeStyle = {
+    backgroundColor: "#ffffff",
+    border: `1px solid ${COLORS.borderStrong}`,
+  };
+  return (
+    <nav
+      aria-label="Pagination"
+      className="mt-2 flex flex-wrap items-center justify-center gap-2"
+    >
+      <button
+        type="button"
+        onClick={() => onChange(page - 1)}
+        disabled={disabled || page <= 1}
+        className={edgeButton}
+        style={edgeStyle}
+      >
+        <span aria-hidden="true">‹</span> Previous
+      </button>
+      {pageItems(page, totalPages).map((item, i) =>
+        item === "gap" ? (
+          <span
+            key={`gap-${i}`}
+            aria-hidden="true"
+            className="px-1 text-sm"
+            style={{ color: COLORS.muted }}
+          >
+            …
+          </span>
+        ) : (
+          <button
+            key={item}
+            type="button"
+            onClick={() => onChange(item)}
+            disabled={disabled}
+            aria-label={`Page ${item}`}
+            aria-current={item === page ? "page" : undefined}
+            className="h-11 min-w-[44px] rounded-xl px-3 text-sm font-bold disabled:cursor-not-allowed"
+            style={{
+              fontFamily: "var(--font-mono)",
+              backgroundColor: item === page ? COLORS.ink : "#ffffff",
+              color: item === page ? "#ffffff" : COLORS.ink,
+              border: `1px solid ${item === page ? COLORS.ink : COLORS.borderStrong}`,
+            }}
+          >
+            {item}
+          </button>
+        ),
+      )}
+      <button
+        type="button"
+        onClick={() => onChange(page + 1)}
+        disabled={disabled || page >= totalPages}
+        className={edgeButton}
+        style={edgeStyle}
+      >
+        Next <span aria-hidden="true">›</span>
+      </button>
+    </nav>
+  );
+}
+
 /**
  * DigitFriend — the "Shop" section: breadcrumb, sort/view controls, a
  * category + price filter sidebar, and a grid/list product listing.
  * Replaces the earlier hero + CategoryGrid + bento FeaturedProducts with a
  * single filterable browse surface, matching the "digitfriend ui.html"
- * design reference. Real data from the electronics tenant (CJ-sourced, see
- * the API's modules/electronics): categories via useCategories, products
- * via useProducts. Picking a category re-queries the API with
- * `categorySlug` (the backend also includes that category's
- * subcategories); the unfiltered list stays cached for "All products" and
- * the sidebar counts. Price/sort/view stay a client-side recompute over
- * whichever list is showing. Wishlist/cart are real (useWishlistStore/
- * useLocalCartStore) — this is the one place on the tenant where "Add to
- * cart" actually mutates the same cart state the header badge reads.
+ * design reference. Real data from the electronics tenant (CJ-sourced),
+ * via GET /api/v2/electronics/products (useElectronicsProducts): category,
+ * price range, sort and page all go to the API, which filters, sorts and
+ * paginates server-side — this component only ever holds the one page it
+ * renders. The same response carries the sidebar's per-category counts
+ * (whole catalog, current price filter). Changing any filter returns to
+ * page 1. Wishlist/cart are real (useWishlistStore/useLocalCartStore) —
+ * this is the one place on the tenant where "Add to cart" actually mutates
+ * the same cart state the header badge reads.
  */
 export function ShopSection({ tenantSlug }: { tenantSlug: string }) {
-  const [category, setCategory] = useState<string>("all");
-  const [price, setPrice] = useState<PriceKey>("any");
-  const [sort, setSort] = useState<SortKey>("featured");
+  const [category, setCategoryState] = useState<string>("all");
+  const [price, setPriceState] = useState<PriceKey>("any");
+  const [sort, setSortState] = useState<ElectronicsProductSort>("newest");
   const [view, setView] = useState<ViewKey>("grid");
+  const [page, setPage] = useState(1);
 
-  const { data: categoriesData, isLoading: loadingCategories } =
-    useCategories(tenantSlug);
-  const { data: productsData, isLoading: loadingProducts } = useProducts(
-    tenantSlug,
-    {
-      limit: 50,
-      sort: "newest",
-    },
-  );
-  const { data: categoryProductsData, isLoading: loadingCategoryProducts } =
-    useProducts(
-      tenantSlug,
-      { categorySlug: category, limit: 50, sort: "newest" },
-      category !== "all",
-    );
+  // Any filter change starts over at page 1.
+  const setCategory = (value: string) => {
+    setCategoryState(value);
+    setPage(1);
+  };
+  const setPrice = (value: PriceKey) => {
+    setPriceState(value);
+    setPage(1);
+  };
+  const setSort = (value: ElectronicsProductSort) => {
+    setSortState(value);
+    setPage(1);
+  };
 
-  const categories = useMemo(
-    () => categoriesData?.items ?? [],
-    [categoriesData],
-  );
-  const allProducts = useMemo(() => productsData?.items ?? [], [productsData]);
-  const shownProducts = useMemo(
-    () =>
-      category === "all" ? allProducts : (categoryProductsData?.items ?? []),
-    [category, allProducts, categoryProductsData],
-  );
+  const priceBucket = PRICE_BUCKETS.find((b) => b.id === price)!;
+
+  const { data, isLoading, isError, isPlaceholderData } =
+    useElectronicsProducts(tenantSlug, {
+      category: category === "all" ? undefined : category,
+      ...priceBucket.range,
+      sort,
+      page,
+      limit: ELECTRONICS_PAGE_SIZE,
+    });
+
+  const categories = useMemo(() => data?.categories ?? [], [data]);
+  const filtered = data?.items ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = data?.totalPages ?? 0;
   const idToSlug = useMemo(() => {
     const map: Record<string, string> = {};
     categories.forEach((c) => (map[c.id] = c.slug));
     return map;
   }, [categories]);
 
-  const priceBucket = PRICE_BUCKETS.find((b) => b.id === price)!;
-
-  const filtered = useMemo(() => {
-    let list = shownProducts.filter((p) => priceBucket.test(finalPriceOf(p)));
-    if (sort === "low")
-      list = list.slice().sort((a, b) => finalPriceOf(a) - finalPriceOf(b));
-    if (sort === "high")
-      list = list.slice().sort((a, b) => finalPriceOf(b) - finalPriceOf(a));
-    if (sort === "name")
-      list = list.slice().sort((a, b) => a.title.localeCompare(b.title));
-    return list;
-  }, [shownProducts, priceBucket, sort]);
-
-  const isLoading =
-    loadingCategories || loadingProducts || loadingCategoryProducts;
+  const goToPage = (next: number) => {
+    setPage(next);
+    document
+      .getElementById("shop")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
   // A product in a subcategory isn't in the root `categories` list — fall
   // back to the selected category so its card still gets that category's art.
   const cardCategorySlug = (p: Product) =>
@@ -581,7 +680,7 @@ export function ShopSection({ tenantSlug }: { tenantSlug: string }) {
               className="text-[13px]"
               style={{ color: COLORS.muted, fontFamily: "var(--font-mono)" }}
             >
-              {isLoading ? "…" : `${filtered.length} items`}
+              {isLoading ? "…" : `${total} ${total === 1 ? "item" : "items"}`}
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-2.5">
@@ -595,7 +694,9 @@ export function ShopSection({ tenantSlug }: { tenantSlug: string }) {
             <select
               id="df-sort"
               value={sort}
-              onChange={(e) => setSort(e.target.value as SortKey)}
+              onChange={(e) =>
+                setSort(e.target.value as ElectronicsProductSort)
+              }
               className="h-11 rounded-xl px-3.5 text-sm font-medium"
               style={{
                 border: `1px solid ${COLORS.borderStrong}`,
@@ -603,10 +704,11 @@ export function ShopSection({ tenantSlug }: { tenantSlug: string }) {
                 color: COLORS.ink,
               }}
             >
-              <option value="featured">Featured</option>
-              <option value="low">Price: low to high</option>
-              <option value="high">Price: high to low</option>
-              <option value="name">Name: A–Z</option>
+              {SORT_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
             </select>
             <div
               role="group"
@@ -702,14 +804,12 @@ export function ShopSection({ tenantSlug }: { tenantSlug: string }) {
                 className="text-xs opacity-75"
                 style={{ fontFamily: "var(--font-mono)" }}
               >
-                {allProducts.length}
+                {data?.allCount ?? 0}
               </span>
             </button>
             {categories.map((c) => {
               const on = c.slug === category;
-              const count = allProducts.filter(
-                (p) => p.categoryId && idToSlug[p.categoryId] === c.slug,
-              ).length;
+              const count = c.count;
               return (
                 <button
                   key={c.id}
@@ -798,7 +898,9 @@ export function ShopSection({ tenantSlug }: { tenantSlug: string }) {
 
         <section
           aria-label="Products"
-          className="flex min-w-0 flex-[999_1_560px] flex-col gap-4"
+          aria-busy={isPlaceholderData}
+          className="flex min-w-0 flex-[999_1_560px] flex-col gap-4 transition-opacity"
+          style={{ opacity: isPlaceholderData ? 0.55 : 1 }}
         >
           {chips.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
@@ -850,6 +952,24 @@ export function ShopSection({ tenantSlug }: { tenantSlug: string }) {
                 />
               ))}
             </div>
+          ) : isError ? (
+            <div
+              className="flex flex-col items-center gap-3 rounded-[22px] px-6 py-14 text-center"
+              style={{
+                backgroundColor: "#ffffff",
+                border: `1px dashed ${COLORS.borderStrong}`,
+              }}
+            >
+              <span
+                className="text-[22px] font-bold"
+                style={{ fontFamily: "var(--font-heading)" }}
+              >
+                Couldn&apos;t load products
+              </span>
+              <span className="text-[15px]" style={{ color: COLORS.muted }}>
+                Please try again in a moment.
+              </span>
+            </div>
           ) : filtered.length === 0 ? (
             <div
               className="flex flex-col items-center gap-3 rounded-[22px] px-6 py-14 text-center"
@@ -896,6 +1016,15 @@ export function ShopSection({ tenantSlug }: { tenantSlug: string }) {
                 />
               ))}
             </div>
+          )}
+
+          {!isError && totalPages > 1 && (
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              onChange={goToPage}
+              disabled={isPlaceholderData}
+            />
           )}
         </section>
       </div>
