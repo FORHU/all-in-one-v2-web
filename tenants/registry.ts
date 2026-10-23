@@ -22,10 +22,19 @@ export function getTenantConfig(slug: string): TenantConfig | undefined {
   return tenantRegistry[slug];
 }
 
+/**
+ * The tenant whose domain is `hostname` or a parent of it — so
+ * addictstyle.com, www.addictstyle.com, dev.addictstyle.com,
+ * staging.addictstyle.com and any future preview host all resolve to
+ * fashion with no per-environment list to maintain; the same build serves
+ * every environment. Matching is on whole labels: "notaddictstyle.com" is
+ * not a match for "addictstyle.com".
+ */
 export function getTenantSlugByDomain(hostname: string): string | undefined {
-  const normalizedHost = hostname.toLowerCase().replace(/^www\./, "");
-  const entry = Object.values(tenantRegistry).find(
-    (tenant) => tenant.domain?.toLowerCase() === normalizedHost,
-  );
+  const host = hostname.toLowerCase().replace(/^www\./, "");
+  const entry = Object.values(tenantRegistry).find((tenant) => {
+    const domain = tenant.domain?.toLowerCase();
+    return !!domain && (host === domain || host.endsWith(`.${domain}`));
+  });
   return entry?.slug;
 }
