@@ -43,9 +43,11 @@ export default defineConfig({
   },
 
   // ── Path Aliases ─────────────────────────────────────────────────────────
-  // Must match tsconfig.json paths
+  // Must match tsconfig.json paths. "@/tenants" lives outside src/, so it
+  // has to come before the catch-all "@" (the first matching alias wins).
   resolve: {
     alias: {
+      "@/tenants": path.resolve(__dirname, "./tenants"),
       "@": path.resolve(__dirname, "./src"),
     },
   },
