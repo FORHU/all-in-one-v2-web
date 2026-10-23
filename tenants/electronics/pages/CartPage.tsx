@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Minus, Plus, X } from "lucide-react";
+import { Lock, Minus, Plus, X } from "lucide-react";
 import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
 import { DIGITFRIEND_COLORS as COLORS } from "../theme";
 import { ElectronicsStorefrontLayout } from "../layouts/StorefrontLayout";
@@ -11,11 +11,8 @@ import { ElectronicsStorefrontLayout } from "../layouts/StorefrontLayout";
  * header badge and every product card's Add/qty stepper already write to
  * (tenantScopedStorage-namespaced, same as every other tenant's cart).
  *
- * "Checkout" is disabled rather than linking to /checkout — that route has
- * no electronics entry in its dispatch table (only fashion/beauty do), and
- * wiring a real Stripe/CJ-fulfillment checkout for this tenant is a
- * separate, much larger piece of work than "give the cart a real page."
- * Disabled + an explanatory note is the honest state, not a dead link.
+ * "Checkout" links to /checkout (pages/CheckoutPage.tsx), which handles the
+ * signed-out redirect, address, shipping quote and Stripe payment itself.
  */
 export function ElectronicsCartPage() {
   const items = useLocalCartStore((s) => s.items);
@@ -193,20 +190,22 @@ export function ElectronicsCartPage() {
                   ${subtotal.toFixed(2)}
                 </span>
               </div>
-              <button
-                type="button"
-                disabled
-                aria-disabled="true"
-                className="mt-5 flex h-12 w-full cursor-not-allowed items-center justify-center rounded-xl text-xs font-bold uppercase tracking-wide opacity-50"
+              <Link
+                href="/checkout"
+                className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl text-xs font-bold uppercase tracking-wide"
                 style={{ backgroundColor: COLORS.ink, color: "#ffffff" }}
               >
+                <Lock
+                  className="h-3.5 w-3.5"
+                  style={{ color: COLORS.accent }}
+                />
                 Checkout
-              </button>
+              </Link>
               <p
                 className="mt-2 text-center text-xs"
                 style={{ color: COLORS.muted }}
               >
-                Checkout isn&rsquo;t available for DigitFriend yet.
+                Shipping calculated at checkout.
               </p>
             </div>
           </>

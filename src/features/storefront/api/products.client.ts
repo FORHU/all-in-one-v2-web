@@ -15,6 +15,8 @@ export interface ProductListingParams {
   season?: "spring" | "summer" | "fall" | "winter";
   priceMin?: number;
   priceMax?: number;
+  /** Free-text search over title/brand (every word must match). */
+  q?: string;
   sort?: "newest" | "price-asc" | "price-desc" | "popularity";
   page?: number;
   limit?: number;
@@ -30,6 +32,7 @@ function buildQueryString(params: ProductListingParams): string {
   if (params.season) search.set("season", params.season);
   if (params.priceMin != null) search.set("priceMin", String(params.priceMin));
   if (params.priceMax != null) search.set("priceMax", String(params.priceMax));
+  if (params.q?.trim()) search.set("q", params.q.trim());
   if (params.sort) search.set("sort", params.sort);
   if (params.page) search.set("page", String(params.page));
   if (params.limit) search.set("limit", String(params.limit));

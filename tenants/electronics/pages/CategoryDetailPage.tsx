@@ -2,33 +2,29 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useProducts } from "@/features/storefront/hooks/queries/useProducts";
-import { useCategories } from "@/features/storefront/hooks/queries/useCategories";
-import type { ProductListingParams } from "@/features/storefront/api";
+import { useElectronicsProducts } from "@/features/storefront/hooks/queries/useElectronicsProducts";
+import type { ElectronicsProductSort } from "@/features/storefront/api/electronics-products.client";
 import { ElectronicsStorefrontLayout } from "../layouts/StorefrontLayout";
 import {
   ProductMedia,
   StockNote,
   WishlistHeart,
   CartControl,
+  Pagination,
   productHref,
+  ELECTRONICS_PAGE_SIZE,
+  SORT_OPTIONS,
 } from "../components/ShopSection";
 import { DIGITFRIEND_COLORS as COLORS } from "../theme";
-
-const SORT_OPTIONS: { value: ProductListingParams["sort"]; label: string }[] = [
-  { value: "newest", label: "Newest" },
-  { value: "price-asc", label: "Price: Low to High" },
-  { value: "price-desc", label: "Price: High to Low" },
-  { value: "popularity", label: "Most Popular" },
-];
 
 /**
  * DigitFriend — one category's product listing, restyled to the
  * "digitfriend ui.html" light cream/near-black/lime palette. Real data via
- * useProducts(tenantSlug, { categorySlug }); sort re-fires the query.
- * Cards reuse ProductMedia/StockNote/WishlistHeart/CartControl from
- * ShopSection.tsx (same photo/art + the same real wishlist/cart wiring, not
- * a separate copy).
+ * GET /api/v2/electronics/products?category=<slug> (useElectronicsProducts),
+ * sorted and paginated by the API; changing the sort returns to page 1.
+ * Cards reuse ProductMedia/StockNote/WishlistHeart/CartControl/Pagination
+ * from ShopSection.tsx (same photo/art + the same real wishlist/cart
+ * wiring, not a separate copy).
  */
 export function ElectronicsCategoryDetailPage({
   slug,
@@ -37,18 +33,22 @@ export function ElectronicsCategoryDetailPage({
   slug: string;
   tenantSlug: string;
 }) {
-  const [sort, setSort] =
-    useState<NonNullable<ProductListingParams["sort"]>>("newest");
+  const [sort, setSortState] = useState<ElectronicsProductSort>("newest");
+  const [page, setPage] = useState(1);
+  const setSort = (value: ElectronicsProductSort) => {
+    setSortState(value);
+    setPage(1);
+  };
 
-  const { data, isLoading, isError } = useProducts(tenantSlug, {
-    categorySlug: slug,
-    sort,
-    page: 1,
-    limit: 24,
-  });
+  const { data, isLoading, isError, isPlaceholderData } =
+    useElectronicsProducts(tenantSlug, {
+      category: slug,
+      sort,
+      page,
+      limit: ELECTRONICS_PAGE_SIZE,
+    });
 
-  const { data: categories } = useCategories(tenantSlug);
-  const category = categories?.items.find((c) => c.slug === slug);
+  const category = data?.categories.find((c) => c.slug === slug);
   const label = category?.name ?? slug;
   const products = data?.items ?? [];
 
@@ -91,9 +91,7 @@ export function ElectronicsCategoryDetailPage({
               <select
                 value={sort}
                 onChange={(e) =>
-                  setSort(
-                    e.target.value as NonNullable<ProductListingParams["sort"]>,
-                  )
+                  setSort(e.target.value as ElectronicsProductSort)
                 }
                 className="bg-transparent text-xs font-semibold outline-none"
               >
@@ -187,6 +185,20 @@ export function ElectronicsCategoryDetailPage({
             <p className="text-sm" style={{ color: COLORS.muted }}>
               No products found in this category yet.
             </p>
+          </div>
+        )}
+
+        {!isError && data && data.totalPages > 1 && (
+          <div className="mt-8">
+            <Pagination
+              page={page}
+              totalPages={data.totalPages}
+              disabled={isPlaceholderData}
+              onChange={(next) => {
+                setPage(next);
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+            />
           </div>
         )}
       </section>

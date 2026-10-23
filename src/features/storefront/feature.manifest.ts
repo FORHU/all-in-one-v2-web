@@ -14,6 +14,7 @@ export const featureManifest = {
   exposes: [
     "useProducts",
     "useProductDetail",
+    "useElectronicsProducts",
     "useCategories",
     "useCart",
     "useCheckoutDirect",
