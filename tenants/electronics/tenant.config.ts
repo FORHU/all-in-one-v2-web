@@ -20,9 +20,9 @@ export const electronicsConfig: TenantConfig = {
   },
   logoUrl: "/tenants/electronics/logo.svg",
   nav: [
-    { label: "Shop", href: "#shop" },
-    { label: "New arrivals", href: "#shop" },
-    { label: "Support", href: "#help" },
+    { label: "Shop", href: "/shop" },
+    { label: "New arrivals", href: "/new-arrivals" },
+    { label: "Support", href: "/support" },
   ],
   seo: {
     title: "DigitFriend — Shop",

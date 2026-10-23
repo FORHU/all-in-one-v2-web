@@ -1,6 +1,9 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { HeaderSearch } from "../components/HeaderSearch";
 import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
 import { useWishlistStore } from "@/features/storefront/stores/wishlist.store";
 import { electronicsConfig } from "../tenant.config";
@@ -14,13 +17,12 @@ import {
 /**
  * DigitFriend — storefront shell, matching the "digitfriend ui.html" design
  * reference's chrome: a dark announcement bar, a dark header (logo, nav,
- * decorative search, live wishlist/cart badges, a decorative account icon),
- * a light cream body, and a dark footer. Replaces the earlier "Circuit"
- * dark-theme shell entirely.
+ * live product search, live wishlist/cart badges, a decorative account
+ * icon), a light cream body, and a dark footer. Replaces the earlier
+ * "Circuit" dark-theme shell entirely.
  *
- * The search input is still inert on purpose — there's no search feature
- * anywhere in this codebase (same reasoning as fashion's header search
- * box). The Wishlist button is also inert — no tenant in this app has a
+ * Search is real (components/HeaderSearch.tsx — debounced suggestions,
+ * Enter for full results on /shop?q=). The Wishlist button is still inert — no tenant in this app has a
  * dedicated wishlist page to send it to — but shows a *real* count from
  * useWishlistStore. Account and Cart are real links now: /account and
  * /cart both have electronics entries (AccountPage.tsx/CartPage.tsx,
@@ -28,11 +30,24 @@ import {
  * itself when signed out, so the header doesn't need to branch on auth
  * state to decide where to send the click.
  */
+/**
+ * Header nav active state. The home page *is* the shop grid, so "/" lights
+ * up Shop too; everything else matches its own route (and sub-routes).
+ */
+function isNavActive(pathname: string, href: string): boolean {
+  if (href === "/shop") return pathname === "/" || pathname.startsWith("/shop");
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+const footerLinkClass =
+  "no-underline transition-colors hover:text-[#0f1115] hover:underline";
+
 export function ElectronicsStorefrontLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
   const cartItems = useLocalCartStore((s) => s.items);
   const wishIds = useWishlistStore((s) => s.ids);
   const cartCount = cartItems.reduce((sum, i) => sum + i.quantity, 0);
@@ -107,51 +122,52 @@ export function ElectronicsStorefrontLayout({
             </span>
           </Link>
 
-          <nav aria-label="Main" className="flex flex-wrap gap-5 text-[15px]">
-            {electronicsConfig.nav.map((item, i) => (
-              <a
-                key={item.label}
-                href={item.href}
-                className="no-underline"
-                style={{ color: i === 0 ? "#ffffff" : COLORS.headerMuted }}
-              >
-                {item.label}
-              </a>
-            ))}
+          <nav aria-label="Main" className="flex flex-wrap gap-1 text-[15px]">
+            {electronicsConfig.nav.map((item) => {
+              const active = isNavActive(pathname, item.href);
+              return (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  className="group relative flex h-11 items-center rounded-lg px-2.5 no-underline transition-colors hover:bg-white/5"
+                  style={{
+                    color: active ? "#ffffff" : COLORS.headerMuted,
+                    fontWeight: active ? 600 : 400,
+                  }}
+                >
+                  <span className="transition-colors group-hover:text-white">
+                    {item.label}
+                  </span>
+                  <span
+                    aria-hidden="true"
+                    className="absolute inset-x-2.5 bottom-1 h-[2px] rounded-full transition-opacity"
+                    style={{
+                      backgroundColor: COLORS.accent,
+                      opacity: active ? 1 : 0,
+                    }}
+                  />
+                </Link>
+              );
+            })}
           </nav>
 
-          <form
-            className="flex h-11 min-w-0 flex-1 items-center gap-2.5 rounded-xl px-3.5"
-            style={{
-              flexBasis: "260px",
-              backgroundColor: COLORS.headerPanelBg,
-              border: `1px solid ${COLORS.headerPanelBorder}`,
-            }}
-            onSubmit={(e) => e.preventDefault()}
+          {/* HeaderSearch reads useSearchParams, which needs a Suspense
+              boundary; the fallback is an empty box the same size. */}
+          <Suspense
+            fallback={
+              <div
+                className="h-11 min-w-0 flex-1 rounded-xl"
+                style={{
+                  flexBasis: "260px",
+                  backgroundColor: COLORS.headerPanelBg,
+                  border: `1px solid ${COLORS.headerPanelBorder}`,
+                }}
+              />
+            }
           >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#9aa0ab"
-              strokeWidth="2"
-              strokeLinecap="round"
-              aria-hidden="true"
-            >
-              <circle cx="11" cy="11" r="7" />
-              <path d="m20 20-3.5-3.5" />
-            </svg>
-            <label htmlFor="df-search" className="sr-only">
-              Search products
-            </label>
-            <input
-              id="df-search"
-              type="search"
-              placeholder="Search speakers, keyboards, webcams…"
-              className="min-w-0 flex-1 bg-transparent text-[15px] text-white outline-none placeholder:text-[#9aa0ab]"
-            />
-          </form>
+            <HeaderSearch />
+          </Suspense>
 
           <div className="flex items-center gap-2">
             <button
@@ -260,68 +276,45 @@ export function ElectronicsStorefrontLayout({
             className="flex min-w-[160px] flex-col gap-2.5 text-[15px]"
           >
             <span className="font-bold">Shop</span>
-            <a
-              href="#shop"
-              className="no-underline"
-              style={{ color: COLORS.muted }}
-            >
-              New arrivals
-            </a>
-            <a
-              href="#shop"
-              className="no-underline"
-              style={{ color: COLORS.muted }}
-            >
-              Audio &amp; Sound
-            </a>
-            <a
-              href="#shop"
-              className="no-underline"
-              style={{ color: COLORS.muted }}
-            >
-              Computer Peripherals
-            </a>
-            <a
-              href="#shop"
-              className="no-underline"
-              style={{ color: COLORS.muted }}
-            >
-              Smart Home
-            </a>
+            {[
+              { label: "New arrivals", href: "/new-arrivals" },
+              { label: "Audio & Sound", href: "/shop?category=audio" },
+              {
+                label: "Computer Peripherals",
+                href: "/shop?category=computer-peripherals",
+              },
+              { label: "Smart Home", href: "/shop?category=smart-home" },
+            ].map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={footerLinkClass}
+                style={{ color: COLORS.muted }}
+              >
+                {link.label}
+              </Link>
+            ))}
           </nav>
           <nav
             aria-label="Help"
             className="flex min-w-[160px] flex-col gap-2.5 text-[15px]"
           >
             <span className="font-bold">Help</span>
-            <a
-              href="#help"
-              className="no-underline"
-              style={{ color: COLORS.muted }}
-            >
-              Shipping
-            </a>
-            <a
-              href="#help"
-              className="no-underline"
-              style={{ color: COLORS.muted }}
-            >
-              Returns
-            </a>
-            <a
-              href="#help"
-              className="no-underline"
-              style={{ color: COLORS.muted }}
-            >
-              Warranty
-            </a>
-            <a
-              href="#help"
-              className="no-underline"
-              style={{ color: COLORS.muted }}
-            >
-              Contact support
-            </a>
+            {[
+              { label: "Shipping", href: "/support#shipping" },
+              { label: "Returns", href: "/support#returns" },
+              { label: "Warranty", href: "/support#warranty" },
+              { label: "Contact support", href: "/support#contact" },
+            ].map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={footerLinkClass}
+                style={{ color: COLORS.muted }}
+              >
+                {link.label}
+              </Link>
+            ))}
           </nav>
         </div>
         <div

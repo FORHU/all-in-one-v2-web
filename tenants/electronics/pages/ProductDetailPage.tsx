@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
+  ArrowRight,
   ChevronLeft,
   ChevronRight,
   Minus,
@@ -14,11 +16,12 @@ import {
   Truck,
 } from "lucide-react";
 import { useProductDetail } from "@/features/storefront/hooks/queries/useProductDetail";
-import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
-import type {
-  ProductAttributeOption,
-  ProductDetail,
-} from "@/features/storefront/contracts/products.contract";
+import {
+  makeLineId,
+  useLocalCartStore,
+} from "@/features/storefront/stores/localCart.store";
+import { useBuyNowStore } from "@/features/storefront/stores/buyNow.store";
+import type { ProductDetail } from "@/features/storefront/contracts/products.contract";
 import { isAllowedImageHost } from "@/shared/components/ImagePlaceholder";
 import { sanitizeHtml } from "@/shared/lib/sanitizeHtml";
 import { ElectronicsStorefrontLayout } from "../layouts/StorefrontLayout";
@@ -27,6 +30,7 @@ import {
   StockNote,
   WishlistHeart,
 } from "../components/ShopSection";
+import { OptionGroup } from "../components/OptionGroup";
 import {
   DIGITFRIEND_COLORS as COLORS,
   DIGITFRIEND_CATEGORY_META as CATEGORY_META,
@@ -34,18 +38,6 @@ import {
 
 /** Descriptions taller than this collapse behind a "Show more" toggle. */
 const COLLAPSED_DESCRIPTION_PX = 520;
-
-/**
- * CJ variants sometimes share a display label while their values differ
- * ("CK61 English" / "CK104 English" both labelled "English") — those fall
- * back to the full value so every chip is distinguishable.
- */
-function optionLabeler(options: ProductAttributeOption[]) {
-  const counts = new Map<string, number>();
-  options.forEach((o) => counts.set(o.label, (counts.get(o.label) ?? 0) + 1));
-  return (o: ProductAttributeOption) =>
-    (counts.get(o.label) ?? 0) > 1 ? o.value : o.label;
-}
 
 function money(value: number) {
   return `$${value.toFixed(2)}`;
@@ -62,7 +54,9 @@ function money(value: number) {
  *    "from" price;
  *  - the description is CJ's raw HTML, sanitized before rendering.
  * Add to cart writes the chosen variant (color/size values) into the local
- * cart, which is what checkout resolves back to a real variant.
+ * cart, which is what checkout resolves back to a real variant. "Checkout
+ * now" writes the same line to useBuyNowStore instead and goes straight to
+ * /checkout?mode=buy-now, leaving the cart untouched.
  */
 export function ElectronicsProductDetailPage({
   tenantSlug,
@@ -138,7 +132,9 @@ function NotFound({ failed }: { failed: boolean }) {
 }
 
 function ProductView({ product }: { product: ProductDetail }) {
+  const router = useRouter();
   const addItem = useLocalCartStore((s) => s.addItem);
+  const setBuyNowItem = useBuyNowStore((s) => s.setItem);
   const categorySlug = product.categorySlug ?? "";
 
   const [selectedColor, setSelectedColor] = useState<string | undefined>(
@@ -182,20 +178,30 @@ function ProductView({ product }: { product: ProductDetail }) {
     [product.images],
   );
 
+  const lineItem = () => ({
+    productId: product.id,
+    name: product.title,
+    brand: product.brand ?? "",
+    price,
+    imageLabel: product.title,
+    imageUrl: images[0] ?? product.thumbnailUrl,
+    color: selectedColor,
+    size: selectedSize,
+    quantity,
+    stock,
+  });
+
   const handleAdd = () => {
-    addItem({
-      productId: product.id,
-      name: product.title,
-      brand: product.brand ?? "",
-      price,
-      imageLabel: product.title,
-      imageUrl: images[0] ?? product.thumbnailUrl,
-      color: selectedColor,
-      size: selectedSize,
-      quantity,
-      stock,
-    });
+    addItem(lineItem());
     toast.success(`Added ${product.title} to cart`);
+  };
+
+  // Buy-now: checks out just this selection, leaving the cart untouched
+  // (see buyNow.store.ts and CheckoutPage.tsx's ?mode=buy-now branch).
+  const handleCheckout = () => {
+    const item = lineItem();
+    setBuyNowItem({ ...item, id: makeLineId(item) });
+    router.push("/checkout?mode=buy-now");
   };
 
   return (
@@ -352,6 +358,20 @@ function ProductView({ product }: { product: ProductDetail }) {
             </button>
 
             <WishlistHeart productId={product.id} variant="outline" />
+
+            <button
+              type="button"
+              onClick={handleCheckout}
+              disabled={!inStock}
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl px-6 text-[15px] font-bold transition-[filter] hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40"
+              style={{
+                backgroundColor: COLORS.accent,
+                color: COLORS.accentInk,
+              }}
+            >
+              Checkout now
+              <ArrowRight size={18} strokeWidth={2.6} />
+            </button>
           </div>
 
           <ul
@@ -516,54 +536,6 @@ function Gallery({
         </div>
       )}
     </div>
-  );
-}
-
-function OptionGroup({
-  label,
-  options,
-  selected,
-  onSelect,
-  isAvailable,
-}: {
-  label: string;
-  options: ProductAttributeOption[];
-  selected: string | undefined;
-  onSelect: (value: string) => void;
-  isAvailable: (value: string) => boolean;
-}) {
-  const labelFor = optionLabeler(options);
-  return (
-    <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-      <legend
-        className="mb-2 p-0 text-xs font-medium uppercase tracking-wide"
-        style={{ color: COLORS.muted, fontFamily: "var(--font-mono)" }}
-      >
-        {label}
-      </legend>
-      <div className="flex flex-wrap gap-2">
-        {options.map((o) => {
-          const on = o.value === selected;
-          const available = isAvailable(o.value);
-          return (
-            <button
-              key={o.value}
-              type="button"
-              aria-pressed={on}
-              onClick={() => onSelect(o.value)}
-              className={`min-h-[40px] rounded-full px-4 text-sm font-medium ${available ? "" : "line-through opacity-50"}`}
-              style={{
-                border: `1px solid ${on ? COLORS.ink : COLORS.borderStrong}`,
-                backgroundColor: on ? COLORS.ink : "#ffffff",
-                color: on ? "#ffffff" : COLORS.ink,
-              }}
-            >
-              {labelFor(o)}
-            </button>
-          );
-        })}
-      </div>
-    </fieldset>
   );
 }
 

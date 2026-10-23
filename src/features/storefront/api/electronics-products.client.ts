@@ -16,6 +16,8 @@ export interface ElectronicsProductsParams {
   sort?: ElectronicsProductSort;
   priceMin?: number;
   priceMax?: number;
+  /** Free-text title/brand search (every word must match). */
+  q?: string;
   page?: number;
   limit?: number;
 }
@@ -35,6 +37,7 @@ export const getElectronicsProducts = async (
   if (params.sort) search.set("sort", params.sort);
   if (params.priceMin != null) search.set("priceMin", String(params.priceMin));
   if (params.priceMax != null) search.set("priceMax", String(params.priceMax));
+  if (params.q?.trim()) search.set("q", params.q.trim());
   if (params.page) search.set("page", String(params.page));
   if (params.limit) search.set("limit", String(params.limit));
   const qs = search.toString();

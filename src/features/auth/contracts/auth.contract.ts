@@ -54,6 +54,11 @@ export const CurrentUserSchema = z.object({
   username: z.string(),
   name: z.string().nullable(),
   role: z.string(),
+  // Profile details for account pages. Optional so a leaner response (or
+  // an older API) still parses.
+  createdAt: z.coerce.date().optional(),
+  lastLoginAt: z.coerce.date().nullable().optional(),
+  isEmailVerified: z.boolean().optional(),
 });
 
 export const CurrentUserApiEnvelopeSchema = z.object({

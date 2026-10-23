@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import { isAllowedImageHost } from "@/shared/components/ImagePlaceholder";
 import { useElectronicsProducts } from "@/features/storefront/hooks/queries/useElectronicsProducts";
 import { useLocalCartStore } from "@/features/storefront/stores/localCart.store";
@@ -13,6 +13,7 @@ import type {
   ElectronicsProductSort,
   ElectronicsProductsParams,
 } from "@/features/storefront/api/electronics-products.client";
+import { QuickAddDialog } from "./QuickAddDialog";
 import {
   DIGITFRIEND_COLORS as COLORS,
   DIGITFRIEND_CATEGORY_META as CATEGORY_META,
@@ -23,6 +24,15 @@ type ViewKey = "grid" | "list";
 
 /** Products per page — the API pages the catalog; the browser holds one page. */
 export const ELECTRONICS_PAGE_SIZE = 12;
+
+/**
+ * Shop grid columns: 4 per row on desktop (xl+, where the content column
+ * beside the filter sidebar is ~970px), stepping down to 3/2/1 as it
+ * narrows — explicit breakpoints rather than auto-fill, which only fit 3
+ * beside the sidebar. 12 per page = 3 full rows of 4.
+ */
+const PRODUCT_GRID_CLASS =
+  "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
 
 export const SORT_OPTIONS: { value: ElectronicsProductSort; label: string }[] =
   [
@@ -251,41 +261,34 @@ export function WishlistHeart({
   );
 }
 
+/**
+ * A card's "Add" button. Opens QuickAddDialog to choose the variant and
+ * quantity first — it no longer adds 1 instantly (that skipped the variant,
+ * which checkout then resolved to an arbitrary one). Once any of this
+ * product is in the cart, a lime count pill shows how many; quantities are
+ * edited on /cart, where each variant has its own line.
+ */
 export function CartControl({ product }: { product: Product }) {
-  const cartItems = useLocalCartStore((s) => s.items);
-  const addItem = useLocalCartStore((s) => s.addItem);
-  const setQuantity = useLocalCartStore((s) => s.setQuantity);
-  const existing = cartItems.find((i) => i.productId === product.id);
-  const qty = existing?.quantity ?? 0;
+  const [open, setOpen] = useState(false);
+  const inCart = useLocalCartStore((s) =>
+    s.items
+      .filter((i) => i.productId === product.id)
+      .reduce((sum, i) => sum + i.quantity, 0),
+  );
 
-  // Two distinct actions that used to share one handler: adding the item
-  // for the first time (fires the "Added to cart" toast) vs. bumping the
-  // quantity of a line already in the cart (silent — it's not a new add,
-  // and firing the toast on every "+" click spammed it on each increment).
-  const addNew = () => {
-    addItem({
-      productId: product.id,
-      name: product.title,
-      brand: product.brand ?? "",
-      price: finalPriceOf(product),
-      imageLabel: product.title,
-      imageUrl: product.thumbnailUrl,
-      quantity: 1,
-    });
-    toast.success(`Added ${product.title} to cart`);
-  };
-  const increment = () =>
-    existing && setQuantity(existing.id, existing.quantity + 1);
-  const dec = () => existing && setQuantity(existing.id, existing.quantity - 1);
-
-  if (qty === 0) {
-    return (
+  return (
+    <>
       <button
         type="button"
-        onClick={addNew}
+        onClick={() => setOpen(true)}
         disabled={!product.inStock}
-        aria-label={`Add ${product.title} to cart`}
-        className="flex h-11 items-center gap-2 rounded-xl px-3.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
+        aria-haspopup="dialog"
+        aria-label={
+          inCart > 0
+            ? `Add ${product.title} to cart, ${inCart} already in cart`
+            : `Add ${product.title} to cart`
+        }
+        className="flex h-11 flex-none items-center gap-2 rounded-xl px-3.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
         style={{ backgroundColor: COLORS.ink }}
       >
         <svg
@@ -301,49 +304,32 @@ export function CartControl({ product }: { product: Product }) {
           <path d="M12 5v14M5 12h14" />
         </svg>
         Add
+        {inCart > 0 && (
+          <span
+            aria-hidden="true"
+            className="flex h-[22px] min-w-[22px] items-center justify-center rounded-full px-1.5 text-xs"
+            style={{ backgroundColor: COLORS.accent, color: COLORS.accentInk }}
+          >
+            {inCart}
+          </span>
+        )}
       </button>
-    );
-  }
-  return (
-    <div
-      className="flex h-11 items-center rounded-xl"
-      style={{ backgroundColor: COLORS.accent }}
-    >
-      <button
-        type="button"
-        onClick={dec}
-        aria-label={`Remove one ${product.title}`}
-        className="h-11 w-10 text-xl font-bold"
-        style={{ color: COLORS.accentInk }}
-      >
-        −
-      </button>
-      <span
-        aria-live="polite"
-        className="min-w-[20px] text-center text-[15px] font-bold"
-        style={{ color: COLORS.accentInk }}
-      >
-        {qty}
-      </span>
-      <button
-        type="button"
-        onClick={increment}
-        aria-label={`Add one more ${product.title}`}
-        className="h-11 w-10 text-xl font-bold"
-        style={{ color: COLORS.accentInk }}
-      >
-        +
-      </button>
-    </div>
+      {open && (
+        <QuickAddDialog product={product} onClose={() => setOpen(false)} />
+      )}
+    </>
   );
 }
 
-function GridCard({
+export function GridCard({
   product,
   categorySlug,
+  badge,
 }: {
   product: Product;
   categorySlug: string;
+  /** Optional lime tag over the photo's bottom-left, e.g. "New · 3d ago". */
+  badge?: string;
 }) {
   const meta = CATEGORY_META[categorySlug];
   return (
@@ -379,6 +365,18 @@ function GridCard({
         >
           {meta?.short ?? categorySlug}
         </span>
+        {badge && (
+          <span
+            className="absolute bottom-3 left-3 rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wide"
+            style={{
+              backgroundColor: COLORS.accent,
+              color: COLORS.accentInk,
+              fontFamily: "var(--font-mono)",
+            }}
+          >
+            {badge}
+          </span>
+        )}
         <WishlistHeart productId={product.id} variant="overlay" />
       </div>
       <div className="flex flex-1 flex-col gap-3.5 p-4">
@@ -568,16 +566,28 @@ export function Pagination({
  * single filterable browse surface, matching the "digitfriend ui.html"
  * design reference. Real data from the electronics tenant (CJ-sourced),
  * via GET /api/v2/electronics/products (useElectronicsProducts): category,
- * price range, sort and page all go to the API, which filters, sorts and
- * paginates server-side — this component only ever holds the one page it
- * renders. The same response carries the sidebar's per-category counts
- * (whole catalog, current price filter). Changing any filter returns to
- * page 1. Wishlist/cart are real (useWishlistStore/useLocalCartStore) —
+ * price range, search (?q= from the header search), sort and page all go
+ * to the API, which filters, sorts and paginates server-side — this
+ * component only ever holds the one page it renders. The same response
+ * carries the sidebar's per-category counts (current price + search
+ * filters). Changing any filter returns to page 1. Wishlist/cart are real (useWishlistStore/useLocalCartStore) —
  * this is the one place on the tenant where "Add to cart" actually mutates
  * the same cart state the header badge reads.
  */
-export function ShopSection({ tenantSlug }: { tenantSlug: string }) {
-  const [category, setCategoryState] = useState<string>("all");
+export function ShopSection({
+  tenantSlug,
+  initialCategory = "all",
+  searchQuery = "",
+}: {
+  tenantSlug: string;
+  /** Pre-selected category slug, e.g. from /shop?category=audio. */
+  initialCategory?: string;
+  /** Free-text search from /shop?q=… (the header search's full results). */
+  searchQuery?: string;
+}) {
+  const router = useRouter();
+  const search = searchQuery.trim();
+  const [category, setCategoryState] = useState<string>(initialCategory);
   const [price, setPriceState] = useState<PriceKey>("any");
   const [sort, setSortState] = useState<ElectronicsProductSort>("newest");
   const [view, setView] = useState<ViewKey>("grid");
@@ -603,6 +613,7 @@ export function ShopSection({ tenantSlug }: { tenantSlug: string }) {
     useElectronicsProducts(tenantSlug, {
       category: category === "all" ? undefined : category,
       ...priceBucket.range,
+      q: search || undefined,
       sort,
       page,
       limit: ELECTRONICS_PAGE_SIZE,
@@ -630,9 +641,21 @@ export function ShopSection({ tenantSlug }: { tenantSlug: string }) {
     (p.categoryId ? idToSlug[p.categoryId] : undefined) ??
     (category === "all" ? "" : category);
   const activeCategory = categories.find((c) => c.slug === category);
-  const heading =
-    category === "all" ? "Shop all gear" : (activeCategory?.name ?? category);
+  const heading = search
+    ? `Results for “${search}”`
+    : category === "all"
+      ? "Shop all gear"
+      : (activeCategory?.name ?? category);
+  // The search lives in the URL (?q=), so clearing it navigates — keeping
+  // the current category — which also empties the header search box.
+  const clearSearch = () =>
+    router.replace(
+      category === "all"
+        ? "/shop"
+        : `/shop?category=${encodeURIComponent(category)}`,
+    );
   const chips: { label: string; clear: () => void }[] = [];
+  if (search) chips.push({ label: `Search: “${search}”`, clear: clearSearch });
   if (category !== "all")
     chips.push({
       label: activeCategory?.name ?? category,
@@ -643,6 +666,7 @@ export function ShopSection({ tenantSlug }: { tenantSlug: string }) {
   const clearAll = () => {
     setCategory("all");
     setPrice("any");
+    if (search) router.replace("/shop");
   };
 
   return (
@@ -656,16 +680,12 @@ export function ShopSection({ tenantSlug }: { tenantSlug: string }) {
           className="flex gap-2 text-[13px]"
           style={{ color: COLORS.muted }}
         >
-          <a
-            href="#shop"
-            className="no-underline"
-            style={{ color: COLORS.muted }}
-          >
+          <Link href="/" className="no-underline hover:underline">
             Home
-          </a>
+          </Link>
           <span aria-hidden="true">/</span>
           <span style={{ color: COLORS.ink }}>
-            {category === "all" ? "All products" : heading}
+            {search ? "Search" : category === "all" ? "All products" : heading}
           </span>
         </nav>
         <div className="flex flex-wrap items-end justify-between gap-4">
@@ -865,17 +885,22 @@ export function ShopSection({ tenantSlug }: { tenantSlug: string }) {
             </div>
           </div>
 
+          {/* p-5, not p-4.5 — Tailwind 3 has no 4.5 step, so the old class
+              silently produced zero padding. */}
           <div
-            className="flex flex-col gap-2.5 rounded-[18px] p-4.5 text-white"
+            className="flex items-start gap-3.5 rounded-[18px] p-5 text-white"
             style={{ backgroundColor: COLORS.ink, colorScheme: "dark" }}
           >
-            <span className="flex items-center gap-2.5 text-[15px] font-bold">
+            <span
+              className="flex h-9 w-9 flex-none items-center justify-center rounded-[10px]"
+              style={{ backgroundColor: COLORS.accent }}
+            >
               <svg
-                width="20"
-                height="20"
+                width="18"
+                height="18"
                 viewBox="0 0 24 24"
                 fill="none"
-                stroke={COLORS.accent}
+                stroke={COLORS.accentInk}
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -885,13 +910,17 @@ export function ShopSection({ tenantSlug }: { tenantSlug: string }) {
                 <circle cx="5.5" cy="18" r="1.8" />
                 <circle cx="17.5" cy="18" r="1.8" />
               </svg>
-              Shipping calculated at checkout
             </span>
-            <span
-              className="text-sm leading-relaxed"
-              style={{ color: "#b8bcc6" }}
-            >
-              Live shipping rates for your address, shown before you pay.
+            <span className="flex min-w-0 flex-col gap-1">
+              <span className="text-[15px] font-bold leading-snug">
+                Shipping calculated at checkout
+              </span>
+              <span
+                className="text-sm leading-relaxed"
+                style={{ color: "#b8bcc6" }}
+              >
+                Live shipping rates for your address, shown before you pay.
+              </span>
             </span>
           </div>
         </aside>
@@ -943,8 +972,8 @@ export function ShopSection({ tenantSlug }: { tenantSlug: string }) {
           )}
 
           {isLoading ? (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
-              {Array.from({ length: 6 }).map((_, i) => (
+            <div className={PRODUCT_GRID_CLASS}>
+              {Array.from({ length: 8 }).map((_, i) => (
                 <div
                   key={i}
                   className="aspect-[4/3] animate-pulse rounded-[22px]"
@@ -982,10 +1011,14 @@ export function ShopSection({ tenantSlug }: { tenantSlug: string }) {
                 className="text-[22px] font-bold"
                 style={{ fontFamily: "var(--font-heading)" }}
               >
-                Nothing matches those filters
+                {search
+                  ? `No products match “${search}”`
+                  : "Nothing matches those filters"}
               </span>
               <span className="text-[15px]" style={{ color: COLORS.muted }}>
-                Try another price range or category.
+                {search
+                  ? "Check the spelling or try a more general word."
+                  : "Try another price range or category."}
               </span>
               <button
                 type="button"
@@ -997,7 +1030,7 @@ export function ShopSection({ tenantSlug }: { tenantSlug: string }) {
               </button>
             </div>
           ) : view === "grid" ? (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
+            <div className={PRODUCT_GRID_CLASS}>
               {filtered.map((p) => (
                 <GridCard
                   key={p.id}
