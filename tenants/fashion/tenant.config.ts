@@ -21,7 +21,9 @@ export const fashionConfig: TenantConfig = {
     { label: "Bottoms", href: "/categories/bottoms" },
     // Outer Wear has 0 real products in the catalog right now — no point
     // linking to an empty category page. Add it back once it's stocked.
-    { label: "Shoes", href: "/categories/shoes" },
+    // Shoes is hidden for now: its first page is all seeder/mock products
+    // (Unsplash photos, fake CJ ids). Add it back once those are removed:
+    // { label: "Shoes", href: "/categories/shoes" },
   ],
   seo: {
     title: "addictstyle",

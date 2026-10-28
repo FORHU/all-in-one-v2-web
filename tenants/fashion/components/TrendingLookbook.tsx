@@ -647,6 +647,20 @@ function TrendingProductTile({
   objectFit?: "cover" | "contain";
   aspect?: string;
 }) {
+  // The photo, the name and "Shop This" all go to the product page.
+  const href = product.slug ? `/products/${product.slug}` : null;
+  const image = (
+    <ImagePlaceholder
+      label={product.imageLabel}
+      imageUrl={product.imageUrl}
+      aspect={aspect}
+      objectFit={objectFit}
+      className="h-full w-full transition-transform duration-500 ease-out group-hover:scale-105"
+    />
+  );
+  const nameClass =
+    "line-clamp-2 min-h-[2.5em] text-xs font-semibold leading-snug";
+
   return (
     <div className="flex flex-col gap-2">
       <div
@@ -662,16 +676,22 @@ function TrendingProductTile({
         className="group relative w-full overflow-hidden rounded-lg"
         style={{ aspectRatio: aspect }}
       >
-        <ImagePlaceholder
-          label={product.imageLabel}
-          imageUrl={product.imageUrl}
-          aspect={aspect}
-          objectFit={objectFit}
-          className="h-full w-full transition-transform duration-500 ease-out group-hover:scale-105"
-        />
-        {product.slug && (
+        {href ? (
+          // Duplicate of the name link below, so kept out of the tab order.
           <Link
-            href={`/products/${product.slug}`}
+            href={href}
+            tabIndex={-1}
+            aria-hidden="true"
+            className="block h-full w-full"
+          >
+            {image}
+          </Link>
+        ) : (
+          image
+        )}
+        {href && (
+          <Link
+            href={href}
             className="absolute inset-x-0 bottom-0 border-t py-2 text-center text-[10px] font-bold uppercase tracking-[0.2em] transition-colors hover:opacity-90"
             style={{
               borderColor: colors.hairline,
@@ -685,12 +705,19 @@ function TrendingProductTile({
         )}
       </div>
       <div>
-        <div
-          className="line-clamp-2 min-h-[2.5em] text-xs font-semibold leading-snug"
-          style={{ color: colors.bone }}
-        >
-          {product.name}
-        </div>
+        {href ? (
+          <Link
+            href={href}
+            className={`block ${nameClass} hover:underline`}
+            style={{ color: colors.bone }}
+          >
+            {product.name}
+          </Link>
+        ) : (
+          <div className={nameClass} style={{ color: colors.bone }}>
+            {product.name}
+          </div>
+        )}
         <div
           className="mt-0.5 text-[11px] font-bold"
           style={{ color: colors.brass }}
